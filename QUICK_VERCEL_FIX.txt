@@ -1,0 +1,66 @@
+═══════════════════════════════════════════════════════
+    🚀 QUICK FIX: Vercel Deployment Firebase Error
+═══════════════════════════════════════════════════════
+
+PROBLEM: "Firebase API key undefined" or similar errors
+
+SOLUTION: Add these 8 environment variables in Vercel:
+
+──────────────────────────────────────────────────────
+
+1. NEXT_PUBLIC_FIREBASE_API_KEY
+   AIzaSyDxTsYuolPzFFnHGop30uzwywA3ZpKfqMc
+
+2. NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+   linktree-c2389.firebaseapp.com
+
+3. NEXT_PUBLIC_FIREBASE_PROJECT_ID
+   linktree-c2389
+
+4. NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+   linktree-c2389.firebasestorage.app
+
+5. NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+   487897218810
+
+6. NEXT_PUBLIC_FIREBASE_APP_ID
+   1:487897218810:web:b1b72e4a7beb2f15f49343
+
+7. NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+   G-WRDY7EVCQ0
+
+8. NEXT_PUBLIC_APP_URL
+   https://your-app-name.vercel.app (← UPDATE THIS!)
+
+──────────────────────────────────────────────────────
+
+HOW TO ADD:
+1. Go to: https://vercel.com/dashboard
+2. Click your BioLinks project
+3. Settings → Environment Variables
+4. Click "Add New"
+5. Paste name and value
+6. Check: Production, Preview, Development
+7. Click "Save"
+8. Repeat for all 8 variables
+9. Go to Deployments → Redeploy
+10. Wait 2-3 minutes
+11. Test your app!
+
+──────────────────────────────────────────────────────
+
+TEST AFTER DEPLOY:
+Visit: https://your-app.vercel.app/test-firebase
+Should show: ✅ Firestore write successful
+
+──────────────────────────────────────────────────────
+
+STILL NOT WORKING?
+- Double check variable names (case-sensitive!)
+- Make sure you REDEPLOYED after adding variables
+- Try incognito mode
+- Check browser console for errors
+
+══════════════════════════════════════════════════════
+
+See VERCEL_ENV_SETUP.md for detailed instructions!
