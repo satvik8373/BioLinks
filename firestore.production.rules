@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Bio Cards Collection
+    match /bioCards/{cardId} {
+      // Anyone can read bio cards (they are public links)
+      allow read: if true;
+      
+      // Anyone can create cards (for now)
+      // In the future, require authentication
+      allow create: if true;
+      
+      // Anyone can update their own cards
+      // TODO: Add userId field and check ownership
+      allow update: if true;
+      
+      // Prevent deletion in production
+      allow delete: if false;
+    }
+    
+    // Disable test collection in production
+    match /test/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

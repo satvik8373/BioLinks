@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Bio Cards Collection
+    match /bioCards/{cardId} {
+      // Anyone can read bio cards (they are public links)
+      allow read: if true;
+      
+      // Create: Validate required fields and structure
+      allow create: if request.resource.data.keys().hasAll(['id', 'config', 'analytics', 'createdAt'])
+                    && request.resource.data.config is map
+                    && request.resource.data.config.keys().hasAll(['profile', 'links', 'theme', 'socialLinks'])
+                    && request.resource.data.config.profile is map
+                    && request.resource.data.config.links is list
+                    && request.resource.data.analytics is map
+                    && request.resource.data.analytics.keys().hasAll(['views', 'clicks'])
+                    && request.resource.data.analytics.views is int
+                    && request.resource.data.analytics.clicks is int;
+      
+      // Update: Only allow updating specific fields, prevent tampering
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['config', 'analytics', 'updatedAt'])
+                    && request.resource.data.id == resource.data.id; // Prevent ID changes
+      
+      // Delete: Disabled for safety (prevent data loss)
+      allow delete: if false;
+    }
+    
+    // Test collection (for debugging, expires Dec 31, 2025)
+    match /test/{document=**} {
+      allow read, write: if request.time < timestamp.date(2025, 12, 31);
+    }
+  }
+}
