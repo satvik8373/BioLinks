@@ -1,22 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import Button from '@/components/ui/Button'
 import Avatar from '@/components/ui/Avatar'
-import { 
-  Menu, 
-  X, 
-  Home, 
-  Layout, 
-  BarChart3, 
-  Settings, 
-  User,
-  Plus,
-  Eye,
-  LogOut,
-  UserCircle
+import {
+  Menu, X, Home, Layout, Settings, User,
+  Plus, Eye, LogOut, LogIn, ChevronDown, Sparkles
 } from 'lucide-react'
 
 export default function Navigation() {
@@ -24,21 +14,22 @@ export default function Navigation() {
   const [userProfile, setUserProfile] = useState<any>(null)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const pathname = usePathname()
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const profile = localStorage.getItem('userProfile')
-    if (profile) {
-      setUserProfile(JSON.parse(profile))
-    }
+    if (profile) setUserProfile(JSON.parse(profile))
   }, [])
 
-  const navItems = [
-    { href: '/', label: 'Home', icon: Home },
-    ...(userProfile ? [
-      { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-      { href: '/dashboard/analytics', label: 'Analytics', icon: Eye },
-    ] : [])
-  ]
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('userProfile')
@@ -49,212 +40,191 @@ export default function Navigation() {
     window.location.href = '/'
   }
 
-  const isActive = (href: string) => {
-    if (href === '/') return pathname === '/'
-    return pathname.startsWith(href)
-  }
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname.startsWith(href)
 
   return (
     <>
-      {/* Desktop Navigation */}
-      <nav className="hidden md:block bg-neo-white border-b-4 border-neo-black sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-neo-pink border-2 border-neo-black flex items-center justify-center font-bold">
-                B
-              </div>
-              <span className="text-xl font-bold">BIO LINK</span>
+      {/* ── Official Desktop Navigation ── */}
+      <nav className="hidden md:block sticky top-0 z-50 py-3 px-6 bg-slate-50/80 backdrop-blur-md border-b border-slate-200/80">
+        <div className="mx-auto max-w-7xl flex items-center justify-between">
+          
+          {/* Brand Logo */}
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-brand-600 text-white font-extrabold shadow-sm group-hover:bg-brand-700 transition-colors">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-extrabold text-xl text-slate-900 tracking-tight">
+              Bio<span className="text-brand-600">Link</span>
+            </span>
+          </Link>
+
+          {/* Navigation Links */}
+          <div className="flex items-center gap-1.5 bg-slate-200/60 p-1 rounded-xl border border-slate-300/50">
+            <Link
+              href="/"
+              className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                isActive('/')
+                  ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              }`}
+            >
+              <Home className="w-3.5 h-3.5" /> Home
             </Link>
 
-            {/* Navigation Links */}
-            <div className="flex items-center space-x-1">
-              {navItems.map((item) => (
+            {userProfile && (
+              <Link
+                href="/my-cards"
+                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  isActive('/my-cards')
+                    ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Layout className="w-3.5 h-3.5" /> My Cards
+              </Link>
+            )}
+          </div>
+
+          {/* User Menu / CTA Actions */}
+          <div className="flex items-center gap-3">
+            {userProfile ? (
+              <>
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center px-4 py-2 font-bold text-sm transition-all duration-150 ${
-                    isActive(item.href)
-                      ? 'bg-neo-yellow text-neo-black border-2 border-neo-black'
-                      : 'text-neo-black hover:bg-neo-yellow hover:border-2 hover:border-neo-black'
-                  }`}
+                  href="/create"
+                  className="clay-btn clay-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 shadow-sm"
                 >
-                  <item.icon className="w-4 h-4 mr-2" />
-                  {item.label}
+                  <Plus className="w-3.5 h-3.5" /> New Card
                 </Link>
-              ))}
-            </div>
 
-            {/* User Menu / CTA */}
-            <div className="flex items-center space-x-3">
-              {userProfile ? (
-                <>
-                  <Link href="/create">
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      CREATE
-                    </Button>
-                  </Link>
-                  
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowUserMenu(!showUserMenu)}
-                      className="flex items-center space-x-2 px-3 py-2 border-2 border-neo-black bg-white hover:bg-neo-yellow transition-colors"
-                    >
-                      <Avatar 
-                        src={userProfile.avatar}
-                        size="sm"
-                        fallback="user"
-                      />
-                      <span className="font-bold text-sm">{userProfile.username}</span>
-                    </button>
+                {/* User Dropdown */}
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs text-slate-900 transition-colors shadow-sm"
+                  >
+                    <Avatar src={userProfile.avatar} size="xs" fallback="user" />
+                    <span className="max-w-[100px] truncate">{userProfile.username}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                  </button>
 
-                    {showUserMenu && (
-                      <div className="absolute top-full right-0 mt-2 w-48 bg-white border-3 border-neo-black shadow-neo z-50">
-                        <div className="p-2">
-                          <Link
-                            href="/dashboard"
-                            className="flex items-center px-3 py-2 hover:bg-neo-yellow transition-colors font-bold text-sm"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <BarChart3 className="w-4 h-4 mr-2" />
-                            Dashboard
-                          </Link>
-                          <Link
-                            href="/dashboard/settings"
-                            className="flex items-center px-3 py-2 hover:bg-neo-yellow transition-colors font-bold text-sm"
-                            onClick={() => setShowUserMenu(false)}
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Settings
-                          </Link>
-                          <hr className="my-2 border-neo-gray" />
-                          <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center px-3 py-2 hover:bg-neo-yellow transition-colors font-bold text-sm text-left"
-                          >
-                            <LogOut className="w-4 h-4 mr-2" />
-                            Logout
-                          </button>
-                        </div>
+                  {showUserMenu && (
+                    <div className="absolute top-full right-0 mt-2 w-52 p-1.5 bg-white rounded-xl border border-slate-200 shadow-lg z-50">
+                      <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                        <p className="text-xs font-extrabold text-slate-900 truncate">{userProfile.displayName}</p>
+                        <p className="text-[11px] font-medium text-slate-500 truncate">@{userProfile.username}</p>
                       </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Link href="/create">
-                    <Button variant="outline">
-                      <User className="w-4 h-4 mr-2" />
-                      GET STARTED
-                    </Button>
-                  </Link>
-                  <Link href="/create">
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      CREATE
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
+                      <Link
+                        href="/my-cards"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors"
+                      >
+                        <Layout className="w-4 h-4 text-slate-400" />
+                        My Cards
+                      </Link>
+                      <Link
+                        href="/dashboard/settings"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors"
+                      >
+                        <Settings className="w-4 h-4 text-slate-400" />
+                        Settings
+                      </Link>
+                      <div className="border-t border-slate-100 mt-1 pt-1">
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <LogOut className="w-4 h-4 text-red-500" />
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="clay-btn clay-btn-ghost px-4 py-2 text-xs font-bold">
+                  <LogIn className="w-3.5 h-3.5 mr-1.5" /> Login
+                </Link>
+                <Link href="/signup" className="clay-btn clay-btn-secondary px-4 py-2 text-xs font-bold">
+                  <User className="w-3.5 h-3.5 mr-1.5" /> Sign Up
+                </Link>
+                <Link href="/create" className="clay-btn clay-btn-primary px-4 py-2 text-xs font-bold">
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Create Card
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
 
-      {/* Mobile Navigation */}
-      <nav className="md:hidden bg-neo-white border-b-4 border-neo-black sticky top-0 z-50">
-        <div className="px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-neo-pink border-2 border-neo-black flex items-center justify-center font-bold">
-                B
-              </div>
-              <span className="text-xl font-bold">BIO LINK</span>
-            </Link>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 border-2 border-neo-black bg-white hover:bg-neo-yellow transition-colors"
-            >
-              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
-
-          {/* Mobile Menu */}
-          {isOpen && (
-            <div className="border-t-2 border-neo-black bg-white">
-              <div className="py-4 space-y-2">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center px-4 py-3 font-bold text-sm transition-all duration-150 ${
-                      isActive(item.href)
-                        ? 'bg-neo-yellow text-neo-black border-l-4 border-neo-black'
-                        : 'text-neo-black hover:bg-neo-yellow hover:border-l-4 hover:border-neo-black'
-                    }`}
-                  >
-                    <item.icon className="w-4 h-4 mr-3" />
-                    {item.label}
-                  </Link>
-                ))}
-                
-                <div className="px-4 pt-4">
-                  {userProfile ? (
-                    <>
-                      <Link href="/create" onClick={() => setIsOpen(false)}>
-                        <Button className="w-full mb-3">
-                          <Plus className="w-4 h-4 mr-2" />
-                          CREATE NEW CARD
-                        </Button>
-                      </Link>
-                      
-                      <div className="flex items-center space-x-2 p-3 bg-neo-gray/10 border-2 border-neo-black mb-3">
-                        <Avatar 
-                          src={userProfile.avatar}
-                          size="md"
-                          fallback="user"
-                        />
-                        <div>
-                          <div className="font-bold text-sm">{userProfile.displayName}</div>
-                          <div className="text-xs text-neo-gray">@{userProfile.username}</div>
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center justify-center px-4 py-2 border-2 border-neo-black bg-white hover:bg-neo-yellow transition-colors font-bold text-sm"
-                      >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        LOGOUT
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <Link href="/create" onClick={() => setIsOpen(false)}>
-                        <Button variant="outline" className="w-full mb-3">
-                          <User className="w-4 h-4 mr-2" />
-                          GET STARTED
-                        </Button>
-                      </Link>
-                      <Link href="/create" onClick={() => setIsOpen(false)}>
-                        <Button className="w-full">
-                          <Plus className="w-4 h-4 mr-2" />
-                          CREATE NEW CARD
-                        </Button>
-                      </Link>
-                    </>
-                  )}
-                </div>
-              </div>
+      {/* ── Official Mobile Navigation ── */}
+      <nav className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">
+              <Sparkles className="w-4 h-4" />
             </div>
-          )}
+            <span className="font-extrabold text-slate-900 text-base">Bio<span className="text-brand-600">Link</span></span>
+          </Link>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+          >
+            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
+
+        {isOpen && (
+          <div className="pt-3 pb-2 space-y-2 border-t border-slate-100 mt-3">
+            <Link
+              href="/"
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
+                isActive('/') ? 'bg-brand-600 text-white' : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Home className="w-4 h-4" /> Home
+            </Link>
+            {userProfile ? (
+              <>
+                <Link
+                  href="/my-cards"
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold ${
+                    isActive('/my-cards') ? 'bg-brand-600 text-white' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Layout className="w-4 h-4" /> My Cards
+                </Link>
+                <Link
+                  href="/create"
+                  onClick={() => setIsOpen(false)}
+                  className="clay-btn clay-btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Create New Card
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" /> Logout
+                </button>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <Link href="/login" onClick={() => setIsOpen(false)} className="clay-btn clay-btn-ghost py-2 text-xs font-bold text-center">
+                  Login
+                </Link>
+                <Link href="/signup" onClick={() => setIsOpen(false)} className="clay-btn clay-btn-primary py-2 text-xs font-bold text-center">
+                  Sign Up
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </nav>
     </>
   )

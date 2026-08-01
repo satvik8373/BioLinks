@@ -1,13 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // App directory is now stable in Next.js 14
-  
-  // Exclude jiosaavn-api from TypeScript checking
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      { protocol: 'https', hostname: 'api.dicebear.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
+  },
   typescript: {
     ignoreBuildErrors: false,
   },
-  
-  // Exclude jiosaavn-api folder from build
   webpack: (config, { isServer }) => {
     config.watchOptions = {
       ...config.watchOptions,

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 
 export default function EditCardPage() {
   const router = useRouter()
@@ -9,28 +10,24 @@ export default function EditCardPage() {
   const cardId = params.templateId as string
 
   useEffect(() => {
-    // Load the card from localStorage
     const savedCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
     const card = savedCards[cardId]
 
     if (!card) {
-      // Card not found, redirect to dashboard
-      router.push('/dashboard')
+      router.push('/my-cards')
       return
     }
 
-    // Load the card config into the editor
     localStorage.setItem('currentBioLinkConfig', JSON.stringify(card.config))
-    
-    // Redirect to the main editor
+    localStorage.setItem('editorPreviewCardId', cardId)
     router.push('/editor')
   }, [cardId, router])
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin w-12 h-12 border-4 border-neo-purple border-t-transparent rounded-full mx-auto mb-4"></div>
-        <p className="text-lg font-semibold text-gray-700">Loading card...</p>
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-3" />
+        <p className="text-sm font-extrabold text-indigo-950">Loading card editor...</p>
       </div>
     </div>
   )

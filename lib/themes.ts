@@ -21,8 +21,12 @@ export interface Theme {
   buttonStyle: {
     borderRadius: number
     borderWidth: number
+    borderColor?: string
     shadow: boolean
-    style: 'solid' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill'
+    shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
+    style: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill'
+    animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide'
+    enableAnimations?: boolean
   }
   fonts: { heading: string; body: string }
   // Optional CSS filter applied to the whole page background

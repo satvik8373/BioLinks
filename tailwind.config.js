@@ -8,6 +8,34 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Official Premium Palette: Slate / Violet-Indigo
+        brand: {
+          50:  '#F5F3FF',
+          100: '#EDE9FE',
+          200: '#DDD6FE',
+          300: '#C4B5FD',
+          400: '#A78BFA',
+          500: '#8B5CF6',
+          600: '#7C3AED',
+          700: '#6D28D9',
+          800: '#5B21B6',
+          900: '#4C1D95',
+          950: '#2E1065',
+        },
+        slate: {
+          50:  '#F8FAFC',
+          100: '#F1F5F9',
+          200: '#E2E8F0',
+          300: '#CBD5E1',
+          400: '#94A3B8',
+          500: '#64748B',
+          600: '#475569',
+          700: '#334155',
+          800: '#1E293B',
+          900: '#0F172A',
+          950: '#020617',
+        },
+        // Legacy neo colors (kept for editor & BioCard compatibility)
         'neo-yellow': '#FFFF00',
         'neo-pink': '#FF00FF',
         'neo-cyan': '#00FFFF',
@@ -19,16 +47,40 @@ module.exports = {
         'neo-gray': '#808080',
       },
       fontFamily: {
-        'grotesk': ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
+        'sans': ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        'grotesk': ['Space Grotesk', 'Inter', 'sans-serif'],
+      },
+      borderRadius: {
+        'clay-sm': '12px',
+        'clay':    '18px',
+        'clay-lg': '24px',
       },
       boxShadow: {
-        'neo': '4px 4px 0px 0px #000000',
+        // Professional Claymorphism (Refined, Subtle 3D Depth, Sleek & Premium)
+        'clay': `
+          0 10px 25px -5px rgba(15, 23, 42, 0.06),
+          0 8px 10px -6px rgba(15, 23, 42, 0.04),
+          inset 0 1px 0 rgba(255, 255, 255, 0.9)
+        `,
+        'clay-lg': `
+          0 20px 35px -10px rgba(124, 58, 237, 0.12),
+          0 10px 15px -5px rgba(15, 23, 42, 0.04),
+          inset 0 1px 0 rgba(255, 255, 255, 1)
+        `,
+        'clay-btn': `
+          0 4px 14px rgba(124, 58, 237, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.35),
+          inset 0 -2px 0 rgba(0, 0, 0, 0.2)
+        `,
+        'clay-input': `
+          inset 0 2px 4px rgba(15, 23, 42, 0.05),
+          0 1px 2px rgba(0, 0, 0, 0.02)
+        `,
+        // Legacy neo
+        'neo':    '4px 4px 0px 0px #000000',
         'neo-lg': '6px 6px 0px 0px #000000',
         'neo-xl': '8px 8px 0px 0px #000000',
       },
-      animation: {
-        'bounce-subtle': 'bounce 0.3s ease-in-out',
-      }
     },
   },
   plugins: [],

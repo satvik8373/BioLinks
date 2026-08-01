@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import Input from '@/components/ui/Input'
+import Avatar from '@/components/ui/Avatar'
 import { 
   User, 
   Mail, 
@@ -16,9 +18,7 @@ import {
   Check,
   Upload,
   Camera,
-  PartyPopper,
-  Sparkles,
-  Image as ImageIcon
+  Sparkles
 } from 'lucide-react'
 
 interface UserProfile {
@@ -57,15 +57,16 @@ export default function OnboardingPage() {
   const totalSteps = 4
 
   useEffect(() => {
-    // Check if user has already completed onboarding
-    const existingProfile = localStorage.getItem('userProfile')
-    if (existingProfile) {
-      router.push('/dashboard')
+    const savedProfile = localStorage.getItem('userProfile')
+    if (savedProfile) {
+      const parsed = JSON.parse(savedProfile)
+      setProfile(prev => ({ ...prev, ...parsed }))
     }
-  }, [router])
+  }, [])
 
-  const updateProfile = (field: keyof UserProfile, value: any) => {
-    setProfile(prev => ({ ...prev, [field]: value }))
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setProfile(prev => ({ ...prev, [name]: value }))
   }
 
   const toggleInterest = (interest: string) => {
@@ -92,11 +93,8 @@ export default function OnboardingPage() {
   }
 
   const completeOnboarding = () => {
-    // Save profile to localStorage (in real app, this would be saved to database)
     localStorage.setItem('userProfile', JSON.stringify(profile))
     localStorage.setItem('onboardingCompleted', 'true')
-    
-    // Redirect to create page
     router.push('/create')
   }
 
@@ -107,7 +105,7 @@ export default function OnboardingPage() {
       case 2:
         return profile.email.includes('@') && profile.bio.length >= 10
       case 3:
-        return true // Optional fields
+        return true
       case 4:
         return profile.interests.length >= 1
       default:
@@ -118,279 +116,242 @@ export default function OnboardingPage() {
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('File size must be less than 2MB')
-        return
-      }
-      
       const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        updateProfile('avatar', result)
+      reader.onloadend = () => {
+        setProfile(prev => ({ ...prev, avatar: reader.result as string }))
       }
       reader.readAsDataURL(file)
     }
   }
 
   return (
-    <div className="min-h-screen bg-neo-white flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold flex items-center">
-              Welcome to BioLink! <PartyPopper className="w-6 h-6 ml-2" />
-            </h1>
-            <span className="text-sm font-bold text-neo-gray">
-              Step {currentStep} of {totalSteps}
-            </span>
-          </div>
-          
-          <div className="w-full bg-neo-gray/20 border-2 border-neo-black h-3">
-            <div 
-              className="bg-neo-pink h-full border-r-2 border-neo-black transition-all duration-300"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-            />
-          </div>
+    <div className="min-h-screen py-12 px-4 flex flex-col justify-center items-center">
+      <div className="w-full max-w-xl">
+
+        {/* Brand Header */}
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-[3px_4px_12px_rgba(79,70,229,0.35)] text-white group-hover:scale-105 transition-transform">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <span className="text-2xl font-extrabold text-indigo-950 tracking-tight">Bio<span className="text-rose-500">Link</span></span>
+          </Link>
+          <h1 className="text-3xl font-black text-indigo-950 mb-1">Set Up Your Profile</h1>
+          <p className="text-indigo-900/60 text-sm font-semibold">Step {currentStep} of {totalSteps}: Customize how your bio page looks</p>
         </div>
 
-        <Card className="p-8">
-          {/* Step 1: Basic Info */}
+        {/* Progress Dots */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
+            <div
+              key={step}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                step === currentStep
+                  ? 'w-10 bg-indigo-600 shadow-sm'
+                  : step < currentStep
+                  ? 'w-2.5 bg-rose-500'
+                  : 'w-2.5 bg-indigo-200'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Form Container */}
+        <div className="clay-card-flat p-8 bg-white">
+
+          {/* STEP 1 */}
           {currentStep === 1 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-neo-yellow border-4 border-neo-black rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-                  <User className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">Let's start with the basics</h2>
-                <p className="text-neo-gray">Choose your username and display name</p>
-              </div>
-
-              <div className="space-y-4">
-                <Input
-                  label="USERNAME *"
-                  value={profile.username}
-                  onChange={(e) => updateProfile('username', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                  placeholder="johndoe"
-                  prefix="@"
-                />
-                <div className="text-xs text-neo-gray">
-                  Your unique username (3+ characters, letters, numbers, and underscores only)
-                </div>
-
-                <Input
-                  label="DISPLAY NAME *"
-                  value={profile.displayName}
-                  onChange={(e) => updateProfile('displayName', e.target.value)}
-                  placeholder="John Doe"
-                />
-                <div className="text-xs text-neo-gray">
-                  How your name will appear on your bio link
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Profile Details */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-neo-cyan border-4 border-neo-black rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-                  <Mail className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">Tell us about yourself</h2>
-                <p className="text-neo-gray">Add your contact info and bio</p>
-              </div>
-
-              <div className="space-y-4">
-                <Input
-                  label="EMAIL ADDRESS *"
-                  type="email"
-                  value={profile.email}
-                  onChange={(e) => updateProfile('email', e.target.value)}
-                  placeholder="john@example.com"
-                />
-
-                <div>
-                  <label className="block text-sm font-bold mb-2">BIO / DESCRIPTION *</label>
-                  <textarea
-                    value={profile.bio}
-                    onChange={(e) => updateProfile('bio', e.target.value)}
-                    className="w-full px-4 py-3 border-4 border-neo-black bg-white focus:outline-none focus:shadow-neo font-medium resize-none"
-                    rows={4}
-                    placeholder="Tell people about yourself, your business, or what you do..."
-                    maxLength={500}
-                  />
-                  <div className="text-xs text-neo-gray mt-1">
-                    {profile.bio.length}/500 characters (minimum 10 characters)
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Additional Info */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-neo-green border-4 border-neo-black rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-                  <Briefcase className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-bold mb-2">Professional details</h2>
-                <p className="text-neo-gray">Add your location, website, and profession (optional)</p>
-              </div>
-
-              <div className="space-y-4">
-                {/* Avatar Upload */}
-                <div>
-                  <label className="block text-sm font-bold mb-2">PROFILE PICTURE</label>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-20 h-20 bg-neo-white border-4 border-neo-black rounded-full flex items-center justify-center text-2xl overflow-hidden">
-                      {profile.avatar && profile.avatar.startsWith('data:') ? (
-                        <img 
-                          src={profile.avatar} 
-                          alt="Avatar" 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            const parent = e.currentTarget.parentElement;
-                            if (parent) {
-                              parent.innerHTML = '';
-                              const icon = document.createElement('div');
-                              icon.className = 'w-full h-full flex items-center justify-center';
-                              parent.appendChild(icon);
-                            }
-                          }}
-                        />
-                      ) : (
-                        profile.avatar === 'user' ? <Camera className="w-10 h-10" /> : profile.avatar
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <Button 
-                        onClick={() => document.getElementById('avatar-upload')?.click()}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        UPLOAD PHOTO
-                      </Button>
-                      <input
-                        id="avatar-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        className="hidden"
-                      />
-                      <p className="text-xs text-neo-gray mt-1">Or use an emoji as your avatar</p>
-                    </div>
-                  </div>
+            <div className="space-y-5">
+              <h2 className="text-xl font-extrabold text-indigo-950 border-b border-indigo-50 pb-3">Basic Information</h2>
+              
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Username</label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
                   <Input
-                    value={profile.avatar && profile.avatar.startsWith('data:') ? 'image' : profile.avatar}
-                    onChange={(e) => updateProfile('avatar', e.target.value)}
-                    placeholder="user"
-                    className="mt-2 text-center text-2xl"
+                    type="text"
+                    name="username"
+                    placeholder="johndoe"
+                    value={profile.username}
+                    onChange={handleChange}
+                    className="pl-10"
                   />
                 </div>
+                <p className="mt-1 text-[11px] font-semibold text-indigo-400">biolinks.com/{profile.username || 'username'}</p>
+              </div>
 
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Display Name</label>
                 <Input
-                  label="PROFESSION"
-                  value={profile.profession}
-                  onChange={(e) => updateProfile('profession', e.target.value)}
-                  placeholder="e.g., Digital Marketer, Content Creator, CEO"
-                />
-
-                <Input
-                  label="LOCATION"
-                  value={profile.location}
-                  onChange={(e) => updateProfile('location', e.target.value)}
-                  placeholder="City, Country"
-                />
-
-                <Input
-                  label="WEBSITE"
-                  value={profile.website}
-                  onChange={(e) => updateProfile('website', e.target.value)}
-                  placeholder="https://yourwebsite.com"
+                  type="text"
+                  name="displayName"
+                  placeholder="John Doe"
+                  value={profile.displayName}
+                  onChange={handleChange}
                 />
               </div>
-            </div>
-          )}
 
-          {/* Step 4: Interests */}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-neo-orange border-4 border-neo-black rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
-                  <Sparkles className="w-8 h-8" />
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-2">Avatar Picture</label>
+                <div className="flex items-center gap-4">
+                  <Avatar src={profile.avatar} size="xl" />
+                  <div className="space-y-2">
+                    <label className="clay-btn clay-btn-ghost px-4 py-2 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-indigo-600" />
+                      Upload Photo
+                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                    </label>
+                    <p className="text-[11px] font-medium text-indigo-900/50">PNG, JPG up to 5MB</p>
+                  </div>
                 </div>
-                <h2 className="text-2xl font-bold mb-2">What are your interests?</h2>
-                <p className="text-neo-gray">Select at least one to help us recommend themes</p>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {INTEREST_OPTIONS.map((interest) => (
-                  <button
-                    key={interest}
-                    onClick={() => toggleInterest(interest)}
-                    className={`p-3 border-3 border-neo-black font-bold text-sm transition-all ${
-                      profile.interests.includes(interest)
-                        ? 'bg-neo-pink text-neo-black shadow-neo'
-                        : 'bg-white text-neo-black hover:bg-neo-yellow'
-                    }`}
-                  >
-                    {interest}
-                  </button>
-                ))}
-              </div>
-
-              <div className="text-sm text-neo-gray">
-                Selected: {profile.interests.length} interest{profile.interests.length !== 1 ? 's' : ''}
               </div>
             </div>
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t-2 border-neo-gray">
+          {/* STEP 2 */}
+          {currentStep === 2 && (
+            <div className="space-y-5">
+              <h2 className="text-xl font-extrabold text-indigo-950 border-b border-indigo-50 pb-3">Contact & Bio</h2>
+
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                  <Input
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    value={profile.email}
+                    onChange={handleChange}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Short Bio</label>
+                <textarea
+                  name="bio"
+                  rows={3}
+                  placeholder="Tell your story, what you build or create..."
+                  value={profile.bio}
+                  onChange={handleChange}
+                  className="clay-input"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3 */}
+          {currentStep === 3 && (
+            <div className="space-y-5">
+              <h2 className="text-xl font-extrabold text-indigo-950 border-b border-indigo-50 pb-3">Location & Work (Optional)</h2>
+
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Profession / Title</label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                  <Input
+                    type="text"
+                    name="profession"
+                    placeholder="Digital Creator / Entrepreneur"
+                    value={profile.profession}
+                    onChange={handleChange}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Location</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                  <Input
+                    type="text"
+                    name="location"
+                    placeholder="New York, USA"
+                    value={profile.location}
+                    onChange={handleChange}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-indigo-950 uppercase tracking-wide mb-1.5">Personal Website</label>
+                <div className="relative">
+                  <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                  <Input
+                    type="url"
+                    name="website"
+                    placeholder="https://yourwebsite.com"
+                    value={profile.website}
+                    onChange={handleChange}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4 */}
+          {currentStep === 4 && (
+            <div className="space-y-5">
+              <h2 className="text-xl font-extrabold text-indigo-950 border-b border-indigo-50 pb-3">Your Focus & Interests</h2>
+              <p className="text-xs font-semibold text-indigo-900/60">Pick categories that describe your page</p>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                {INTEREST_OPTIONS.map((interest) => {
+                  const isSelected = profile.interests.includes(interest)
+                  return (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => toggleInterest(interest)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all ${
+                        isSelected
+                          ? 'bg-rose-500 text-white shadow-[2px_3px_8px_rgba(244,63,94,0.3)]'
+                          : 'bg-indigo-50 text-indigo-950 hover:bg-indigo-100'
+                      }`}
+                    >
+                      {interest}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Actions */}
+          <div className="flex items-center justify-between mt-8 pt-6 border-t border-indigo-50">
             <Button
               onClick={handleBack}
               variant="outline"
               disabled={currentStep === 1}
+              size="sm"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              BACK
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
             </Button>
 
             <Button
               onClick={handleNext}
               disabled={!isStepValid()}
+              variant="primary"
+              size="sm"
             >
               {currentStep === totalSteps ? (
                 <>
-                  <Check className="w-4 h-4 mr-2" />
-                  COMPLETE SETUP
+                  <Check className="w-4 h-4 mr-1.5" /> Complete Setup
                 </>
               ) : (
                 <>
-                  NEXT
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  Next <ArrowRight className="w-4 h-4 ml-1.5" />
                 </>
               )}
             </Button>
           </div>
-        </Card>
 
-        {/* Skip Option */}
-        {currentStep > 2 && (
-          <div className="text-center mt-4">
-            <button
-              onClick={completeOnboarding}
-              className="text-sm text-neo-gray hover:text-neo-black font-medium"
-            >
-              Skip and continue with basic setup
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

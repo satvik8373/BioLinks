@@ -1,86 +1,133 @@
 import Link from 'next/link'
-import Button from '@/components/ui/Button'
-import { ServiceIcon } from '@/components/icons/ServiceIcons'
+import { Sparkles, ArrowRight, Link2, Palette, BarChart3, ShieldCheck } from 'lucide-react'
+
+const PREVIEW_CARDS = [
+  {
+    name: '@creator', role: 'Digital Artist & Designer', emoji: '🎨',
+    bgColor: 'bg-slate-900',
+    btnBg: 'bg-brand-600',
+    links: ['Portfolio', 'Shop My Art'],
+    rotate: '-rotate-2',
+  },
+  {
+    name: 'Sarah Connor', role: 'CEO & Founder', emoji: '💼',
+    bgColor: 'bg-brand-600',
+    btnBg: 'bg-slate-900',
+    links: ['Our Venture', 'LinkedIn'],
+    rotate: 'rotate-1',
+  },
+  {
+    name: '@vibes', role: 'Content Creator', emoji: '✨',
+    bgColor: 'bg-slate-800',
+    btnBg: 'bg-brand-600',
+    links: ['Latest Video', 'Community'],
+    rotate: '-rotate-1',
+  },
+]
+
+const FEATURES = [
+  {
+    icon: Palette,
+    title: '25+ Theme Templates',
+    desc: 'Crafted with official color palettes for maximum visual conversion.',
+  },
+  {
+    icon: Link2,
+    title: 'Rich Media Embeds',
+    desc: 'Integrate shop products, videos, audio, and social links seamlessly.',
+  },
+  {
+    icon: BarChart3,
+    title: 'Real-Time Analytics',
+    desc: 'Monitor impressions, click-through rates, and audience engagement.',
+  },
+]
 
 export default function Hero() {
   return (
-    <section className="min-h-screen bg-neo-yellow flex items-center justify-center px-4">
-      <div className="max-w-6xl mx-auto text-center">
-        <h1 className="text-6xl md:text-8xl font-bold text-neo-black mb-6 leading-tight">
-          CREATE
-          <br />
-          YOUR BIO
-          <br />
-          <span className="text-neo-pink">CARD</span>
+    <section className="relative min-h-[85vh] flex flex-col items-center justify-center px-6 pt-12 pb-20 overflow-hidden">
+
+      {/* ── Hero Main Content ── */}
+      <div className="relative z-10 text-center max-w-3xl mx-auto mb-14">
+        {/* Pill Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm text-xs font-bold text-slate-800 mb-6">
+          <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+          <span>Next-Gen Bio Link Platform</span>
+        </div>
+
+        {/* Headline */}
+        <h1 className="text-4xl sm:text-6xl font-extrabold text-slate-950 mb-6 leading-[1.15] tracking-tight">
+          Everything You Are.{' '}
+          <span className="bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">
+            In One Bio Link.
+          </span>
         </h1>
-        <p className="text-xl md:text-2xl font-medium text-neo-black mb-8 max-w-3xl mx-auto">
-          Create beautiful bio links with our theme-based customization system. Choose a theme and make it yours.
+
+        <p className="text-base sm:text-lg text-slate-600 mb-9 max-w-xl mx-auto font-medium leading-relaxed">
+          Create a sleek, professional clay-morphic bio page in seconds. Share all your links, stores, and media with a single URL.
         </p>
-        
-        <div className="flex justify-center mb-16">
-          <Link href="/create">
-            <Button size="lg" className="px-12 py-4">
-              CREATE BIO LINK
-            </Button>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/create"
+            className="clay-btn clay-btn-primary px-7 py-3.5 text-sm font-bold flex items-center gap-2 shadow-md"
+          >
+            <Sparkles className="w-4 h-4" />
+            Create Your Card Free
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Link>
+          <Link
+            href="/login"
+            className="clay-btn clay-btn-ghost px-7 py-3.5 text-sm font-bold"
+          >
+            Sign In to Dashboard
           </Link>
         </div>
-        
-        {/* Template Preview Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {/* Creator Template */}
-          <div className="bg-white border-4 border-neo-black shadow-neo-xl p-6 transform rotate-1">
-            <div className="w-16 h-16 bg-neo-pink border-4 border-neo-black rounded-full mx-auto mb-4 flex items-center justify-center">
-              <ServiceIcon iconId="palette" size={32} className="text-neo-white" />
+      </div>
+
+      {/* ── Preview Cards Grid ── */}
+      <div className="relative z-10 flex items-center justify-center gap-6 mb-16 flex-wrap max-w-5xl mx-auto">
+        {PREVIEW_CARDS.map((card, i) => (
+          <div
+            key={i}
+            className={`${card.rotate} w-48 p-5 rounded-[22px] ${card.bgColor} text-white shadow-xl border border-slate-700/50 transition-all duration-300 hover:scale-105 hover:rotate-0`}
+          >
+            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-xl mx-auto mb-3 border border-white/20">
+              {card.emoji}
             </div>
-            <h3 className="font-bold text-lg mb-2">@creator</h3>
-            <p className="text-sm mb-4">Digital Artist & Designer</p>
-            <div className="space-y-2">
-              <div className="bg-neo-cyan border-2 border-neo-black p-2 text-sm font-bold text-center">
-                PORTFOLIO
-              </div>
-              <div className="bg-neo-green border-2 border-neo-black p-2 text-sm font-bold text-center">
-                SHOP
-              </div>
+            <h3 className="font-extrabold text-white text-sm text-center mb-0.5">{card.name}</h3>
+            <p className="text-white/70 text-[11px] text-center font-medium mb-3 truncate">{card.role}</p>
+            <div className="space-y-1.5">
+              {card.links.map((l, j) => (
+                <div
+                  key={j}
+                  className={`text-xs font-bold text-white text-center py-2 rounded-lg ${card.btnBg} shadow-sm`}
+                >
+                  {l}
+                </div>
+              ))}
             </div>
-            <div className="mt-4 text-xs font-bold text-neo-gray">CREATOR TEMPLATE</div>
           </div>
-          
-          {/* Business Template */}
-          <div className="bg-neo-black text-neo-white border-4 border-neo-white shadow-neo-xl p-6 transform -rotate-1">
-            <div className="w-16 h-16 bg-neo-yellow border-4 border-neo-white rounded-full mx-auto mb-4 flex items-center justify-center">
-              <ServiceIcon iconId="business" size={32} className="text-neo-black" />
+        ))}
+      </div>
+
+      {/* ── Feature Cards Row ── */}
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-4xl mx-auto w-full">
+        {FEATURES.map((f, i) => (
+          <div
+            key={i}
+            className="clay-card-flat p-5 bg-white flex flex-col items-start gap-2.5"
+          >
+            <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-brand-600">
+              <f.icon className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-lg mb-2">JOHN DOE</h3>
-            <p className="text-sm mb-4">CEO & Entrepreneur</p>
-            <div className="space-y-2">
-              <div className="bg-neo-yellow text-neo-black border-2 border-neo-white p-2 text-sm font-bold text-center">
-                COMPANY
-              </div>
-              <div className="bg-neo-pink text-neo-black border-2 border-neo-white p-2 text-sm font-bold text-center">
-                LINKEDIN
-              </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm mb-1">{f.title}</h3>
+              <p className="text-slate-500 text-xs font-medium leading-relaxed">{f.desc}</p>
             </div>
-            <div className="mt-4 text-xs font-bold text-neo-gray">BUSINESS TEMPLATE</div>
           </div>
-          
-          {/* Influencer Template */}
-          <div className="bg-gradient-to-br from-neo-pink to-neo-cyan border-4 border-neo-black shadow-neo-xl p-6 transform rotate-1">
-            <div className="w-16 h-16 bg-neo-white border-4 border-neo-black rounded-full mx-auto mb-4 flex items-center justify-center">
-              <ServiceIcon iconId="influencers" size={32} className="text-neo-black" />
-            </div>
-            <h3 className="font-bold text-lg mb-2 text-neo-black">@influencer</h3>
-            <p className="text-sm mb-4 text-neo-black">Lifestyle & Travel</p>
-            <div className="space-y-2">
-              <div className="bg-neo-white text-neo-black border-2 border-neo-black p-2 text-sm font-bold text-center">
-                INSTAGRAM
-              </div>
-              <div className="bg-neo-yellow text-neo-black border-2 border-neo-black p-2 text-sm font-bold text-center">
-                YOUTUBE
-              </div>
-            </div>
-            <div className="mt-4 text-xs font-bold text-neo-black">INFLUENCER TEMPLATE</div>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   )

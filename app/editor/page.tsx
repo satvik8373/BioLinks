@@ -1,9 +1,10 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemeById, Theme } from '@/lib/themes'
+import { getCardPublicUrl, getCleanUsernameSlug, getDisplayUrlSlug } from '@/lib/urlHelper'
 import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
   FacebookIcon, LinkedInIcon, DiscordIcon, GitHubIcon, WhatsAppIcon,
@@ -32,6 +33,9 @@ import {
   X,
   Check,
   EyeOff,
+  RotateCcw,
+  Undo2,
+  Redo2,
   User,
   ShoppingBag,
   Instagram,
@@ -72,6 +76,7 @@ interface BioLinkConfig {
   profile: {
     avatar: string
     title: string
+    handle?: string
     bio: string
     location?: string
     website?: string
@@ -96,6 +101,56 @@ export default function EditorPage() {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ myLinktree: true, tools: false })
   // Stable preview card ID — created once per editor session, reused for live preview
   const [previewCardId, setPreviewCardId] = useState<string>('')
+
+  // Undo & Redo History Stacks
+  const [pastConfigs, setPastConfigs] = useState<BioLinkConfig[]>([])
+  const [futureConfigs, setFutureConfigs] = useState<BioLinkConfig[]>([])
+
+  const handleUndo = () => {
+    if (pastConfigs.length === 0 || !config) return
+    const previous = pastConfigs[pastConfigs.length - 1]
+    const newPast = pastConfigs.slice(0, pastConfigs.length - 1)
+    
+    setPastConfigs(newPast)
+    setFutureConfigs(prev => [config, ...prev])
+    setConfig(previous)
+  }
+
+  const handleRedo = () => {
+    if (futureConfigs.length === 0 || !config) return
+    const next = futureConfigs[0]
+    const newFuture = futureConfigs.slice(1)
+    
+    setPastConfigs(prev => [...prev, config])
+    setFutureConfigs(newFuture)
+    setConfig(next)
+  }
+
+  // Keyboard shortcut listener for Ctrl+Z / Ctrl+Y
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable)) {
+        return
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault()
+          handleRedo()
+        } else {
+          e.preventDefault()
+          handleUndo()
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [pastConfigs, futureConfigs, config])
 
   const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
 
@@ -146,6 +201,10 @@ export default function EditorPage() {
   const updateConfig = (path: string, value: any) => {
     if (!config) return
 
+    // Save snapshot to pastConfigs stack before mutating
+    setPastConfigs(prev => [...prev, JSON.parse(JSON.stringify(config))].slice(-30))
+    setFutureConfigs([])
+
     setConfig(prev => {
       if (!prev) return prev
       
@@ -161,7 +220,6 @@ export default function EditorPage() {
       }
       current[keys[keys.length - 1]] = value
       
-      // Pure state update - no side effects here!
       return newConfig
     })
   }
@@ -231,43 +289,13 @@ export default function EditorPage() {
     try {
       // Reuse the stable preview card ID so the URL never changes
       const cardId = previewCardId || localStorage.getItem('editorPreviewCardId') || Math.random().toString(36).substr(2, 9)
-      
-      console.log('💾 Saving card:', cardId)
-      
-      // Save to backend API (works across all browsers!)
-      const response = await fetch('/api/cards', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cardId,
-          config: {
-            profile: config.profile,
-            links: config.links,
-            theme: config.theme,
-            socialLinks: config.socialLinks,
-          },
-          analytics: { views: 0, clicks: 0 },
-          createdAt: new Date().toISOString(),
-        }),
-      })
+      const handleSlug = getCleanUsernameSlug(config.profile.handle || config.profile.title)
 
-      console.log('📡 API Response status:', response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('❌ API Error:', errorData)
-        throw new Error(errorData.message || 'Failed to save card')
-      }
-
-      const data = await response.json()
-      console.log('✅ Card saved successfully:', data)
+      console.log('💾 Saving card:', cardId, 'handle:', handleSlug)
       
-      // Also save to localStorage as backup for preview
-      const existingCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      existingCards[cardId] = {
+      const cardPayload = {
         id: cardId,
+        handle: handleSlug,
         config: {
           profile: config.profile,
           links: config.links,
@@ -276,22 +304,60 @@ export default function EditorPage() {
         },
         analytics: { views: 0, clicks: 0 },
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Try saving to API (with fallback if API is unavailable)
+      try {
+        await fetch('/api/cards', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            cardId,
+            config: cardPayload.config,
+            analytics: cardPayload.analytics,
+          }),
+        })
+      } catch (apiErr) {
+        console.warn('⚠️ Backend API save fallback to local storage:', apiErr)
+      }
+      
+      // Save to localStorage under both cardId and handle slug for 100% reliable retrieval
+      const existingCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
+      existingCards[cardId] = cardPayload
+      if (handleSlug) {
+        existingCards[handleSlug] = cardPayload
       }
       localStorage.setItem('bioCards', JSON.stringify(existingCards))
       localStorage.setItem('editorPreviewCardId', cardId)
-      
-      const cardUrl = `${window.location.origin}/card/${cardId}`
-      console.log('🔗 Card URL:', cardUrl)
+      localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
+
+      // Keep userProfile in sync
+      const currentProfile = JSON.parse(localStorage.getItem('userProfile') || '{}')
+      const updatedProfile = {
+        ...currentProfile,
+        displayName: config.profile.title || currentProfile.displayName,
+        username: handleSlug || currentProfile.username,
+        bio: config.profile.bio || currentProfile.bio,
+        avatar: config.profile.avatar || currentProfile.avatar,
+        location: config.profile.location || currentProfile.location,
+      }
+      localStorage.setItem('userProfile', JSON.stringify(updatedProfile))
+
+      const cardUrl = getCardPublicUrl(cardId, handleSlug)
+      console.log('✅ Card saved successfully! Public URL:', cardUrl)
       
       try {
         await navigator.clipboard.writeText(cardUrl)
         setShowShareModal(true)
       } catch {
-        alert(`Bio link saved!\n\n${cardUrl}`)
+        setShowShareModal(true)
       }
     } catch (error: any) {
       console.error('❌ Error saving bio link:', error)
-      alert(`Error saving bio link: ${error.message}\n\nPlease check the browser console for details.`)
+      alert(`Error saving bio link: ${error.message}`)
     }
   }
 
@@ -307,50 +373,67 @@ export default function EditorPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
-
+    <div className="h-screen bg-slate-50 flex overflow-hidden">
       {/* ── Left Sidebar ── */}
-      <aside className="w-52 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+      <aside className="w-56 bg-white border-r border-indigo-100 flex flex-col flex-shrink-0 shadow-[4px_0_16px_rgba(79,70,229,0.04)]">
 
         {/* User profile row */}
-        <div className="px-3 py-3 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-              <User className="w-3.5 h-3.5 text-gray-500" />
-            </div>
-            <span className="text-xs font-semibold text-gray-800 truncate">
+        <div className="px-4 py-3 border-b border-indigo-50 flex-shrink-0 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Avatar src={config.profile.avatar} size="sm" fallback="user" />
+            <span className="text-xs font-extrabold text-indigo-950 truncate">
               {config.profile.title || 'My BioLink'}
             </span>
           </div>
-          {/* Auto-saved indicator */}
-          {savedAt && (
-            <span className="text-[10px] text-green-600 flex-shrink-0 ml-1">✓</span>
-          )}
+
+          {/* Undo / Redo controls */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handleUndo}
+              disabled={pastConfigs.length === 0}
+              title="Undo (Ctrl+Z)"
+              className={`p-1.5 rounded-lg border transition-all ${
+                pastConfigs.length > 0
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm'
+                  : 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
+              }`}
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={futureConfigs.length === 0}
+              title="Redo (Ctrl+Y)"
+              className={`p-1.5 rounded-lg border transition-all ${
+                futureConfigs.length > 0
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm'
+                  : 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
+              }`}
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Nav — scrollable */}
-        <nav className="flex-1 overflow-y-auto py-2">
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
 
           {/* ── My Linktree group ── */}
           <button
             onClick={() => toggleGroup('myLinktree')}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black text-indigo-950 hover:bg-indigo-50 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center">
-                <LinkIcon className="w-3 h-3 text-gray-600" />
+              <div className="w-5 h-5 rounded-lg bg-indigo-100/70 text-indigo-600 flex items-center justify-center">
+                <LinkIcon className="w-3 h-3" />
               </div>
-              <span>My Linktree</span>
+              <span>My Bio Card</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${openGroups.myLinktree ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 text-indigo-400 transition-transform ${openGroups.myLinktree ? 'rotate-90' : ''}`} />
           </button>
 
           {openGroups.myLinktree && (
-            <div className="ml-4 border-l border-gray-100 pl-2 mb-1">
+            <div className="ml-3 border-l-2 border-indigo-100 pl-2 space-y-1 my-1">
               {[
                 { id: 'links',      label: 'Links',    dot: false },
                 { id: 'shop',       label: 'Shop',     dot: false },
@@ -358,12 +441,14 @@ export default function EditorPage() {
               ].map(({ id, label, dot }) => (
                 <button key={id}
                   onClick={() => setActiveTab(id as any)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                    activeTab === id ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition-all ${
+                    activeTab === id
+                      ? 'bg-indigo-600 text-white font-extrabold shadow-[2px_3px_8px_rgba(79,70,229,0.25)]'
+                      : 'text-indigo-900/70 hover:bg-indigo-50 font-bold'
                   }`}
                 >
                   <span>{label}</span>
-                  {dot && <span className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />}
+                  {dot && <span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -372,31 +457,33 @@ export default function EditorPage() {
           {/* ── Appearance group ── */}
           <button
             onClick={() => toggleGroup('appearance')}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black text-indigo-950 hover:bg-indigo-50 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center">
-                <Palette className="w-3 h-3 text-gray-600" />
+              <div className="w-5 h-5 rounded-lg bg-indigo-100/70 text-indigo-600 flex items-center justify-center">
+                <Palette className="w-3 h-3" />
               </div>
               <span>Appearance</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${openGroups.appearance ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 text-indigo-400 transition-transform ${openGroups.appearance ? 'rotate-90' : ''}`} />
           </button>
 
           {openGroups.appearance && (
-            <div className="ml-4 border-l border-gray-100 pl-2 mb-1">
+            <div className="ml-3 border-l-2 border-indigo-100 pl-2 space-y-1 my-1">
               {[
                 { id: 'profile',    label: 'Header'    },
                 { id: 'background', label: 'Wallpaper' },
                 { id: 'fonts',      label: 'Text'      },
-                { id: 'buttons',    label: 'Buttons'   },
+                { id: 'buttons',    label: 'Buttons & Animations' },
                 { id: 'colors',     label: 'Colors'    },
                 { id: 'settings',   label: 'Footer'    },
               ].map(({ id, label }) => (
                 <button key={id}
                   onClick={() => setActiveTab(id as any)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    activeTab === id ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs transition-all ${
+                    activeTab === id
+                      ? 'bg-indigo-600 text-white font-extrabold shadow-[2px_3px_8px_rgba(79,70,229,0.25)]'
+                      : 'text-indigo-900/70 hover:bg-indigo-50 font-bold'
                   }`}
                 >
                   {label}
@@ -408,27 +495,29 @@ export default function EditorPage() {
           {/* ── Audience group ── */}
           <button
             onClick={() => toggleGroup('audience')}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black text-indigo-950 hover:bg-indigo-50 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center">
-                <User className="w-3 h-3 text-gray-600" />
+              <div className="w-5 h-5 rounded-lg bg-indigo-100/70 text-indigo-600 flex items-center justify-center">
+                <User className="w-3 h-3" />
               </div>
               <span>Audience</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${openGroups.audience ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 text-indigo-400 transition-transform ${openGroups.audience ? 'rotate-90' : ''}`} />
           </button>
 
           {openGroups.audience && (
-            <div className="ml-4 border-l border-gray-100 pl-2 mb-1">
+            <div className="ml-3 border-l-2 border-indigo-100 pl-2 space-y-1 my-1">
               {[
                 { id: 'social',    label: 'Social Media' },
                 { id: 'seo',       label: 'SEO'          },
               ].map(({ id, label }) => (
                 <button key={id}
                   onClick={() => setActiveTab(id as any)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    activeTab === id ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50'
+                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs transition-all ${
+                    activeTab === id
+                      ? 'bg-indigo-600 text-white font-extrabold shadow-[2px_3px_8px_rgba(79,70,229,0.25)]'
+                      : 'text-indigo-900/70 hover:bg-indigo-50 font-bold'
                   }`}
                 >
                   {label}
@@ -437,85 +526,45 @@ export default function EditorPage() {
             </div>
           )}
 
-          {/* ── Insights (single item) ── */}
+          {/* ── Insights ── */}
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold transition-colors ${
-              activeTab === 'analytics' ? 'text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black transition-all ${
+              activeTab === 'analytics'
+                ? 'bg-indigo-600 text-white shadow-[2px_3px_8px_rgba(79,70,229,0.25)]'
+                : 'text-indigo-950 hover:bg-indigo-50'
             }`}
           >
-            <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center">
-              <BarChart3 className="w-3 h-3 text-gray-600" />
+            <div className="w-5 h-5 rounded-lg bg-indigo-100/70 text-indigo-600 flex items-center justify-center">
+              <BarChart3 className="w-3 h-3" />
             </div>
             <span>Insights</span>
           </button>
-
-          {/* ── Tools section ── */}
-          <div className="px-3 pt-3 pb-1">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Tools</p>
-          </div>
-          <button
-            onClick={() => toggleGroup('tools')}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center">
-                <Search className="w-3 h-3 text-gray-600" />
-              </div>
-              <span>SEO & Tools</span>
-            </div>
-            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform ${openGroups.tools ? 'rotate-90' : ''}`} />
-          </button>
-          {openGroups.tools && (
-            <div className="ml-4 border-l border-gray-100 pl-2 mb-1">
-              {[
-                { id: 'seo',  label: 'SEO Settings' },
-                { id: 'shop', label: 'My Shop'       },
-              ].map(({ id, label }) => (
-                <button key={id}
-                  onClick={() => setActiveTab(id as any)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    activeTab === id ? 'bg-gray-100 text-gray-900 font-semibold' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
         </nav>
 
         {/* ── Bottom: auto-save status + actions ── */}
-        <div className="flex-shrink-0 border-t border-gray-100 p-3 space-y-2">
-          {/* Auto-save status */}
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] text-gray-400">
-              {savedAt ? `Saved ${savedAt}` : 'Auto-saves on change'}
-            </span>
-            <div className={`w-1.5 h-1.5 rounded-full ${savedAt ? 'bg-green-500' : 'bg-gray-300'}`} />
-          </div>
-
-          {/* Share Link Button (Primary Action) */}
+        <div className="flex-shrink-0 border-t border-indigo-50 p-3 space-y-2">
+          {/* Share Link Button */}
           <button
             onClick={saveBioLink}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-bold hover:from-purple-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg"
+            className="w-full clay-btn clay-btn-secondary py-2.5 text-xs font-extrabold flex items-center justify-center gap-2"
           >
-            <Share2 className="w-4 h-4" />
-            Share Link
+            <Share2 className="w-3.5 h-3.5" />
+            Save & Share Link
           </button>
 
           {/* Preview + Exit row */}
           <div className="flex gap-2">
             <button
               onClick={() => window.open(`/card/${previewCardId}`, '_blank')}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              className="clay-btn clay-btn-ghost flex-1 py-1.5 text-xs font-bold flex items-center justify-center gap-1"
             >
-              <Eye className="w-3.5 h-3.5" />
+              <Eye className="w-3.5 h-3.5 text-indigo-600" />
               Preview
             </button>
             <button
-              onClick={() => router.push('/dashboard')}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              onClick={() => router.push('/my-cards')}
+              className="clay-btn clay-btn-ghost flex-1 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center justify-center gap-1"
             >
               <X className="w-3.5 h-3.5" />
               Exit
@@ -622,73 +671,48 @@ export default function EditorPage() {
         </main>
 
         {/* Right Panel - Live Preview */}
-        <aside className="w-[380px] bg-[#F2F2F0] border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden">
+        <aside className="w-[380px] bg-[#F4F4F2] border-l border-gray-200 flex flex-col items-center flex-shrink-0 overflow-hidden py-6 px-4">
 
-          {/* Phone — fills full height */}
-          <div className="flex-1 flex items-center justify-center py-5 px-4 overflow-hidden">
-            {/* We use a CSS container query trick: phone width is fixed at 260px,
-                height is auto-calculated to maintain 9:19.5 ratio.
-                Content is scaled down to fit inside without scrolling. */}
-            <div className="relative flex-shrink-0" style={{ width: 252 }}>
+          {/* ── Top Share URL Pill Bar (Matching Linktree) ── */}
+          <div className="w-[270px] bg-white border border-slate-200 rounded-full px-4 py-2 flex items-center justify-between shadow-sm mb-6 flex-shrink-0">
+            <span className="text-xs font-semibold text-slate-700 truncate mr-2">
+              {getDisplayUrlSlug(config.profile.handle || config.profile.title)}
+            </span>
+            <button
+              onClick={async () => {
+                const url = getCardPublicUrl(previewCardId, config.profile.handle || config.profile.title)
+                try {
+                  await navigator.clipboard.writeText(url)
+                  setShowShareModal(true)
+                } catch {
+                  setShowShareModal(true)
+                }
+              }}
+              className="text-slate-500 hover:text-slate-900 transition-colors p-0.5 rounded-full hover:bg-slate-100 flex-shrink-0"
+              title="Share & Copy URL"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
-              {/* Outer shell */}
-              <div
-                className="relative bg-gray-900"
-                style={{
-                  borderRadius: 38,
-                  padding: 8,
-                  boxShadow: '0 24px 60px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.07)',
-                }}
-              >
-                {/* Screen — fixed height, NO overflow scroll */}
-                <div
-                  className="relative bg-white overflow-hidden"
-                  style={{ borderRadius: 31, height: 500 }}
-                >
-                  {/* Status bar */}
-                  <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-2.5 pb-0.5">
-                    <span className="text-[9px] font-bold text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>9:41</span>
-                    <div className="flex items-center gap-1">
-                      <svg width="12" height="9" viewBox="0 0 14 10" fill="white" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }}>
-                        <rect x="0" y="6" width="2.5" height="4" rx="0.5" opacity="0.5"/>
-                        <rect x="3.5" y="4" width="2.5" height="6" rx="0.5" opacity="0.7"/>
-                        <rect x="7" y="2" width="2.5" height="8" rx="0.5" opacity="0.9"/>
-                        <rect x="10.5" y="0" width="2.5" height="10" rx="0.5"/>
-                      </svg>
-                      <svg width="17" height="9" viewBox="0 0 20 10" fill="none" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }}>
-                        <rect x="0.5" y="0.5" width="16" height="9" rx="2" stroke="white" strokeWidth="1"/>
-                        <rect x="17" y="3" width="2.5" height="4" rx="1" fill="white"/>
-                        <rect x="2" y="2" width="11" height="6" rx="1" fill="white"/>
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* Dynamic island */}
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-16 h-4 bg-gray-900 rounded-full" />
-
-                  {/* Content — scaled to fit, no scroll */}
-                  <div className="absolute inset-0 overflow-hidden">
-                    <BioLinkPreview config={config} />
-                  </div>
-                </div>
-
-                {/* Home indicator */}
-                <div className="flex justify-center pt-1.5 pb-0.5">
-                  <div className="w-16 h-[3px] bg-white/35 rounded-full" />
-                </div>
-              </div>
-
-              {/* Side buttons */}
-              <div className="absolute left-[-2px] top-16 w-[2px] h-6 bg-gray-700 rounded-l-sm" />
-              <div className="absolute left-[-2px] top-24 w-[2px] h-9 bg-gray-700 rounded-l-sm" />
-              <div className="absolute left-[-2px] top-36 w-[2px] h-9 bg-gray-700 rounded-l-sm" />
-              <div className="absolute right-[-2px] top-20 w-[2px] h-12 bg-gray-700 rounded-r-sm" />
+          {/* ── Bezel-less Floating Mobile Card Screen ── */}
+          <div className="flex-1 flex items-center justify-center overflow-hidden w-full">
+            <div 
+              className="relative flex-shrink-0 shadow-2xl overflow-hidden transition-all duration-300"
+              style={{
+                width: 270,
+                height: 520,
+                borderRadius: 32,
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0,0,0,0.06)'
+              }}
+            >
+              <BioLinkPreview config={config} />
             </div>
           </div>
 
-          {/* Link count */}
-          <div className="pb-3 text-center flex-shrink-0">
-            <p className="text-[11px] text-gray-400">
+          {/* Active Links Count */}
+          <div className="pt-3 text-center flex-shrink-0">
+            <p className="text-[11px] font-bold text-slate-400">
               {config.links.filter(l => l.isVisible !== false).length} active links
             </p>
           </div>
@@ -882,7 +906,7 @@ function ProfilePanel({ config, updateConfig }: any) {
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-2">Title</label>
+        <label className="block text-sm font-semibold text-gray-900 mb-2">Title / Display Name</label>
         <input
           type="text"
           value={config.profile.title}
@@ -890,6 +914,23 @@ function ProfilePanel({ config, updateConfig }: any) {
           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           placeholder="Your name"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-gray-900 mb-2">Custom Username / URL Handle</label>
+        <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-purple-500">
+          <span className="bg-gray-100 text-gray-500 px-3.5 py-2.5 text-sm font-bold border-r border-gray-300 flex-shrink-0">
+            biolink.ee/
+          </span>
+          <input
+            type="text"
+            value={config.profile.handle || ''}
+            onChange={(e) => updateConfig('profile.handle', getCleanUsernameSlug(e.target.value))}
+            className="w-full px-3 py-2.5 text-sm text-gray-900 focus:outline-none font-bold"
+            placeholder={getCleanUsernameSlug(config.profile.title || 'satvikpatel8373')}
+          />
+        </div>
+        <p className="text-xs text-gray-500 mt-1">Your public shareable URL link handle</p>
       </div>
 
       <div>
@@ -1132,128 +1173,268 @@ function FontsPanel({ config, updateConfig }: any) {
 
 // Buttons Panel Component
 function ButtonsPanel({ config, updateConfig }: any) {
+  const currentStyle = config.theme.buttonStyle.style ?? 'solid'
+  const currentRadius = config.theme.buttonStyle.borderRadius ?? 20
+  const currentShadow = config.theme.buttonStyle.shadow ?? true
+
+  const buttonStyles = [
+    { id: 'solid',       label: 'Solid Fill',     preview: 'bg-slate-900 text-white' },
+    { id: 'clay',        label: 'Claymorphism 3D', preview: 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_6px_16px_rgba(79,70,229,0.3)]' },
+    { id: 'glass',       label: 'Glassmorphism',  preview: 'bg-white/40 backdrop-blur-md border border-white/60 text-slate-900' },
+    { id: 'outline',     label: 'Outline',        preview: 'bg-transparent border-2 border-slate-900 text-slate-900' },
+    { id: 'soft',        label: 'Soft Elevation', preview: 'bg-white shadow-lg text-slate-900' },
+  ]
+
+  // Claymorphic active selection class (replaces cheap harsh border outline)
+  const clayActive = 'bg-gradient-to-br from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-[inset_0_2px_4px_rgba(255,255,255,0.35),0_8px_20px_-4px_rgba(79,70,229,0.45)] scale-[1.02] border-transparent'
+  const clayInactive = 'bg-slate-50/90 border border-slate-200/80 text-slate-700 shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_2px_6px_rgba(0,0,0,0.03)] hover:bg-white hover:shadow-md hover:scale-[1.01]'
+
+  const resetButtonStyle = () => {
+    updateConfig('theme.buttonStyle.style', 'solid')
+    updateConfig('theme.buttonStyle.borderRadius', 20)
+    updateConfig('theme.buttonStyle.borderWidth', 0)
+    updateConfig('theme.buttonStyle.borderColor', '')
+    updateConfig('theme.buttonStyle.shadow', true)
+    updateConfig('theme.buttonStyle.shadowStyle', 'soft')
+    updateConfig('theme.buttonStyle.animation', 'bounce')
+    updateConfig('theme.buttonStyle.enableAnimations', true)
+    updateConfig('theme.colors.buttonDefault', '#ffffff')
+    updateConfig('theme.colors.buttonText', '#000000')
+  }
+
+  const handleStyleChange = (styleId: string) => {
+    updateConfig('theme.buttonStyle.style', styleId)
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Buttons</h2>
-        <p className="text-gray-600">Customize button appearance</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-1">Buttons & Animations</h2>
+          <p className="text-sm text-slate-500 font-medium">Customize button shape, 3D Claymorphism fill, shadows, and animations</p>
+        </div>
+        <button
+          onClick={resetButtonStyle}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-sm flex-shrink-0 cursor-pointer"
+          title="Reset button style to default"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Reset Style</span>
+        </button>
       </div>
 
+      {/* ── 1. Button Style Fill ── */}
       <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Button style</label>
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => updateConfig('theme.buttonStyle.borderRadius', 8)}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              config.theme.buttonStyle.borderRadius === 8
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="w-full h-12 bg-gray-300 rounded-lg mb-2"></div>
-            <p className="text-xs font-medium text-center">Solid</p>
-          </button>
-          
-          <button
-            onClick={() => updateConfig('theme.buttonStyle.borderRadius', 25)}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              config.theme.buttonStyle.borderRadius === 25
-                ? 'border-purple-500 bg-purple-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className="w-full h-12 bg-gray-300 rounded-full mb-2"></div>
-            <p className="text-xs font-medium text-center">Rounded</p>
-          </button>
+        <label className="block text-sm font-bold text-slate-900 mb-3">Button Fill Style</label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {buttonStyles.map((s) => {
+            const isSel = currentStyle === s.id
+            return (
+              <button
+                key={s.id}
+                onClick={() => handleStyleChange(s.id)}
+                className={`p-3 rounded-2xl transition-all duration-200 flex flex-col items-center gap-2 cursor-pointer ${
+                  isSel ? clayActive : clayInactive
+                }`}
+              >
+                <div className={`w-full h-9 rounded-xl flex items-center justify-center font-extrabold text-xs ${s.preview}`}>
+                  Sample
+                </div>
+                <span className={`text-xs font-bold ${isSel ? 'text-white' : 'text-slate-800'}`}>{s.label}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
+      {/* ── 2. Corner Roundness ── */}
       <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">
-          Corner roundness
+        <label className="block text-sm font-bold text-slate-900 mb-3">
+          Corner Roundness
         </label>
-        <div className="grid grid-cols-4 gap-2">
-          {[0, 8, 16, 50].map((radius) => (
-            <button
-              key={radius}
-              onClick={() => updateConfig('theme.buttonStyle.borderRadius', radius)}
-              className={`p-3 rounded-lg border-2 transition-all ${
-                config.theme.buttonStyle.borderRadius === radius
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div 
-                className="w-full h-8 bg-gray-300 mb-1"
-                style={{ borderRadius: `${radius}px` }}
-              ></div>
-              <p className="text-xs font-medium text-center">
-                {radius === 0 ? 'Square' : radius === 50 ? 'Full' : `${radius}px`}
-              </p>
-            </button>
-          ))}
+        <div className="grid grid-cols-4 gap-2.5">
+          {[
+            { radius: 0, label: 'Square' },
+            { radius: 8, label: '8px' },
+            { radius: 16, label: '16px' },
+            { radius: 50, label: 'Full Pill' },
+          ].map((item) => {
+            const isSel = currentRadius === item.radius || (item.radius === 50 && currentRadius >= 24)
+            return (
+              <button
+                key={item.radius}
+                onClick={() => updateConfig('theme.buttonStyle.borderRadius', item.radius)}
+                className={`p-3 rounded-2xl transition-all duration-200 flex flex-col items-center gap-2 cursor-pointer ${
+                  isSel ? clayActive : clayInactive
+                }`}
+              >
+                <div 
+                  className={`w-full h-7 ${isSel ? 'bg-white/30 backdrop-blur-md' : 'bg-slate-800'}`}
+                  style={{ borderRadius: item.radius > 20 ? '9999px' : `${item.radius}px` }}
+                />
+                <span className={`text-xs font-bold ${isSel ? 'text-white' : 'text-slate-800'}`}>{item.label}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
+      {/* ── 3. Button Shadow ── */}
       <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Button shadow</label>
-        <div className="grid grid-cols-4 gap-2">
-          {['None', 'Soft', 'Strong', 'Hard'].map((shadow, idx) => (
-            <button
-              key={shadow}
-              onClick={() => updateConfig('theme.buttonStyle.shadow', idx > 0)}
-              className={`p-3 rounded-lg border-2 transition-all ${
-                (config.theme.buttonStyle.shadow && idx > 0) || (!config.theme.buttonStyle.shadow && idx === 0)
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <p className="text-xs font-medium text-center">{shadow}</p>
-            </button>
-          ))}
+        <label className="block text-sm font-bold text-slate-900 mb-3">Button Shadow</label>
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { style: 'none', shadow: false, label: 'None' },
+            { style: 'soft', shadow: true, label: 'Soft Shadow' },
+            { style: 'strong', shadow: true, label: 'Strong Shadow' },
+          ].map((sh) => {
+            const currentShStyle = config.theme.buttonStyle.shadowStyle ?? (config.theme.buttonStyle.shadow ? 'soft' : 'none')
+            const isSel = currentShStyle === sh.style
+            return (
+              <button
+                key={sh.style}
+                onClick={() => {
+                  updateConfig('theme.buttonStyle.shadowStyle', sh.style)
+                  updateConfig('theme.buttonStyle.shadow', sh.shadow)
+                }}
+                className={`py-3.5 px-4 rounded-2xl transition-all duration-200 text-center cursor-pointer ${
+                  isSel ? clayActive : clayInactive
+                }`}
+              >
+                <span className={`text-xs font-bold ${isSel ? 'text-white' : 'text-slate-800'}`}>{sh.label}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Button color</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.buttonDefault}
-            onChange={(e) => updateConfig('theme.colors.buttonDefault', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
+      {/* ── 4. Animation Controls Section ── */}
+      <div className="pt-5 border-t border-slate-200/80">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <label className="block text-sm font-bold text-slate-900">Button Animations</label>
+            <p className="text-xs text-slate-500 font-medium">Enable micro-interactions and hover effects</p>
+          </div>
+          <button
+            onClick={() => updateConfig('theme.buttonStyle.enableAnimations', !(config.theme.buttonStyle.enableAnimations ?? true))}
+            className={`w-12 h-6 rounded-full p-1 transition-all duration-200 cursor-pointer flex items-center ${
+              (config.theme.buttonStyle.enableAnimations ?? true) ? 'bg-indigo-600 justify-end shadow-inner' : 'bg-slate-300 justify-start'
+            }`}
+          >
+            <div className="w-4 h-4 rounded-full bg-white shadow-md" />
+          </button>
+        </div>
+
+        {(config.theme.buttonStyle.enableAnimations ?? true) && (
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {[
+              { id: 'bounce', label: 'Bounce' },
+              { id: 'pulse', label: 'Pulse' },
+              { id: 'wobble', label: 'Wobble' },
+              { id: 'slide', label: 'Slide' },
+            ].map((anim) => {
+              const currentAnim = config.theme.buttonStyle.animation ?? 'bounce'
+              const isSel = currentAnim === anim.id
+              return (
+                <button
+                  key={anim.id}
+                  onClick={() => updateConfig('theme.buttonStyle.animation', anim.id)}
+                  className={`py-3 px-2 rounded-2xl font-bold text-xs transition-all duration-200 cursor-pointer ${
+                    isSel ? clayActive : clayInactive
+                  }`}
+                >
+                  {anim.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+
+      {/* ── 5. Button Colors & Borders ── */}
+      <div className="pt-4 border-t border-gray-200 space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-gray-900 mb-2">Button Background Color</label>
+          <div className="flex items-center space-x-3">
+            <input
+              type="color"
+              value={config.theme.colors.buttonDefault || '#FFFFFF'}
+              onChange={(e) => updateConfig('theme.colors.buttonDefault', e.target.value)}
+              className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer flex-shrink-0"
+            />
             <input
               type="text"
-              value={config.theme.colors.buttonDefault}
+              value={config.theme.colors.buttonDefault || '#FFFFFF'}
               onChange={(e) => updateConfig('theme.colors.buttonDefault', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
+              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm uppercase"
               placeholder="#FFFFFF"
             />
           </div>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Button text color</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.buttonText}
-            onChange={(e) => updateConfig('theme.colors.buttonText', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
+        <div>
+          <label className="block text-sm font-semibold text-gray-900 mb-2">Button Text Color</label>
+          <div className="flex items-center space-x-3">
+            <input
+              type="color"
+              value={config.theme.colors.buttonText || '#000000'}
+              onChange={(e) => updateConfig('theme.colors.buttonText', e.target.value)}
+              className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer flex-shrink-0"
+            />
             <input
               type="text"
-              value={config.theme.colors.buttonText}
+              value={config.theme.colors.buttonText || '#000000'}
               onChange={(e) => updateConfig('theme.colors.buttonText', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
+              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm uppercase"
               placeholder="#000000"
             />
           </div>
         </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-900 mb-2">Button Border Width</label>
+          <div className="grid grid-cols-4 gap-2">
+            {[0, 1, 2, 3].map((w) => {
+              const currentW = config.theme.buttonStyle.borderWidth ?? 0
+              const isSel = currentW === w
+              return (
+                <button
+                  key={w}
+                  onClick={() => updateConfig('theme.buttonStyle.borderWidth', w)}
+                  className={`p-2.5 rounded-xl border-2 font-bold text-xs transition-all ${
+                    isSel
+                      ? 'border-brand-600 bg-brand-50 text-brand-700 ring-2 ring-brand-500/20'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {w === 0 ? 'None (0px)' : `${w}px`}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {(config.theme.buttonStyle.borderWidth ?? 0) > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-900 mb-2">Button Border Color</label>
+            <div className="flex items-center space-x-3">
+              <input
+                type="color"
+                value={config.theme.buttonStyle.borderColor || config.theme.colors.buttonText || '#000000'}
+                onChange={(e) => updateConfig('theme.buttonStyle.borderColor', e.target.value)}
+                className="w-12 h-12 rounded-lg border-2 border-gray-300 cursor-pointer flex-shrink-0"
+              />
+              <input
+                type="text"
+                value={config.theme.buttonStyle.borderColor || config.theme.colors.buttonText || '#000000'}
+                onChange={(e) => updateConfig('theme.buttonStyle.borderColor', e.target.value)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm uppercase"
+                placeholder="#000000"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -2020,7 +2201,6 @@ function PreviewIcon({ link, color }: { link: LinkItem; color: string }) {
     spotify: SpotifyIcon, twitter: TwitterIcon, facebook: FacebookIcon,
     linkedin: LinkedInIcon, discord: DiscordIcon, github: GitHubIcon,
     whatsapp: WhatsAppIcon, telegram: TelegramIcon, soundcloud: SoundCloudIcon,
-    shopify: ShopifyIcon, email: EmailIcon, phone: PhoneIcon, website: WebsiteIcon,
     'apple-music': AppleMusicIcon,
   }
   const Icon = link.platform && map[link.platform] ? map[link.platform] : null
@@ -2028,8 +2208,6 @@ function PreviewIcon({ link, color }: { link: LinkItem; color: string }) {
   if (link.type === 'shop')    return <ShoppingBag className="w-2.5 h-2.5 flex-shrink-0" />
   if (link.type === 'contact') return <User        className="w-2.5 h-2.5 flex-shrink-0" />
   if (link.type === 'event')   return <Globe       className="w-2.5 h-2.5 flex-shrink-0" />
-  if (link.type === 'music')   return <Share2      className="w-2.5 h-2.5 flex-shrink-0" />
-  if (link.type === 'video')   return <Smartphone  className="w-2.5 h-2.5 flex-shrink-0" />
   return <LinkIcon className="w-2.5 h-2.5 flex-shrink-0" />
 }
 
@@ -2041,34 +2219,114 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
   const c = theme.colors
   const bs = theme.buttonStyle
   const bStyle = bs?.style ?? 'solid'
+  const animEnabled = theme.buttonStyle?.enableAnimations ?? true
+  const animStyle = theme.buttonStyle?.animation ?? 'bounce'
+
+  let animClasses = 'cursor-pointer hover:opacity-95 active:scale-[0.97] transition-all duration-200'
+  if (animEnabled) {
+    if (animStyle === 'bounce') animClasses = 'cursor-pointer hover:scale-[1.025] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-200 ease-out'
+    else if (animStyle === 'pulse') animClasses = 'cursor-pointer animate-pulse hover:animate-none hover:scale-[1.02] transition-all'
+    else if (animStyle === 'wobble') animClasses = 'cursor-pointer hover:animate-bounce hover:scale-[1.02] transition-all'
+    else if (animStyle === 'slide') animClasses = 'cursor-pointer hover:translate-x-1.5 transition-transform duration-200 ease-out'
+  }
 
   const makeBtnStyle = (): React.CSSProperties => {
-    const r = Math.min(bs?.borderRadius ?? 8, 20)
+    const r = bs?.borderRadius ?? 20
+    const shStyle = bs?.shadowStyle ?? (bs?.shadow ? 'soft' : 'none')
+    const bWidth = bs?.borderWidth ?? 0
+    const bColor = bs?.borderColor || c.buttonText || '#000000'
+
+    let boxShadow = 'none'
+    if (shStyle === 'soft') boxShadow = '0 3px 12px rgba(0,0,0,0.08)'
+    else if (shStyle === 'strong') boxShadow = '0 8px 24px rgba(0,0,0,0.22)'
+    else if (shStyle === 'hard') boxShadow = `3px 3px 0px ${bColor}`
+
     const base: React.CSSProperties = {
       fontFamily: theme.fonts?.body || 'Inter, sans-serif',
-      borderRadius: `${r}px`,
-      width: '100%', display: 'flex', alignItems: 'center',
-      height: 38, flexShrink: 0,
+      borderRadius: r > 20 ? '9999px' : `${r}px`,
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      height: 42,
+      padding: '0 8px',
+      flexShrink: 0,
+      position: 'relative',
+      textDecoration: 'none',
+      boxShadow,
     }
+    const getSmartContrast = (bgHex?: string, fallbackText?: string) => {
+      if (fallbackText && fallbackText !== '#000000' && fallbackText !== '#ffffff' && fallbackText !== '#000') {
+        return fallbackText
+      }
+      const bg = bgHex || '#ffffff'
+      if (bg.startsWith('#') && bg.length === 7) {
+        const r = parseInt(bg.substring(1, 3), 16)
+        const g = parseInt(bg.substring(3, 5), 16)
+        const b = parseInt(bg.substring(5, 7), 16)
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000
+        return brightness < 140 ? '#ffffff' : '#0f172a'
+      }
+      return fallbackText || c.profileText || '#0f172a'
+    }
+
     switch (bStyle) {
-      case 'glass':       return { ...base, backgroundColor: c.buttonDefault, color: c.buttonText, backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.18)' }
-      case 'outline':     return { ...base, backgroundColor: 'transparent', color: c.buttonText, border: `1.5px solid ${c.buttonText}` }
-      case 'hard-shadow': return { ...base, backgroundColor: c.buttonDefault, color: c.buttonText, border: `2px solid ${c.buttonText}`, boxShadow: `2px 2px 0 ${c.buttonText}` }
-      default:            return { ...base, backgroundColor: c.buttonDefault, color: c.buttonText, boxShadow: bs?.shadow ? '0 1px 6px rgba(0,0,0,0.1)' : 'none' }
+      case 'clay':
+        const isClayWhite = !c.buttonDefault || c.buttonDefault === '#ffffff' || c.buttonDefault === '#FFFFFF'
+        const clayBg = isClayWhite ? 'rgba(255, 255, 255, 0.92)' : c.buttonDefault
+        return {
+          ...base,
+          backgroundColor: clayBg,
+          color: getSmartContrast(isClayWhite ? '#ffffff' : c.buttonDefault, c.buttonText),
+          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : '1px solid rgba(255, 255, 255, 0.65)',
+          boxShadow: 'inset 0 3px 6px rgba(255, 255, 255, 0.8), inset 0 -3px 6px rgba(0, 0, 0, 0.12), 0 12px 26px -4px rgba(0, 0, 0, 0.26)',
+        }
+      case 'glass':
+        const isOpaqueWhite = !c.buttonDefault || c.buttonDefault === '#ffffff' || c.buttonDefault === '#FFFFFF'
+        return {
+          ...base,
+          backgroundColor: isOpaqueWhite ? 'rgba(255, 255, 255, 0.22)' : c.buttonDefault,
+          color: c.buttonText && c.buttonText !== '#000000' && c.buttonText !== '#000' ? c.buttonText : '#ffffff',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: `${Math.max(bWidth, 1)}px solid ${bColor && bColor !== '#000000' ? bColor : 'rgba(255,255,255,0.35)'}`,
+          boxShadow: boxShadow !== 'none' ? boxShadow : '0 4px 18px rgba(0,0,0,0.1)',
+        }
+      case 'outline':
+        const outlineColor = c.buttonText && c.buttonText !== '#000000' ? c.buttonText : (c.profileText || '#ffffff')
+        return {
+          ...base,
+          backgroundColor: 'transparent',
+          color: outlineColor,
+          border: `${Math.max(bWidth, 2)}px solid ${bColor && bColor !== '#000000' ? bColor : outlineColor}`,
+          boxShadow: 'none',
+        }
+      case 'soft':
+        const softBg = c.buttonDefault || '#ffffff'
+        return {
+          ...base,
+          backgroundColor: softBg,
+          color: getSmartContrast(softBg, c.buttonText),
+          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : '1px solid rgba(255, 255, 255, 0.75)',
+          boxShadow: '0 12px 28px -6px rgba(0, 0, 0, 0.22), 0 6px 12px -4px rgba(0, 0, 0, 0.12)',
+        }
+      default: // solid
+        const solidBg = c.buttonDefault || '#ffffff'
+        return {
+          ...base,
+          backgroundColor: solidBg,
+          color: getSmartContrast(solidBg, c.buttonText),
+          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : 'none',
+          boxShadow: boxShadow !== 'none' ? boxShadow : '0 3px 10px rgba(0,0,0,0.1)',
+        }
     }
   }
 
   const btnStyle = makeBtnStyle()
   const visible = config.links.filter(l => l.isVisible !== false)
-  const maxVisible = 6
+  const maxVisible = 5
   const displayLinks = visible.slice(0, maxVisible)
   const hasMore = visible.length > maxVisible
-  const rr = Math.min(bs?.borderRadius ?? 8, 8)
-  const thumbBox: React.CSSProperties = {
-    width: 26, height: 26, borderRadius: `${rr}px`, flexShrink: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(128,128,128,0.2)', color: c.buttonText,
-  }
 
   const PlatformThumb = ({ link }: { link: LinkItem }) => {
     const map: Record<string, React.FC<{ size?: number; className?: string }>> = {
@@ -2080,95 +2338,145 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
       'apple-music': AppleMusicIcon,
     }
     const Icon = link.platform ? map[link.platform] : null
-    if (Icon) return <div style={thumbBox}><Icon size={13} /></div>
-    if (link.type === 'shop')    return <div style={thumbBox}><ShoppingBag style={{ width: 12, height: 12 }} /></div>
-    if (link.type === 'contact') return <div style={thumbBox}><User style={{ width: 12, height: 12 }} /></div>
-    if (link.type === 'event')   return <div style={thumbBox}><Globe style={{ width: 12, height: 12 }} /></div>
-    return <div style={thumbBox}><LinkIcon style={{ width: 12, height: 12 }} /></div>
+    return (
+      <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 overflow-hidden text-current">
+        {link.thumbnail ? (
+          <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
+        ) : Icon ? (
+          <Icon size={14} />
+        ) : link.type === 'shop' ? (
+          <ShoppingBag className="w-3.5 h-3.5" />
+        ) : link.type === 'contact' ? (
+          <User className="w-3.5 h-3.5" />
+        ) : link.type === 'event' ? (
+          <Globe className="w-3.5 h-3.5" />
+        ) : (
+          <LinkIcon className="w-3.5 h-3.5" />
+        )}
+      </div>
+    )
   }
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', ...bg }}>
       {theme.noiseOpacity && (
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-          opacity: theme.noiseOpacity, mixBlendMode: 'overlay' as any }} />
+          opacity: theme.noiseOpacity, mixBlendMode: 'overlay' as any
+        }} />
       )}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '30px 12px 10px' }}>
 
-        {/* Avatar */}
-        <div style={{ flexShrink: 0, marginBottom: 7 }}>
-          {config.profile.avatar && config.profile.avatar !== 'user'
-            ? (config.profile.avatar.startsWith('http') || config.profile.avatar.startsWith('data:')
-              ? <img src={config.profile.avatar} alt="" style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.3)' }} />
-              : <div style={{ width: 54, height: 54, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{config.profile.avatar}</div>
-            )
-            : <div style={{ width: 54, height: 54, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <User style={{ width: 22, height: 22, color: c.profileText, opacity: 0.55 }} />
-              </div>
-          }
+      {/* ── Outer Card Wrapper matching user reference image ── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', padding: '16px 14px 10px' }}>
+
+        {/* ── Top Bar Action Buttons (Inside Card) ── */}
+        <div className="flex items-center justify-between w-full mb-3 flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-white/30 transition-colors">
+            <Sparkles className="w-3.5 h-3.5" />
+          </div>
+          <div className="w-7 h-7 rounded-full bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-white/30 transition-colors">
+            <Share2 className="w-3.5 h-3.5" />
+          </div>
         </div>
 
-        {/* Name */}
-        <p style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter', fontSize: 13, fontWeight: 700, textAlign: 'center', marginBottom: 3, lineHeight: 1.2, flexShrink: 0 }}>
-          {config.profile.title || 'Your Name'}
-        </p>
+        {/* ── Avatar Profile Header ── */}
+        <div className="flex flex-col items-center text-center flex-shrink-0 mb-4">
+          <div className="mb-2">
+            {config.profile.avatar && config.profile.avatar !== 'user' ? (
+              config.profile.avatar.startsWith('http') || config.profile.avatar.startsWith('data:') ? (
+                <img
+                  src={config.profile.avatar}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="w-14 h-14 rounded-full object-cover border-2 border-white/40 shadow-md"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-2xl shadow-md">
+                  {config.profile.avatar}
+                </div>
+              )
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center shadow-md">
+                <User className="w-7 h-7 text-white/70" />
+              </div>
+            )}
+          </div>
 
-        {/* Bio */}
-        {config.profile.bio && (
-          <p style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter', fontSize: 10, textAlign: 'center', opacity: 0.8, lineHeight: 1.3, marginBottom: 10, flexShrink: 0, maxWidth: 190, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-            {config.profile.bio}
-          </p>
-        )}
-        {!config.profile.bio && <div style={{ height: 10, flexShrink: 0 }} />}
+          <h2
+            className="text-xs font-black leading-snug tracking-tight mb-0.5"
+            style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter' }}
+          >
+            {config.profile.title || 'satvikpatel8373'}
+          </h2>
 
-        {/* Links */}
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0, marginBottom: 6 }}>
+          {config.profile.bio && (
+            <p
+              className="text-[10px] opacity-85 max-w-[200px] mx-auto line-clamp-2 font-medium leading-tight"
+              style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter' }}
+            >
+              {config.profile.bio}
+            </p>
+          )}
+        </div>
+
+        {/* ── Stacked Linktree Link Buttons ── */}
+        <div className="w-full flex flex-col gap-2 flex-shrink-0 mb-3">
           {displayLinks.length === 0 && (
-            <p style={{ textAlign: 'center', fontSize: 9, color: c.profileBio, opacity: 0.35, padding: '10px 0' }}>No links yet</p>
+            <p style={{ textAlign: 'center', fontSize: 10, color: c.profileBio, opacity: 0.4, padding: '12px 0' }}>
+              No links added yet
+            </p>
           )}
           {displayLinks.map(link => {
             if (link.type === 'header') return (
-              <div key={link.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ flex: 1, height: 1, backgroundColor: c.profileText, opacity: 0.12 }} />
-                <span style={{ color: c.profileText, opacity: 0.4, fontSize: 7, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as any }}>{link.text}</span>
-                <div style={{ flex: 1, height: 1, backgroundColor: c.profileText, opacity: 0.12 }} />
+              <div key={link.id} className="flex items-center gap-2 py-1">
+                <div className="flex-1 h-px bg-white/20" />
+                <span className="text-[9px] font-bold tracking-wider uppercase opacity-60" style={{ color: c.profileText }}>
+                  {link.text}
+                </span>
+                <div className="flex-1 h-px bg-white/20" />
               </div>
             )
             if (link.type === 'text') return (
-              <p key={link.id} style={{ textAlign: 'center', fontSize: 9, color: c.profileBio, opacity: 0.7, lineHeight: 1.4 }}>
-                {(link.description || link.text).slice(0, 55)}
+              <p key={link.id} className="text-center text-[10px] opacity-75 font-medium leading-relaxed" style={{ color: c.profileBio }}>
+                {(link.description || link.text).slice(0, 60)}
               </p>
             )
             return (
-              <div key={link.id} style={btnStyle}>
-                <div style={{ width: 8, flexShrink: 0 }} />
+              <a
+                key={link.id}
+                href={link.url || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (!link.url || link.url === '#') e.preventDefault()
+                }}
+                style={btnStyle}
+                className={`group ${animClasses}`}
+              >
                 <PlatformThumb link={link} />
-                <div style={{ flex: 1, textAlign: 'center', padding: '0 4px' }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: c.buttonText, lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {link.text}
-                  </span>
-                  {link.type === 'shop' && link.price && (
-                    <span style={{ fontSize: 9, color: c.buttonText, opacity: 0.65 }}>{link.currency || '$'}{link.price}</span>
-                  )}
+                <span className="flex-1 text-center font-extrabold text-[11px] truncate px-2" style={{ color: c.buttonText }}>
+                  {link.text}
+                </span>
+                <div className="w-6 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </div>
-                <div style={{ width: 26, flexShrink: 0 }} />
-                <div style={{ width: 8, flexShrink: 0 }} />
-              </div>
+              </a>
             )
           })}
           {hasMore && (
-            <p style={{ textAlign: 'center', fontSize: 9, color: c.profileBio, opacity: 0.4 }}>+{visible.length - maxVisible} more</p>
+            <p style={{ textAlign: 'center', fontSize: 9, color: c.profileBio, opacity: 0.5 }}>
+              +{visible.length - maxVisible} more links
+            </p>
           )}
         </div>
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
 
-        {/* Join footer */}
-        <div style={{ width: '100%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 32, borderRadius: `${Math.min(bs?.borderRadius ?? 8, 20)}px`, backgroundColor: 'rgba(255,255,255,0.9)', boxShadow: '0 1px 8px rgba(0,0,0,0.1)', marginBottom: 6 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#111' }}>
-            Join {(config.profile.title || 'me').slice(0, 16)} on BioLink
+        {/* ── Bottom Linktree Join Pill Button ── */}
+        <div className="w-full flex-shrink-0 flex items-center justify-center py-2 px-3 rounded-full bg-white text-slate-900 shadow-md mb-2 cursor-pointer hover:bg-slate-50 active:scale-95 transition-all">
+          <span className="text-[10px] font-extrabold text-center truncate">
+            Join {config.profile.title || 'satvikpatel8373'} on BioLink
           </span>
         </div>
 
@@ -2425,11 +2733,18 @@ function ShareModal({ onClose }: { onClose: () => void }) {
   const [cardId, setCardId] = useState('')
   const [cardUrl, setCardUrl] = useState('')
 
-  // Move browser globals to useEffect (client-side only, prevents SSR errors)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const id = localStorage.getItem('editorPreviewCardId') || ''
-      const url = `${window.location.origin}/card/${id}`
+      const savedConfig = localStorage.getItem('currentBioLinkConfig')
+      let handle = ''
+      if (savedConfig) {
+        try {
+          const parsed = JSON.parse(savedConfig)
+          handle = parsed.profile?.handle || parsed.profile?.title || ''
+        } catch (e) {}
+      }
+      const url = getCardPublicUrl(id, handle)
       setCardId(id)
       setCardUrl(url)
     }

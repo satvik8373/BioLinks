@@ -1,5 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
 import { getFirestore, Firestore } from 'firebase/firestore'
+import { getAuth, Auth, GoogleAuthProvider, GithubAuthProvider } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,6 +15,9 @@ const firebaseConfig = {
 // Initialize Firebase
 let app: FirebaseApp
 let db: Firestore
+let auth: Auth
+let googleProvider: GoogleAuthProvider
+let githubProvider: GithubAuthProvider
 
 if (typeof window !== 'undefined') {
   // Client-side initialization
@@ -23,6 +27,9 @@ if (typeof window !== 'undefined') {
     app = getApps()[0]
   }
   db = getFirestore(app)
+  auth = getAuth(app)
+  googleProvider = new GoogleAuthProvider()
+  githubProvider = new GithubAuthProvider()
 } else {
   // Server-side initialization
   if (!getApps().length) {
@@ -31,6 +38,9 @@ if (typeof window !== 'undefined') {
     app = getApps()[0]
   }
   db = getFirestore(app)
+  auth = getAuth(app)
+  googleProvider = new GoogleAuthProvider()
+  githubProvider = new GithubAuthProvider()
 }
 
-export { app, db }
+export { app, db, auth, googleProvider, githubProvider }

@@ -1,59 +1,87 @@
 import Link from 'next/link'
+import { Sparkles, Heart } from 'lucide-react'
 
 export default function Footer() {
   return (
-    <footer className="bg-neo-black text-neo-white py-16 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-          {/* Brand */}
-          <div>
-            <h3 className="text-2xl font-bold mb-4">BIOCARD</h3>
-            <p className="font-medium text-neo-gray">
-              Create stunning bio link cards with our template marketplace.
+    <footer className="mt-20 border-t border-slate-200/80 bg-slate-900 text-white">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-10">
+          {/* Brand Column */}
+          <div className="md:col-span-1">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <span className="font-extrabold text-white text-lg tracking-tight">
+                Bio<span className="text-brand-400">Link</span>
+              </span>
+            </div>
+            <p className="text-slate-400 text-xs font-medium leading-relaxed">
+              Create stunning, high-converting bio link cards with official Claymorphism design templates.
             </p>
           </div>
-          
-          {/* Themes */}
+
+          {/* Theme Collections */}
           <div>
-            <h4 className="font-bold mb-4">THEMES</h4>
-            <ul className="space-y-2 font-medium text-neo-gray">
-              <li><Link href="/create" className="hover:text-neo-yellow">Minimal</Link></li>
-              <li><Link href="/create" className="hover:text-neo-yellow">Vibrant</Link></li>
-              <li><Link href="/create" className="hover:text-neo-yellow">Professional</Link></li>
-              <li><Link href="/create" className="hover:text-neo-yellow">Creative</Link></li>
+            <h4 className="font-bold text-white mb-4 text-xs uppercase tracking-wider text-slate-300">Themes</h4>
+            <ul className="space-y-2.5">
+              {['Minimal', 'Vibrant', 'Gradient', 'Dark'].map(t => (
+                <li key={t}>
+                  <Link href="/create" className="text-xs text-slate-400 hover:text-white transition-colors font-medium">
+                    {t}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
-          
-          {/* Tools */}
+
+          {/* Core Tools */}
           <div>
-            <h4 className="font-bold mb-4">TOOLS</h4>
-            <ul className="space-y-2 font-medium text-neo-gray">
-              <li><Link href="/create" className="hover:text-neo-yellow">Create Bio Link</Link></li>
-              <li><Link href="/dashboard" className="hover:text-neo-yellow">Dashboard</Link></li>
-              <li><Link href="/card/demo123" className="hover:text-neo-yellow">Sample Card</Link></li>
+            <h4 className="font-bold text-white mb-4 text-xs uppercase tracking-wider text-slate-300">Tools</h4>
+            <ul className="space-y-2.5">
+              {[
+                { label: 'Create Bio Link', href: '/create' },
+                { label: 'My Cards',        href: '/my-cards' },
+                { label: 'Dashboard',       href: '/dashboard' },
+              ].map(item => (
+                <li key={item.href}>
+                  <Link href={item.href} className="text-xs text-slate-400 hover:text-white transition-colors font-medium">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
-          
+
           {/* Legal */}
           <div>
-            <h4 className="font-bold mb-4">LEGAL</h4>
-            <ul className="space-y-2 font-medium text-neo-gray">
-              <li><Link href="/privacy" className="hover:text-neo-yellow">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-neo-yellow">Terms of Service</Link></li>
+            <h4 className="font-bold text-white mb-4 text-xs uppercase tracking-wider text-slate-300">Legal</h4>
+            <ul className="space-y-2.5">
+              {[
+                { label: 'Privacy Policy',   href: '/privacy' },
+                { label: 'Terms of Service', href: '/terms' },
+              ].map(item => (
+                <li key={item.href}>
+                  <Link href={item.href} className="text-xs text-slate-400 hover:text-white transition-colors font-medium">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
-        
-        {/* Bottom */}
-        <div className="border-t-4 border-neo-white pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="font-medium text-neo-gray mb-4 md:mb-0">
-            © 2024 BioCard Creator. All rights reserved.
+
+        {/* Bottom Bar */}
+        <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
+            Designed for creators — © {new Date().getFullYear()} BioLink Inc.
           </p>
-          
-          <div className="flex space-x-6">
-            <a href="#" className="text-neo-gray hover:text-neo-yellow font-bold">TWITTER</a>
-            <a href="#" className="text-neo-gray hover:text-neo-yellow font-bold">INSTAGRAM</a>
-            <a href="#" className="text-neo-gray hover:text-neo-yellow font-bold">GITHUB</a>
+          <div className="flex gap-6">
+            {['Twitter', 'Instagram', 'GitHub'].map(s => (
+              <a key={s} href="#" className="text-slate-400 hover:text-brand-400 text-xs font-bold transition-colors">
+                {s}
+              </a>
+            ))}
           </div>
         </div>
       </div>

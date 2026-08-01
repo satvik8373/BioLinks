@@ -3,20 +3,23 @@
 import { useEffect, useState } from 'react'
 import Hero from '@/components/landing/Hero'
 import Footer from '@/components/layout/Footer'
-import Card from '@/components/ui/Card'
-import Button from '@/components/ui/Button'
 import Link from 'next/link'
-import { 
-  BarChart3, 
-  Plus, 
-  Eye, 
-  Users, 
-  TrendingUp,
-  ArrowRight,
-  Sparkles,
-  Hand,
-  Rocket
+import {
+  BarChart3, Plus, Eye, Users, TrendingUp,
+  ArrowRight, Sparkles, Rocket, Edit3
 } from 'lucide-react'
+
+const STAT_CONFIG = [
+  { key: 'cards',  label: 'Your Cards',    icon: Users,      bgColor: 'bg-slate-900' },
+  { key: 'views',  label: 'Total Views',   icon: Eye,        bgColor: 'bg-brand-600' },
+  { key: 'clicks', label: 'Total Clicks',  icon: TrendingUp, bgColor: 'bg-indigo-600' },
+]
+
+const QUICK_ACTIONS = [
+  { href: '/create',             icon: Plus,      label: 'Create New Card',  desc: 'Pick an official theme & customize', btnVariant: 'primary' },
+  { href: '/my-cards',           icon: BarChart3,  label: 'My Bio Cards',     desc: 'Manage & view all your bio cards',  btnVariant: 'ghost' },
+  { href: '/dashboard/analytics',icon: Eye,        label: 'Analytics',        desc: 'Views, clicks & audience data',    btnVariant: 'ghost' },
+]
 
 export default function Home() {
   const [userProfile, setUserProfile] = useState<any>(null)
@@ -26,179 +29,163 @@ export default function Home() {
     const profile = localStorage.getItem('userProfile')
     if (profile) {
       setUserProfile(JSON.parse(profile))
-      
-      // Load recent cards
       const savedCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      const cardArray = Object.values(savedCards)
-      const recent = cardArray
+      const arr = Object.values(savedCards)
         .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 3)
-      setRecentCards(recent)
+      setRecentCards(arr as any[])
     }
   }, [])
 
-  // If user is authenticated, show dashboard-style home
-  if (userProfile) {
-    const totalCards = recentCards.length
-    const totalViews = recentCards.reduce((sum: number, card: any) => sum + (card.analytics?.views || 0), 0)
-    const totalClicks = recentCards.reduce((sum: number, card: any) => sum + (card.analytics?.clicks || 0), 0)
-
+  if (!userProfile) {
     return (
-      <main className="min-h-screen bg-neo-white">
-        {/* Welcome Header */}
-        <div className="bg-neo-yellow border-b-4 border-neo-black px-4 py-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-4xl font-bold mb-2 flex items-center">
-                  Welcome back, {userProfile.displayName}! <Hand className="w-10 h-10 ml-3" />
-                </h1>
-                <p className="text-xl text-neo-gray">
-                  Ready to create something amazing today?
-                </p>
-              </div>
-              
-              <Link href="/create">
-                <Button size="lg">
-                  <Plus className="w-5 h-5 mr-2" />
-                  CREATE NEW CARD
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto p-6">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="bg-neo-pink">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-sm text-neo-black/70">YOUR CARDS</p>
-                  <p className="text-2xl font-bold text-neo-black">{totalCards}</p>
-                </div>
-                <Users className="w-8 h-8 text-neo-black/50" />
-              </div>
-            </Card>
-
-            <Card className="bg-neo-cyan">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-sm text-neo-black/70">TOTAL VIEWS</p>
-                  <p className="text-2xl font-bold text-neo-black">{totalViews}</p>
-                </div>
-                <Eye className="w-8 h-8 text-neo-black/50" />
-              </div>
-            </Card>
-
-            <Card className="bg-neo-green">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-sm text-neo-black/70">TOTAL CLICKS</p>
-                  <p className="text-2xl font-bold text-neo-black">{totalClicks}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-neo-black/50" />
-              </div>
-            </Card>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Link href="/create">
-              <Card hover className="text-center cursor-pointer">
-                <Plus className="w-12 h-12 mx-auto mb-4 text-neo-pink" />
-                <h3 className="font-bold text-lg mb-2">CREATE NEW CARD</h3>
-                <p className="text-sm text-neo-gray">Choose a theme and customize your bio link</p>
-              </Card>
-            </Link>
-
-            <Link href="/dashboard">
-              <Card hover className="text-center cursor-pointer">
-                <BarChart3 className="w-12 h-12 mx-auto mb-4 text-neo-cyan" />
-                <h3 className="font-bold text-lg mb-2">VIEW DASHBOARD</h3>
-                <p className="text-sm text-neo-gray">Manage all your cards and analytics</p>
-              </Card>
-            </Link>
-
-            <Link href="/dashboard/analytics">
-              <Card hover className="text-center cursor-pointer">
-                <Eye className="w-12 h-12 mx-auto mb-4 text-neo-green" />
-                <h3 className="font-bold text-lg mb-2">VIEW ANALYTICS</h3>
-                <p className="text-sm text-neo-gray">Detailed insights and performance</p>
-              </Card>
-            </Link>
-          </div>
-
-          {/* Recent Cards */}
-          {recentCards.length > 0 && (
-            <Card className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold">RECENT CARDS</h2>
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm">
-                    View All
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {recentCards.map((card: any) => (
-                  <div key={card.id} className="p-4 border-2 border-neo-black bg-neo-white hover:bg-neo-yellow transition-colors">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-8 h-8 bg-neo-pink border-2 border-neo-black rounded-full flex items-center justify-center text-sm">
-                        {card.config.profile.avatar}
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-sm">{card.config.profile.title}</h3>
-                        <p className="text-xs text-neo-gray">{card.config.links.length} links</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="flex items-center text-neo-gray">
-                        <Eye className="w-3 h-3 mr-1" />
-                        {card.analytics?.views || 0}
-                      </span>
-                      <Link href={`/editor/${card.id}`}>
-                        <Button size="sm" variant="outline">
-                          Edit
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Get Started Section for New Users */}
-          {recentCards.length === 0 && (
-            <Card className="text-center py-12 mb-8">
-              <Rocket className="w-24 h-24 mx-auto mb-4 text-neo-pink" />
-              <h2 className="text-2xl font-bold mb-4">Ready to create your first bio link?</h2>
-              <p className="text-neo-gray mb-6 max-w-md mx-auto">
-                Choose from our collection of professionally designed themes and customize it to match your style.
-              </p>
-              <Link href="/create">
-                <Button size="lg">
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  BROWSE THEMES
-                </Button>
-              </Link>
-            </Card>
-          )}
-        </div>
-
+      <main className="min-h-screen">
+        <Hero />
         <Footer />
       </main>
     )
   }
 
-  // Default home page for non-authenticated users
+  const totalCards  = recentCards.length
+  const totalViews  = recentCards.reduce((s: number, c: any) => s + (c.analytics?.views  || 0), 0)
+  const totalClicks = recentCards.reduce((s: number, c: any) => s + (c.analytics?.clicks || 0), 0)
+  const statValues  = { cards: totalCards, views: totalViews, clicks: totalClicks }
+
   return (
     <main className="min-h-screen">
-      <Hero />
+      {/* ── Official Welcome Banner (Slate 900) ── */}
+      <div className="max-w-6xl mx-auto px-5 pt-6 pb-2">
+        <div
+          className="rounded-[24px] p-7 bg-slate-900 text-white border border-slate-800 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+        >
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold mb-1 tracking-tight">
+              Welcome back, {userProfile.displayName}! 👋
+            </h1>
+            <p className="text-slate-300 text-xs sm:text-sm font-medium">
+              Manage your published bio link cards and monitor audience analytics.
+            </p>
+          </div>
+          <Link
+            href="/create"
+            className="clay-btn clay-btn-primary px-5 py-2.5 text-xs font-bold flex-shrink-0 flex items-center gap-2 shadow-md"
+          >
+            <Plus className="w-4 h-4" /> Create New Card
+          </Link>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-5 py-6 space-y-6">
+
+        {/* ── Stat Cards Grid ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {STAT_CONFIG.map(({ key, label, icon: Icon, bgColor }) => (
+            <div
+              key={key}
+              className="clay-card-flat p-5 flex items-center justify-between bg-white"
+            >
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                <p className="text-3xl font-extrabold text-slate-900">{(statValues as any)[key]}</p>
+              </div>
+              <div
+                className={`w-11 h-11 rounded-xl flex items-center justify-center ${bgColor} text-white shadow-sm`}
+              >
+                <Icon className="w-5 h-5" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Quick Action Cards ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {QUICK_ACTIONS.map(({ href, icon: Icon, label, desc }) => (
+            <Link
+              key={href}
+              href={href}
+              className="clay-card p-5 flex flex-col justify-between group bg-white"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 flex items-center justify-center font-bold"
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">{label}</h3>
+                  <p className="text-slate-500 text-xs font-medium">{desc}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <span className="text-xs font-bold text-brand-600 group-hover:text-brand-700 transition-colors">
+                  Open Action
+                </span>
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* ── Recent Bio Cards List ── */}
+        {recentCards.length > 0 ? (
+          <div className="clay-card-flat p-6 bg-white">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-extrabold text-slate-900">Recent Bio Cards</h2>
+              <Link href="/my-cards" className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors">
+                View all cards <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {recentCards.map((card: any) => (
+                <div
+                  key={card.id}
+                  className="clay-card p-4 bg-slate-50/60 border border-slate-200/80"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+                      {card.config?.profile?.avatar || '👤'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-extrabold text-xs text-slate-900 truncate">{card.config?.profile?.title}</p>
+                      <p className="text-[11px] text-slate-500 font-semibold">{card.config?.links?.length || 0} links attached</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200/60">
+                    <span className="flex items-center gap-1 text-xs text-slate-600 font-bold">
+                      <Eye className="w-3.5 h-3.5 text-slate-400" />{card.analytics?.views || 0} views
+                    </span>
+                    <Link
+                      href="/my-cards"
+                      className="clay-btn clay-btn-ghost px-3 py-1 text-xs font-bold"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="clay-card-flat p-12 text-center bg-white">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-brand-600 text-white shadow-md"
+            >
+              <Rocket className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-extrabold text-slate-900 mb-2">Ready to create your first bio card?</h2>
+            <p className="text-slate-500 text-xs mb-6 max-w-sm mx-auto font-medium">
+              Choose from our collection of official themes and customize your card in seconds.
+            </p>
+            <Link
+              href="/create"
+              className="clay-btn clay-btn-primary px-6 py-2.5 text-xs font-bold"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5" /> Browse Themes
+            </Link>
+          </div>
+        )}
+      </div>
+
       <Footer />
     </main>
   )

@@ -4,34 +4,42 @@ import { clsx } from 'clsx'
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
+  hint?: string
+  icon?: React.ReactNode
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, className, ...props }, ref) => {
+  ({ label, error, hint, icon, className, ...props }, ref) => {
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-bold mb-2 text-neo-black">
+          <label className="block text-xs font-bold mb-1.5 text-slate-800 uppercase tracking-wider">
             {label}
           </label>
         )}
-        <input
-          ref={ref}
-          className={clsx(
-            'w-full px-4 py-3 border-4 border-neo-black bg-white focus:outline-none focus:shadow-neo font-medium',
-            error && 'border-red-500',
-            className
+        <div className="relative">
+          {icon && (
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              {icon}
+            </div>
           )}
-          {...props}
-        />
-        {error && (
-          <p className="mt-1 text-sm text-red-500 font-medium">{error}</p>
-        )}
+          <input
+            ref={ref}
+            className={clsx(
+              'clay-input',
+              icon && 'pl-10',
+              error && '!border-red-500 !ring-2 !ring-red-500/20',
+              className
+            )}
+            {...props}
+          />
+        </div>
+        {error && <p className="mt-1.5 text-xs font-bold text-red-600">{error}</p>}
+        {hint && !error && <p className="mt-1.5 text-xs text-slate-500 font-medium">{hint}</p>}
       </div>
     )
   }
 )
 
 Input.displayName = 'Input'
-
 export default Input
