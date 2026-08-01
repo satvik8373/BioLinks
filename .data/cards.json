@@ -1,0 +1,192 @@
+{
+  "1139dai67": {
+    "id": "1139dai67",
+    "handle": "satvikpatel",
+    "config": {
+      "profile": {
+        "avatar": "https://lh3.googleusercontent.com/a/ACg8ocKuDPs1iUYkktOtMfamLDZIVWDki9B2R75cjRirOgiOqnwsYQ3aXA=s96-c",
+        "title": "Satvikpatel",
+        "bio": "Welcome to my bio link card",
+        "location": "Ahemdabad",
+        "website": "",
+        "profession": "",
+        "handle": "satvikpatel"
+      },
+      "links": [
+        {
+          "id": "1",
+          "type": "link",
+          "text": "hello",
+          "url": "https://example.com",
+          "icon": "globe",
+          "isVisible": true
+        },
+        {
+          "id": "2",
+          "type": "link",
+          "text": "Design Portfolio 2026",
+          "url": "https://example.com",
+          "icon": "globe",
+          "isVisible": true
+        },
+        {
+          "id": "3",
+          "type": "link",
+          "text": "Book 1-on-1 Mentorship",
+          "url": "https://example.com",
+          "icon": "globe",
+          "isVisible": true
+        },
+        {
+          "id": "1785600787533",
+          "type": "social",
+          "text": "Instagram",
+          "url": "",
+          "icon": "instagram",
+          "isVisible": true,
+          "platform": "instagram"
+        }
+      ],
+      "theme": {
+        "id": "nourish",
+        "name": "Nourish",
+        "category": "mesh",
+        "colors": {
+          "background": "#212121",
+          "backgroundMesh": "radial-gradient(ellipse 80% 60% at 15% 25%, #92400E 0%, transparent 55%), radial-gradient(ellipse 70% 70% at 80% 10%, #B45309 0%, transparent 50%), radial-gradient(ellipse 60% 80% at 50% 85%, #78350F 0%, transparent 55%), radial-gradient(ellipse 50% 50% at 75% 65%, #D97706 0%, transparent 45%), linear-gradient(160deg, #1C0A00 0%, #3B1A00 100%)",
+          "buttonDefault": "#ffffff",
+          "buttonHover": "rgba(255,255,255,0.25)",
+          "buttonText": "#000000",
+          "profileText": "#FFFFFF",
+          "profileBio": "rgba(255,255,255,0.75)",
+          "accent": "#F59E0B",
+          "backgroundGradient": null
+        },
+        "buttonStyle": {
+          "borderRadius": 20,
+          "borderWidth": 0,
+          "shadow": true,
+          "style": "solid",
+          "animation": "bounce",
+          "shadowStyle": "soft",
+          "borderColor": "",
+          "enableAnimations": true
+        },
+        "fonts": {
+          "heading": "Inter",
+          "body": "Inter"
+        },
+        "noiseOpacity": 0.03,
+        "preview": "#1C0A00",
+        "isPremium": true
+      },
+      "socialLinks": {
+        "instagram": "alexrivera",
+        "twitter": "alexrivera",
+        "youtube": "alexrivera",
+        "website": ""
+      }
+    },
+    "analytics": {
+      "views": 0,
+      "clicks": 0
+    },
+    "createdAt": "2026-08-01T17:08:04.814Z",
+    "updatedAt": "2026-08-01T17:08:04.814Z"
+  },
+  "satvikpatel": {
+    "id": "1139dai67",
+    "handle": "satvikpatel",
+    "config": {
+      "profile": {
+        "avatar": "https://lh3.googleusercontent.com/a/ACg8ocKuDPs1iUYkktOtMfamLDZIVWDki9B2R75cjRirOgiOqnwsYQ3aXA=s96-c",
+        "title": "Satvikpatel",
+        "bio": "Welcome to my bio link card",
+        "location": "Ahemdabad",
+        "website": "",
+        "profession": "",
+        "handle": "satvikpatel"
+      },
+      "links": [
+        {
+          "id": "1",
+          "type": "link",
+          "text": "hello",
+          "url": "https://example.com",
+          "icon": "globe",
+          "isVisible": true
+        },
+        {
+          "id": "2",
+          "type": "link",
+          "text": "Design Portfolio 2026",
+          "url": "https://example.com",
+          "icon": "globe",
+          "isVisible": true
+        },
+        {
+          "id": "3",
+          "type": "link",
+          "text": "Book 1-on-1 Mentorship",
+          "url": "https://example.com",
+          "icon": "globe",
+          "isVisible": true
+        },
+        {
+          "id": "1785600787533",
+          "type": "social",
+          "text": "Instagram",
+          "url": "",
+          "icon": "instagram",
+          "isVisible": true,
+          "platform": "instagram"
+        }
+      ],
+      "theme": {
+        "id": "nourish",
+        "name": "Nourish",
+        "category": "mesh",
+        "colors": {
+          "background": "#212121",
+          "backgroundMesh": "radial-gradient(ellipse 80% 60% at 15% 25%, #92400E 0%, transparent 55%), radial-gradient(ellipse 70% 70% at 80% 10%, #B45309 0%, transparent 50%), radial-gradient(ellipse 60% 80% at 50% 85%, #78350F 0%, transparent 55%), radial-gradient(ellipse 50% 50% at 75% 65%, #D97706 0%, transparent 45%), linear-gradient(160deg, #1C0A00 0%, #3B1A00 100%)",
+          "buttonDefault": "#ffffff",
+          "buttonHover": "rgba(255,255,255,0.25)",
+          "buttonText": "#000000",
+          "profileText": "#FFFFFF",
+          "profileBio": "rgba(255,255,255,0.75)",
+          "accent": "#F59E0B",
+          "backgroundGradient": null
+        },
+        "buttonStyle": {
+          "borderRadius": 20,
+          "borderWidth": 0,
+          "shadow": true,
+          "style": "solid",
+          "animation": "bounce",
+          "shadowStyle": "soft",
+          "borderColor": "",
+          "enableAnimations": true
+        },
+        "fonts": {
+          "heading": "Inter",
+          "body": "Inter"
+        },
+        "noiseOpacity": 0.03,
+        "preview": "#1C0A00",
+        "isPremium": true
+      },
+      "socialLinks": {
+        "instagram": "alexrivera",
+        "twitter": "alexrivera",
+        "youtube": "alexrivera",
+        "website": ""
+      }
+    },
+    "analytics": {
+      "views": 0,
+      "clicks": 0
+    },
+    "createdAt": "2026-08-01T17:08:04.814Z",
+    "updatedAt": "2026-08-01T17:08:04.814Z"
+  }
+}

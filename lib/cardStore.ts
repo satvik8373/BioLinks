@@ -61,8 +61,15 @@ loadCardsFromFile()
 
 export function storeCardGlobal(cardData: StoredCard): StoredCard {
   const { id, handle } = cardData
+  const existingById = id ? globalCardsMap.get(id.toLowerCase()) : null
+  const existingByHandle = handle ? globalCardsMap.get(handle.toLowerCase()) : null
+  const existing = existingById || existingByHandle
+
   const record: StoredCard = {
+    ...existing,
     ...cardData,
+    analytics: cardData.analytics || existing?.analytics || { views: 0, clicks: 0 },
+    createdAt: existing?.createdAt || cardData.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
 

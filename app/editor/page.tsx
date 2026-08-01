@@ -154,23 +154,43 @@ export default function EditorPage() {
 
   const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
 
-  // ── Write config to the preview card in localStorage whenever it changes ──
+  // ── Write config to preview card & sync live to server store ──
   const syncPreviewCard = (cfg: BioLinkConfig, pid: string) => {
     if (!pid) return
     try {
-      const cards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      cards[pid] = {
+      const handleSlug = getCleanUsernameSlug(cfg.profile?.handle || cfg.profile?.title)
+      const cardPayload = {
         id: pid,
+        handle: handleSlug,
         config: {
           profile: cfg.profile,
           links: cfg.links,
           theme: cfg.theme,
           socialLinks: cfg.socialLinks,
         },
+      }
+      const cards = JSON.parse(localStorage.getItem('bioCards') || '{}')
+      cards[pid] = {
+        ...cards[pid],
+        ...cardPayload,
         analytics: cards[pid]?.analytics || { views: 0, clicks: 0 },
         createdAt: cards[pid]?.createdAt || new Date().toISOString(),
       }
+      if (handleSlug) {
+        cards[handleSlug] = cards[pid]
+      }
       localStorage.setItem('bioCards', JSON.stringify(cards))
+
+      // Async live server sync
+      fetch('/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardId: pid,
+          handle: handleSlug,
+          config: cardPayload.config,
+        }),
+      }).catch(() => {})
     } catch {}
   }
 

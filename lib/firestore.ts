@@ -60,7 +60,7 @@ export async function saveCard(cardId: string, cardData: Omit<BioCard, 'id'>) {
       updatedAt: serverTimestamp(),
     }
     
-    await setDoc(cardRef, dataToSave)
+    await setDoc(cardRef, dataToSave, { merge: true })
     
     return { success: true, cardId }
   } catch (error: any) {
