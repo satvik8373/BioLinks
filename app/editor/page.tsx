@@ -316,6 +316,7 @@ export default function EditorPage() {
           },
           body: JSON.stringify({
             cardId,
+            handle: handleSlug,
             config: cardPayload.config,
             analytics: cardPayload.analytics,
           }),

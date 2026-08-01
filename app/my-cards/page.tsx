@@ -10,6 +10,7 @@ import {
 
 interface CardData {
   id: string
+  handle?: string
   title: string
   bio: string
   avatar: string
@@ -73,11 +74,47 @@ export default function MyCardsPage() {
     if (!profile) { router.push('/login'); return }
 
     const bioCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-    const list: CardData[] = Object.values(bioCards).map((card: any) => {
+    
+    // Map to deduplicate cards by unique card ID
+    const cardMap = new Map<string, any>()
+
+    Object.entries(bioCards).forEach(([key, cardVal]: [string, any]) => {
+      if (cardVal && typeof cardVal === 'object') {
+        const id = cardVal.id || key
+        if (!cardMap.has(id)) {
+          cardMap.set(id, cardVal)
+        }
+      }
+    })
+
+    // If bioCards map is empty, check if active currentBioLinkConfig exists and auto-save it
+    if (cardMap.size === 0) {
+      const activeConfigStr = localStorage.getItem('currentBioLinkConfig')
+      const activeId = localStorage.getItem('editorPreviewCardId') || 'my-biolink'
+      if (activeConfigStr) {
+        try {
+          const cfg = JSON.parse(activeConfigStr)
+          const handleSlug = cfg.profile?.handle || cfg.profile?.title || 'my-biolink'
+          const fallbackCard = {
+            id: activeId,
+            handle: handleSlug,
+            config: cfg,
+            analytics: { views: 0, clicks: 0 },
+            createdAt: new Date().toISOString()
+          }
+          cardMap.set(activeId, fallbackCard)
+          bioCards[activeId] = fallbackCard
+          localStorage.setItem('bioCards', JSON.stringify(bioCards))
+        } catch {}
+      }
+    }
+
+    const list: CardData[] = Array.from(cardMap.values()).map((card: any) => {
       const { bgStyle, profileText } = getBannerStyle(card.config)
       return {
         id: card.id,
-        title: card.config?.profile?.title || 'Untitled Card',
+        handle: card.handle || card.id,
+        title: card.config?.profile?.title || 'My BioLink Card',
         bio: card.config?.profile?.bio || '',
         avatar: card.config?.profile?.avatar || '',
         views: card.analytics?.views || 0,
@@ -88,6 +125,7 @@ export default function MyCardsPage() {
         profileText,
       }
     })
+
     list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     setCards(list)
     setLoading(false)
