@@ -113,3 +113,15 @@ export function getCardGlobal(identifier: string): StoredCard | null {
 
   return null
 }
+
+export function getAllCardsGlobal(): StoredCard[] {
+  loadCardsFromFile()
+  const uniqueMap = new Map<string, StoredCard>()
+  const list = Array.from(globalCardsMap.values())
+  list.forEach((card) => {
+    if (card && card.id) {
+      uniqueMap.set(card.id.toLowerCase(), card)
+    }
+  })
+  return Array.from(uniqueMap.values())
+}

@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { saveCard } from '@/lib/firestore'
-import { storeCardGlobal } from '@/lib/cardStore'
+import { storeCardGlobal, getAllCardsGlobal } from '@/lib/cardStore'
+
+// GET - Get all cards published on server
+export async function GET() {
+  try {
+    const cards = getAllCardsGlobal()
+    return NextResponse.json({ cards })
+  } catch (error: any) {
+    console.error('Error fetching cards:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch cards', message: error.message },
+      { status: 500 }
+    )
+  }
+}
 
 // POST - Save a card globally for cross-device availability
 export async function POST(request: NextRequest) {

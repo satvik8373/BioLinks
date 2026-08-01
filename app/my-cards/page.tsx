@@ -73,62 +73,95 @@ export default function MyCardsPage() {
     const profile = localStorage.getItem('userProfile')
     if (!profile) { router.push('/login'); return }
 
-    const bioCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-    
-    // Map to deduplicate cards by unique card ID
-    const cardMap = new Map<string, any>()
+    const loadUserCards = async () => {
+      const bioCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
+      const cardMap = new Map<string, any>()
 
-    Object.entries(bioCards).forEach(([key, cardVal]: [string, any]) => {
-      if (cardVal && typeof cardVal === 'object') {
-        const id = cardVal.id || key
-        if (!cardMap.has(id)) {
-          cardMap.set(id, cardVal)
+      // 1. Load local cards
+      Object.entries(bioCards).forEach(([key, cardVal]: [string, any]) => {
+        if (cardVal && typeof cardVal === 'object') {
+          const id = cardVal.id || key
+          if (!cardMap.has(id)) {
+            cardMap.set(id, cardVal)
+          }
+        }
+      })
+
+      // 2. Fetch server cards from GET /api/cards
+      try {
+        const res = await fetch('/api/cards')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.cards && Array.isArray(data.cards)) {
+            data.cards.forEach((srvCard: any) => {
+              if (srvCard && srvCard.id) {
+                cardMap.set(srvCard.id, srvCard)
+                bioCards[srvCard.id] = srvCard
+              }
+            })
+            localStorage.setItem('bioCards', JSON.stringify(bioCards))
+          }
+        }
+      } catch (err) {
+        console.warn('API card load warning:', err)
+      }
+
+      // 3. Fallback to active config if cardMap is empty
+      if (cardMap.size === 0) {
+        const activeConfigStr = localStorage.getItem('currentBioLinkConfig')
+        const activeId = localStorage.getItem('editorPreviewCardId') || 'my-biolink'
+        if (activeConfigStr) {
+          try {
+            const cfg = JSON.parse(activeConfigStr)
+            const handleSlug = cfg.profile?.handle || cfg.profile?.title || 'my-biolink'
+            const fallbackCard = {
+              id: activeId,
+              handle: handleSlug,
+              config: cfg,
+              analytics: { views: 0, clicks: 0 },
+              createdAt: new Date().toISOString()
+            }
+            cardMap.set(activeId, fallbackCard)
+            bioCards[activeId] = fallbackCard
+            localStorage.setItem('bioCards', JSON.stringify(bioCards))
+
+            // Sync fallback to server
+            fetch('/api/cards', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cardId: activeId,
+                handle: handleSlug,
+                config: cfg,
+              })
+            }).catch(() => {})
+          } catch {}
         }
       }
-    })
 
-    // If bioCards map is empty, check if active currentBioLinkConfig exists and auto-save it
-    if (cardMap.size === 0) {
-      const activeConfigStr = localStorage.getItem('currentBioLinkConfig')
-      const activeId = localStorage.getItem('editorPreviewCardId') || 'my-biolink'
-      if (activeConfigStr) {
-        try {
-          const cfg = JSON.parse(activeConfigStr)
-          const handleSlug = cfg.profile?.handle || cfg.profile?.title || 'my-biolink'
-          const fallbackCard = {
-            id: activeId,
-            handle: handleSlug,
-            config: cfg,
-            analytics: { views: 0, clicks: 0 },
-            createdAt: new Date().toISOString()
-          }
-          cardMap.set(activeId, fallbackCard)
-          bioCards[activeId] = fallbackCard
-          localStorage.setItem('bioCards', JSON.stringify(bioCards))
-        } catch {}
-      }
+      const list: CardData[] = Array.from(cardMap.values()).map((card: any) => {
+        const { bgStyle, profileText } = getBannerStyle(card.config)
+        return {
+          id: card.id,
+          handle: card.handle || card.id,
+          title: card.config?.profile?.title || 'My BioLink Card',
+          bio: card.config?.profile?.bio || '',
+          avatar: card.config?.profile?.avatar || '',
+          views: card.analytics?.views || 0,
+          clicks: card.analytics?.clicks || 0,
+          createdAt: card.createdAt || new Date().toISOString(),
+          themeName: card.config?.theme?.name || card.config?.theme?.id || 'Custom',
+          bgStyle,
+          profileText,
+        }
+      })
+
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      setCards(list)
+      setLoading(false)
     }
 
-    const list: CardData[] = Array.from(cardMap.values()).map((card: any) => {
-      const { bgStyle, profileText } = getBannerStyle(card.config)
-      return {
-        id: card.id,
-        handle: card.handle || card.id,
-        title: card.config?.profile?.title || 'My BioLink Card',
-        bio: card.config?.profile?.bio || '',
-        avatar: card.config?.profile?.avatar || '',
-        views: card.analytics?.views || 0,
-        clicks: card.analytics?.clicks || 0,
-        createdAt: card.createdAt || new Date().toISOString(),
-        themeName: card.config?.theme?.name || card.config?.theme?.id || 'Custom',
-        bgStyle,
-        profileText,
-      }
-    })
-
-    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    setCards(list)
-    setLoading(false)
+    loadUserCards()
   }, [router])
 
   const handleEdit = (cardId: string) => {
