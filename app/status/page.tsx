@@ -77,8 +77,8 @@ export default function StatusPage() {
             <a href="/create" className="px-6 py-3 bg-neo-yellow text-neo-black border-4 border-neo-black font-bold hover:bg-yellow-300 transition-colors">
               CREATE
             </a>
-            <a href="/dashboard" className="px-6 py-3 bg-neo-pink text-neo-black border-4 border-neo-black font-bold hover:bg-pink-300 transition-colors">
-              DASHBOARD
+            <a href="/my-cards" className="px-6 py-3 bg-neo-pink text-neo-black border-4 border-neo-black font-bold hover:bg-pink-300 transition-colors">
+              MY CARDS
             </a>
             <a href="/test-editor" className="px-6 py-3 bg-neo-cyan text-neo-black border-4 border-neo-black font-bold hover:bg-cyan-300 transition-colors">
               TEST EDITOR

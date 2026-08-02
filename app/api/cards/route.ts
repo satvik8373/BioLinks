@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { saveCard } from '@/lib/firestore'
 import { storeCardGlobal, getAllCardsGlobal } from '@/lib/cardStore'
+import { claimUsername, UsernameTakenError } from '@/lib/usernameRegistry'
 
 // GET - Get all cards published on server
 export async function GET() {
@@ -20,29 +21,45 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { cardId, handle, config, analytics } = body
+    const { cardId, handle, config, analytics, previousHandle, ownerId } = body
 
-    if (!cardId || !config) {
+    if (!cardId || !config || !ownerId) {
       return NextResponse.json(
-        { error: 'Missing cardId or config' },
+        { error: 'Missing cardId, config, or ownerId' },
         { status: 400 }
       )
     }
 
+    const handleSlug = (
+      handle ||
+      config?.profile?.handle ||
+      (config?.profile?.title
+        ? config.profile.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+        : '') ||
+      cardId
+    ).toLowerCase()
+
     const payload = {
-      id: cardId,
-      handle: handle || (config?.profile?.handle) || (config?.profile?.title ? config.profile.title.toLowerCase().replace(/[^a-z0-9]/g, '') : ''),
+      id: handleSlug,
+      handle: handleSlug,
       config,
       analytics: analytics || { views: 0, clicks: 0 },
       createdAt: new Date().toISOString(),
     }
 
-    // 1. Store globally in server cardStore (file & memory persistence)
-    storeCardGlobal(payload)
-
-    // 2. Try saving to Firestore if available
+    const oldHandle = previousHandle?.toLowerCase()
     try {
-      await saveCard(cardId, {
+      await claimUsername(handleSlug, ownerId, oldHandle)
+    } catch (error) {
+      if (error instanceof UsernameTakenError) {
+        return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+      }
+      throw error
+    }
+    storeCardGlobal(payload, oldHandle && oldHandle !== handleSlug ? oldHandle : undefined)
+
+    try {
+      await saveCard(handleSlug, {
         config,
         analytics: payload.analytics,
         createdAt: payload.createdAt,
@@ -53,9 +70,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      cardId,
-      handle: payload.handle,
-      url: `/card/${payload.handle || cardId}`,
+      cardId: handleSlug,
+      handle: handleSlug,
+      url: `/${handleSlug}`,
     })
   } catch (error: any) {
     console.error('Error saving card:', error)

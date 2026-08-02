@@ -1,6 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getAuth, Auth, GoogleAuthProvider, GithubAuthProvider } from 'firebase/auth'
+import { getStorage, FirebaseStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,6 +17,7 @@ const firebaseConfig = {
 let app: FirebaseApp
 let db: Firestore
 let auth: Auth
+let storage: FirebaseStorage
 let googleProvider: GoogleAuthProvider
 let githubProvider: GithubAuthProvider
 
@@ -28,6 +30,7 @@ if (typeof window !== 'undefined') {
   }
   db = getFirestore(app)
   auth = getAuth(app)
+  storage = getStorage(app)
   googleProvider = new GoogleAuthProvider()
   githubProvider = new GithubAuthProvider()
 } else {
@@ -39,8 +42,9 @@ if (typeof window !== 'undefined') {
   }
   db = getFirestore(app)
   auth = getAuth(app)
+  storage = getStorage(app)
   googleProvider = new GoogleAuthProvider()
   githubProvider = new GithubAuthProvider()
 }
 
-export { app, db, auth, googleProvider, githubProvider }
+export { app, db, auth, storage, googleProvider, githubProvider }

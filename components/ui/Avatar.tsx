@@ -38,8 +38,7 @@ export default function Avatar({
       className={`
         ${sizes[size]}
         rounded-full flex items-center justify-center overflow-hidden flex-shrink-0
-        bg-slate-800 text-white font-extrabold
-        border border-slate-700 shadow-sm
+        bg-slate-800 text-white font-extrabold shadow-sm
         ${className}
       `}
     >

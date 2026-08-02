@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Avatar from '@/components/ui/Avatar'
-import { THEMES, getThemesByCategory, Theme } from '@/lib/themes'
+import { THEMES, getThemesByCategory, Theme, parseGoogleDriveUrl } from '@/lib/themes'
+import { getCleanUsernameSlug } from '@/lib/urlHelper'
 import { 
-  ArrowRight, 
   ArrowLeft, 
+  ArrowRight,
   Sparkles, 
   Circle,
   Rainbow,
@@ -33,8 +34,10 @@ import {
 function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
   const c = theme.colors
   if (c.backgroundImage) {
+    const driveObj = parseGoogleDriveUrl(c.backgroundImage)
+    const imgUrl = driveObj.directUrl || c.backgroundImage
     return {
-      backgroundImage: `url(${c.backgroundImage})`,
+      backgroundImage: `url(${imgUrl})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center'
     }
@@ -156,12 +159,22 @@ export default function CreatePage() {
     const theme = themeToUse || selectedTheme
     if (!theme) return
 
+    // If a card already exists, go straight to the editor without overwriting it
+    const existingConfig = localStorage.getItem('currentBioLinkConfig')
+    const existingId = localStorage.getItem('editorPreviewCardId')
+    if (existingConfig && existingId) {
+      router.push('/editor')
+      return
+    }
+
     const profileData = userProfile || {
       displayName: 'My Name',
       username: 'myusername',
       bio: 'Welcome to my bio card',
       avatar: 'user'
     }
+
+    const accountUsername = getCleanUsernameSlug(profileData.username) || 'myusername'
 
     const sampleLinks = CATEGORY_SAMPLE_LINKS[theme.category] || CATEGORY_SAMPLE_LINKS.minimal
 
@@ -170,6 +183,7 @@ export default function CreatePage() {
       profile: {
         avatar: profileData.avatar,
         title: profileData.displayName || profileData.username,
+        handle: accountUsername,
         bio: profileData.bio || 'Welcome to my bio link card',
         location: profileData.location || '',
         website: profileData.website || '',
@@ -192,6 +206,8 @@ export default function CreatePage() {
     }
 
     localStorage.setItem('currentBioLinkConfig', JSON.stringify(bioLinkConfig))
+    localStorage.setItem('editorPreviewCardId', accountUsername)
+    localStorage.setItem('activeBioCardId', accountUsername)
     router.push('/editor')
   }
 

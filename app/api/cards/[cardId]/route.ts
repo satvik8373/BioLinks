@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCard, updateCard, deleteCard, incrementViews, incrementClicks } from '@/lib/firestore'
-import { getCardGlobal, storeCardGlobal } from '@/lib/cardStore'
+import { getCard, saveCard, deleteCard, incrementViews, incrementClicks } from '@/lib/firestore'
+import { getCardGlobal, storeCardGlobal, deleteCardGlobal } from '@/lib/cardStore'
+import { claimUsername, UsernameTakenError } from '@/lib/usernameRegistry'
 
 // GET - Get a specific card by ID or handle slug across any device/phone/browser
 export async function GET(
@@ -48,7 +49,13 @@ export async function GET(
       await incrementViews(card.id)
     } catch {}
 
-    return NextResponse.json({ card })
+    return NextResponse.json({ card }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    })
   } catch (error: any) {
     console.error('Error getting card:', error)
     return NextResponse.json(
@@ -66,37 +73,68 @@ export async function PUT(
   try {
     const { cardId } = params
     const body = await request.json()
-    const { config, analytics, handle } = body
+    const { config, analytics, handle, previousHandle, ownerId } = body
 
-    if (!config) {
+    if (!config || !ownerId) {
       return NextResponse.json(
-        { error: 'Missing config' },
+        { error: 'Missing config or ownerId' },
         { status: 400 }
       )
     }
 
     const existing = getCardGlobal(cardId)
+    const handleSlug = (
+      handle ||
+      config?.profile?.handle ||
+      (config?.profile?.title
+        ? config.profile.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+        : '') ||
+      existing?.handle ||
+      cardId
+    ).toLowerCase()
+
+    const oldHandle = (previousHandle || existing?.handle || cardId).toLowerCase()
+
+    try {
+      await claimUsername(handleSlug, ownerId, oldHandle)
+    } catch (error) {
+      if (error instanceof UsernameTakenError) {
+        return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
+      }
+      throw error
+    }
+
     const updatedRecord = {
-      id: cardId,
-      handle: handle || existing?.handle || cardId,
+      id: handleSlug,
+      handle: handleSlug,
       config,
       analytics: analytics || existing?.analytics || { views: 0, clicks: 0 },
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
 
-    storeCardGlobal(updatedRecord)
+    storeCardGlobal(updatedRecord, oldHandle !== handleSlug ? oldHandle : undefined)
 
     try {
-      await updateCard(cardId, {
+      // A renamed handle is a new Firestore document. Write it first so a
+      // failed write never releases the existing username, then remove the
+      // old document so it cannot be resurrected by a later read.
+      await saveCard(handleSlug, {
         config,
-        ...(analytics && { analytics }),
+        analytics: updatedRecord.analytics,
+        createdAt: updatedRecord.createdAt,
       })
-    } catch {}
+      if (oldHandle !== handleSlug) {
+        await deleteCard(oldHandle)
+      }
+    } catch (fsErr) {
+      console.warn('Firestore update notice:', fsErr)
+    }
 
     return NextResponse.json({
       success: true,
-      cardId,
+      cardId: handleSlug,
+      handle: handleSlug,
     })
   } catch (error: any) {
     console.error('Error updating card:', error)
@@ -107,21 +145,23 @@ export async function PUT(
   }
 }
 
-// DELETE - Delete a card
+// DELETE - Delete a card (also removes old handle alias when renaming)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { cardId: string } }
 ) {
   try {
     const { cardId } = params
-    try {
-      await deleteCard(cardId)
-    } catch {}
+    const { searchParams } = new URL(request.url)
+    const oldHandle = searchParams.get('oldHandle')
 
-    return NextResponse.json({
-      success: true,
-      message: 'Card deleted',
-    })
+    // Wipe the card itself
+    deleteCardGlobal(cardId)
+    if (oldHandle && oldHandle !== cardId) deleteCardGlobal(oldHandle)
+
+    try { await deleteCard(cardId) } catch {}
+
+    return NextResponse.json({ success: true, message: 'Card deleted' })
   } catch (error: any) {
     console.error('Error deleting card:', error)
     return NextResponse.json(

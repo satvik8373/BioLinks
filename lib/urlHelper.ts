@@ -1,34 +1,57 @@
 /**
  * Dynamic URL helper for BioLink / Linktree app
- * Constructs clean, custom URLs for both local development and production.
+ * URL is tied to the account username (Linktree-style), not a random card id.
  */
 
 export function getCleanUsernameSlug(usernameOrTitle?: string): string {
   if (!usernameOrTitle) return ''
-  
-  // Clean string: trim, lowercase, replace spaces & special chars with hyphen/letters
-  const cleaned = usernameOrTitle
+
+  return usernameOrTitle
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]/g, '')
-
-  return cleaned
 }
 
-export function getCardPublicUrl(cardId?: string, usernameOrTitle?: string): string {
-  const origin = typeof window !== 'undefined' 
-    ? window.location.origin 
-    : 'http://localhost:3000'
-
-  // Prioritize custom handle / username slug over random internal cardId
-  const customSlug = getCleanUsernameSlug(usernameOrTitle)
-  const identifier = customSlug || cardId || 'satvikpatel8373'
-
-  return `${origin}/card/${identifier}`
+/** Read account username from localStorage (client only). */
+export function getAccountUsername(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    const profileStr = localStorage.getItem('userProfile')
+    if (!profileStr) return ''
+    const profile = JSON.parse(profileStr)
+    return getCleanUsernameSlug(profile.username || profile.handle || '')
+  } catch {
+    return ''
+  }
 }
 
-export function getDisplayUrlSlug(usernameOrTitle?: string, cardId?: string): string {
-  const customSlug = getCleanUsernameSlug(usernameOrTitle)
-  const identifier = customSlug || cardId || 'satvikpatel8373'
-  return `biolink.ee/${identifier}`
+/** Resolve the canonical card key — always the account username / handle slug. */
+export function resolveCardKey(handle?: string, fallback?: string): string {
+  return (
+    getCleanUsernameSlug(handle) ||
+    getCleanUsernameSlug(fallback) ||
+    getAccountUsername() ||
+    ''
+  )
+}
+
+export function getCardPublicUrl(_cardIdOrHandle?: string, usernameOrTitle?: string): string {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+
+  const slug =
+    getCleanUsernameSlug(usernameOrTitle) ||
+    getCleanUsernameSlug(_cardIdOrHandle) ||
+    getAccountUsername()
+
+  if (!slug) return `${origin}/create`
+  return `${origin}/${slug}`
+}
+
+export function getDisplayUrlSlug(_cardIdOrHandle?: string, usernameOrTitle?: string): string {
+  const slug =
+    getCleanUsernameSlug(usernameOrTitle) ||
+    getCleanUsernameSlug(_cardIdOrHandle) ||
+    getAccountUsername()
+  return slug ? `biolink.ee/${slug}` : 'biolink.ee/username'
 }

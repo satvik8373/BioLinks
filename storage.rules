@@ -1,0 +1,24 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Wallpaper uploads — anyone can read, anyone can write (public card feature)
+    match /wallpapers/{cardId}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 52428800  // 50 MB max
+                   && request.resource.contentType.matches('video/.*|image/.*');
+    }
+
+    // Avatar / profile images
+    match /avatars/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 5242880   // 5 MB max
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Fallback — deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

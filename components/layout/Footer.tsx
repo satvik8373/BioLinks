@@ -42,7 +42,6 @@ export default function Footer() {
               {[
                 { label: 'Create Bio Link', href: '/create' },
                 { label: 'My Cards',        href: '/my-cards' },
-                { label: 'Dashboard',       href: '/dashboard' },
               ].map(item => (
                 <li key={item.href}>
                   <Link href={item.href} className="text-xs text-slate-400 hover:text-white transition-colors font-medium">

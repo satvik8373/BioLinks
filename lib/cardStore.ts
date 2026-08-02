@@ -31,6 +31,9 @@ function ensureDataDir() {
 function loadCardsFromFile() {
   try {
     ensureDataDir()
+    // The file is the source of truth. Clear the cache before loading so a
+    // handle deleted by another route/module does not stay reserved here.
+    globalCardsMap.clear()
     if (fs.existsSync(CARDS_FILE)) {
       const data = fs.readFileSync(CARDS_FILE, 'utf-8')
       const json = JSON.parse(data)
@@ -59,30 +62,46 @@ function saveCardsToFile() {
 // Initialize on module load
 loadCardsFromFile()
 
-export function storeCardGlobal(cardData: StoredCard): StoredCard {
-  const { id, handle } = cardData
-  const existingById = id ? globalCardsMap.get(id.toLowerCase()) : null
-  const existingByHandle = handle ? globalCardsMap.get(handle.toLowerCase()) : null
-  const existing = existingById || existingByHandle
+function resolveHandle(cardData: StoredCard): string {
+  return (
+    cardData.handle ||
+    cardData.config?.profile?.handle ||
+    (cardData.config?.profile?.title
+      ? cardData.config.profile.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+      : '') ||
+    cardData.id ||
+    ''
+  ).toLowerCase()
+}
+
+export function storeCardGlobal(cardData: StoredCard, previousHandle?: string): StoredCard {
+  const handle = resolveHandle(cardData)
+  const canonicalId = handle || cardData.id?.toLowerCase() || ''
 
   const record: StoredCard = {
-    ...existing,
     ...cardData,
-    analytics: cardData.analytics || existing?.analytics || { views: 0, clicks: 0 },
-    createdAt: existing?.createdAt || cardData.createdAt || new Date().toISOString(),
+    id: canonicalId,
+    handle: canonicalId,
+    analytics: cardData.analytics || { views: 0, clicks: 0 },
+    createdAt: cardData.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
 
-  // Store under ID
-  if (id) {
-    globalCardsMap.set(id.toLowerCase(), record)
+  // Remove stale alias keys when username changes
+  if (previousHandle && previousHandle.toLowerCase() !== canonicalId) {
+    deleteCardGlobal(previousHandle)
   }
-  // Store under handle slug
-  if (handle) {
-    globalCardsMap.set(handle.toLowerCase(), record)
+  if (cardData.id && cardData.id.toLowerCase() !== canonicalId) {
+    const staleId = cardData.id.toLowerCase()
+    if (globalCardsMap.has(staleId)) {
+      globalCardsMap.delete(staleId)
+    }
   }
 
-  // Also save to disk
+  if (canonicalId) {
+    globalCardsMap.set(canonicalId, record)
+  }
+
   saveCardsToFile()
   return record
 }
@@ -119,9 +138,49 @@ export function getAllCardsGlobal(): StoredCard[] {
   const uniqueMap = new Map<string, StoredCard>()
   const list = Array.from(globalCardsMap.values())
   list.forEach((card) => {
-    if (card && card.id) {
-      uniqueMap.set(card.id.toLowerCase(), card)
-    }
+    if (!card) return
+    const key = resolveHandle(card) || card.id?.toLowerCase()
+    if (key) uniqueMap.set(key, card)
   })
   return Array.from(uniqueMap.values())
+}
+
+// Delete every key in globalCardsMap that belongs to a card with the given id or handle.
+export function deleteCardGlobal(identifier: string): void {
+  const key = identifier.toLowerCase()
+  const target = getCardGlobal(key)
+  if (!target) return
+
+  const targetId     = target.id?.toLowerCase()
+  const targetHandle = target.handle?.toLowerCase()
+
+  const keysToDelete: string[] = []
+  globalCardsMap.forEach((val, k) => {
+    const valId     = val.id?.toLowerCase()
+    const valHandle = val.handle?.toLowerCase()
+    if (
+      k === key ||
+      (targetId     && (k === targetId     || valId     === targetId)) ||
+      (targetHandle && (k === targetHandle || valHandle === targetHandle))
+    ) {
+      keysToDelete.push(k)
+    }
+  })
+  keysToDelete.forEach(k => globalCardsMap.delete(k))
+  saveCardsToFile()
+}
+
+// Returns true when the handle slug is already used by a different card (i.e. not available).
+// Pass `excludeHandle` to skip the card that currently owns the handle (for rename checks).
+export function isHandleTaken(handle: string, excludeHandle?: string): boolean {
+  if (!handle) return false
+  const slug = handle.toLowerCase().replace(/[^a-z0-9-]/g, '')
+  loadCardsFromFile()
+  const cards = Array.from(globalCardsMap.values())
+  return cards.some(card => {
+    const cardKey = resolveHandle(card)
+    if (excludeHandle && cardKey === excludeHandle.toLowerCase()) return false
+    if (excludeHandle && card.id?.toLowerCase() === excludeHandle.toLowerCase()) return false
+    return cardKey === slug
+  })
 }

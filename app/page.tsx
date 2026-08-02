@@ -17,9 +17,8 @@ const STAT_CONFIG = [
 ]
 
 const QUICK_ACTIONS = [
-  { href: '/create',             icon: Plus,      label: 'Create New Card',  desc: 'Pick an official theme & customize', btnVariant: 'primary' },
-  { href: '/my-cards',           icon: BarChart3,  label: 'My Bio Cards',     desc: 'Manage & view all your bio cards',  btnVariant: 'ghost' },
-  { href: '/dashboard/analytics',icon: Eye,        label: 'Analytics',        desc: 'Views, clicks & audience data',    btnVariant: 'ghost' },
+  { href: '/create',   icon: Plus,      label: 'Create New Card',  desc: 'Pick an official theme & customize', btnVariant: 'primary' },
+  { href: '/my-cards', icon: BarChart3, label: 'My Bio Cards',     desc: 'Manage & view all your bio cards',  btnVariant: 'ghost' },
 ]
 
 export default function Home() {
