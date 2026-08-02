@@ -160,6 +160,11 @@ export default function EditorPage() {
     if (!pid) return
     try {
       const handleSlug = getCleanUsernameSlug(cfg.profile?.handle || cfg.profile?.title)
+      
+      // Get existing card data to preserve analytics
+      const existingCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
+      const existingCard = existingCards[pid] || existingCards[handleSlug]
+      
       const cardPayload = {
         id: pid,
         handle: handleSlug,
@@ -169,8 +174,9 @@ export default function EditorPage() {
           theme: cfg.theme,
           socialLinks: cfg.socialLinks,
         },
-        analytics: { views: 0, clicks: 0 },
-        createdAt: new Date().toISOString(),
+        analytics: existingCard?.analytics || { views: 0, clicks: 0 },
+        createdAt: existingCard?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }
       
       // Save to Firestore + localStorage
@@ -191,7 +197,9 @@ export default function EditorPage() {
           config: cardPayload.config,
         }),
       }).catch(() => {})
-    } catch {}
+    } catch (err) {
+      console.error('Sync error:', err)
+    }
   }
 
   useEffect(() => {
@@ -210,7 +218,12 @@ export default function EditorPage() {
       localStorage.setItem('editorPreviewCardId', existingId)
       setPreviewCardId(existingId)
       setConfig(parsedConfig)
-      syncPreviewCard(parsedConfig, existingId)
+      
+      // Sync preview card (async)
+      syncPreviewCard(parsedConfig, existingId).catch(err => {
+        console.error('Error syncing initial preview:', err)
+      })
+      
       setLoading(false)
     } catch (error) {
       console.error('Error loading config:', error)
@@ -251,8 +264,10 @@ export default function EditorPage() {
     // Auto-save to localStorage
     localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
     
-    // Sync preview card
-    syncPreviewCard(config, previewCardId)
+    // Sync preview card (async - fire and forget)
+    syncPreviewCard(config, previewCardId).catch(err => {
+      console.error('Error syncing preview:', err)
+    })
     
     // Update timestamp
     setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
