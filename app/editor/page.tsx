@@ -11,6 +11,7 @@ import {
   TelegramIcon, SoundCloudIcon, ShopifyIcon, EmailIcon, PhoneIcon,
   WebsiteIcon, AppleMusicIcon
 } from '@/components/icons/ServiceIcons'
+import { saveCard } from '@/lib/cardStorage'
 import { 
   ArrowLeft, 
   Save, 
@@ -155,7 +156,7 @@ export default function EditorPage() {
   const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
 
   // ── Write config to preview card & sync live to server store ──
-  const syncPreviewCard = (cfg: BioLinkConfig, pid: string) => {
+  const syncPreviewCard = async (cfg: BioLinkConfig, pid: string) => {
     if (!pid) return
     try {
       const handleSlug = getCleanUsernameSlug(cfg.profile?.handle || cfg.profile?.title)
@@ -168,18 +169,17 @@ export default function EditorPage() {
           theme: cfg.theme,
           socialLinks: cfg.socialLinks,
         },
+        analytics: { views: 0, clicks: 0 },
+        createdAt: new Date().toISOString(),
       }
-      const cards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      cards[pid] = {
-        ...cards[pid],
-        ...cardPayload,
-        analytics: cards[pid]?.analytics || { views: 0, clicks: 0 },
-        createdAt: cards[pid]?.createdAt || new Date().toISOString(),
-      }
+      
+      // Save to Firestore + localStorage
+      await saveCard(pid, cardPayload)
+      
+      // Also save by handle slug
       if (handleSlug) {
-        cards[handleSlug] = cards[pid]
+        await saveCard(handleSlug, cardPayload)
       }
-      localStorage.setItem('bioCards', JSON.stringify(cards))
 
       // Async live server sync
       fetch('/api/cards', {
