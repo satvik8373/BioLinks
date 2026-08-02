@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { getAllCards, deleteCard } from '@/lib/storage'
 import {
   Plus, Eye, Edit3, Trash2, Copy, CheckCircle, Loader2,
   Layout, ExternalLink, Sparkles
@@ -74,114 +75,79 @@ export default function MyCardsPage() {
     if (!profile) { router.push('/login'); return }
 
     const loadUserCards = async () => {
-      const bioCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      const cardMap = new Map<string, any>()
-
-      // 1. Load local cards
-      Object.entries(bioCards).forEach(([key, cardVal]: [string, any]) => {
-        if (cardVal && typeof cardVal === 'object') {
-          const id = cardVal.id || key
-          if (!cardMap.has(id)) {
-            cardMap.set(id, cardVal)
-          }
-        }
-      })
-
-      // 2. Fetch server cards from GET /api/cards
       try {
-        const res = await fetch('/api/cards')
-        if (res.ok) {
-          const data = await res.json()
-          if (data.cards && Array.isArray(data.cards)) {
-            data.cards.forEach((srvCard: any) => {
-              if (srvCard && srvCard.id) {
-                cardMap.set(srvCard.id, srvCard)
-                bioCards[srvCard.id] = srvCard
-              }
-            })
-            localStorage.setItem('bioCards', JSON.stringify(bioCards))
-          }
+        // Simple: Just load from Firestore (single source of truth)
+        const result = await getAllCards()
+        
+        if (result.success) {
+          const list: CardData[] = result.cards.map((card: any) => {
+            const { bgStyle, profileText } = getBannerStyle(card.config)
+            return {
+              id: card.id,
+              handle: card.handle || card.id,
+              title: card.config?.profile?.title || 'My BioLink Card',
+              bio: card.config?.profile?.bio || '',
+              avatar: card.config?.profile?.avatar || '',
+              views: card.analytics?.views || 0,
+              clicks: card.analytics?.clicks || 0,
+              createdAt: card.createdAt || new Date().toISOString(),
+              themeName: card.config?.theme?.name || card.config?.theme?.id || 'Custom',
+              bgStyle,
+              profileText,
+            }
+          })
+
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          setCards(list)
         }
       } catch (err) {
-        console.warn('API card load warning:', err)
+        console.error('Load error:', err)
+      } finally {
+        setLoading(false)
       }
-
-      // 3. Fallback to active config if cardMap is empty
-      if (cardMap.size === 0) {
-        const activeConfigStr = localStorage.getItem('currentBioLinkConfig')
-        const activeId = localStorage.getItem('editorPreviewCardId') || 'my-biolink'
-        if (activeConfigStr) {
-          try {
-            const cfg = JSON.parse(activeConfigStr)
-            const handleSlug = cfg.profile?.handle || cfg.profile?.title || 'my-biolink'
-            const fallbackCard = {
-              id: activeId,
-              handle: handleSlug,
-              config: cfg,
-              analytics: { views: 0, clicks: 0 },
-              createdAt: new Date().toISOString()
-            }
-            cardMap.set(activeId, fallbackCard)
-            bioCards[activeId] = fallbackCard
-            localStorage.setItem('bioCards', JSON.stringify(bioCards))
-
-            // Sync fallback to server
-            fetch('/api/cards', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                cardId: activeId,
-                handle: handleSlug,
-                config: cfg,
-              })
-            }).catch(() => {})
-          } catch {}
-        }
-      }
-
-      const list: CardData[] = Array.from(cardMap.values()).map((card: any) => {
-        const { bgStyle, profileText } = getBannerStyle(card.config)
-        return {
-          id: card.id,
-          handle: card.handle || card.id,
-          title: card.config?.profile?.title || 'My BioLink Card',
-          bio: card.config?.profile?.bio || '',
-          avatar: card.config?.profile?.avatar || '',
-          views: card.analytics?.views || 0,
-          clicks: card.analytics?.clicks || 0,
-          createdAt: card.createdAt || new Date().toISOString(),
-          themeName: card.config?.theme?.name || card.config?.theme?.id || 'Custom',
-          bgStyle,
-          profileText,
-        }
-      })
-
-      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      setCards(list)
-      setLoading(false)
     }
 
     loadUserCards()
   }, [router])
 
   const handleEdit = (cardId: string) => {
-    const bioCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-    const card = bioCards[cardId]
-    if (card?.config) {
-      localStorage.setItem('currentBioLinkConfig', JSON.stringify(card.config))
-      localStorage.setItem('editorPreviewCardId', cardId)
-      router.push('/editor')
+    const loadCard = async () => {
+      const result = await getAllCards()
+      if (result.success) {
+        const card = result.cards.find((c: any) => c.id === cardId)
+        if (card?.config) {
+          localStorage.setItem('currentBioLinkConfig', JSON.stringify(card.config))
+          localStorage.setItem('editorPreviewCardId', cardId)
+          router.push('/editor')
+        }
+      }
     }
+    loadCard()
   }
 
-  const handleDelete = (cardId: string) => {
+  const handleDelete = async (cardId: string) => {
     if (!confirm('Delete this card? This cannot be undone.')) return
     setDeletingId(cardId)
-    const bioCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-    delete bioCards[cardId]
-    localStorage.setItem('bioCards', JSON.stringify(bioCards))
-    setCards(prev => prev.filter(c => c.id !== cardId))
-    setDeletingId(null)
+    
+    try {
+      // Delete from Firestore (single source of truth)
+      await deleteCard(cardId)
+      
+      // Clear editor config if this was the active card
+      const activeId = localStorage.getItem('editorPreviewCardId')
+      if (activeId === cardId) {
+        localStorage.removeItem('currentBioLinkConfig')
+        localStorage.removeItem('editorPreviewCardId')
+      }
+      
+      // Update UI
+      setCards(prev => prev.filter(c => c.id !== cardId))
+    } catch (err) {
+      console.error('Delete error:', err)
+      alert('Failed to delete card')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const handleCopy = (cardId: string) => {
@@ -189,6 +155,35 @@ export default function MyCardsPage() {
       setCopyMsg(cardId)
       setTimeout(() => setCopyMsg(null), 2200)
     })
+  }
+
+  const handleDeleteAll = async () => {
+    if (!confirm('Delete ALL cards? This will permanently delete all your bio link cards. This cannot be undone!')) return
+    if (!confirm('Are you absolutely sure? Type DELETE below to confirm.') || 
+        prompt('Type DELETE to confirm:') !== 'DELETE') {
+      return
+    }
+    
+    setLoading(true)
+    
+    try {
+      // Delete each card from Firestore
+      for (const card of cards) {
+        await deleteCard(card.id)
+      }
+      
+      // Clear editor config
+      localStorage.removeItem('currentBioLinkConfig')
+      localStorage.removeItem('editorPreviewCardId')
+      
+      // Clear UI
+      setCards([])
+    } catch (err) {
+      console.error('Delete all error:', err)
+      alert('Failed to delete all cards')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -215,9 +210,19 @@ export default function MyCardsPage() {
               </p>
             </div>
           </div>
-          <Link href="/create" className="clay-btn clay-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 shadow-sm">
-            <Plus className="w-4 h-4" /> New Bio Card
-          </Link>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <Link href="/create" className="clay-btn clay-btn-primary px-4 py-2 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+              <Plus className="w-4 h-4" /> New Bio Card
+            </Link>
+            {cards.length > 0 && (
+              <button 
+                onClick={handleDeleteAll}
+                className="clay-btn bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 text-xs font-bold border border-red-200"
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" /> Delete All Cards
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

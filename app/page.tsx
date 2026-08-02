@@ -8,7 +8,7 @@ import {
   BarChart3, Plus, Eye, Users, TrendingUp,
   ArrowRight, Sparkles, Rocket, Edit3
 } from 'lucide-react'
-import { loadCards } from '@/lib/cardStorage'
+import { getAllCards } from '@/lib/storage'
 
 const STAT_CONFIG = [
   { key: 'cards',  label: 'Your Cards',    icon: Users,      bgColor: 'bg-slate-900' },
@@ -30,13 +30,13 @@ export default function Home() {
     const profile = localStorage.getItem('userProfile')
     if (profile) {
       setUserProfile(JSON.parse(profile))
-      // Load cards from Firestore (synced across devices)
-      loadCards().then(result => {
+      // Load from Firestore (single source of truth)
+      getAllCards().then(result => {
         if (result.success) {
-          const arr = Object.values(result.cards)
+          const recent = result.cards
             .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 3)
-          setRecentCards(arr as any[])
+          setRecentCards(recent)
         }
       })
     }

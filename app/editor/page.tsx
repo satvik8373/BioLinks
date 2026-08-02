@@ -11,7 +11,7 @@ import {
   TelegramIcon, SoundCloudIcon, ShopifyIcon, EmailIcon, PhoneIcon,
   WebsiteIcon, AppleMusicIcon
 } from '@/components/icons/ServiceIcons'
-import { saveCard } from '@/lib/cardStorage'
+import { saveCard } from '@/lib/storage'
 import { 
   ArrowLeft, 
   Save, 
@@ -155,15 +155,11 @@ export default function EditorPage() {
 
   const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
 
-  // ── Write config to preview card & sync live to server store ──
+  // ── Simple Firestore-only save (like Linktree) ──
   const syncPreviewCard = async (cfg: BioLinkConfig, pid: string) => {
     if (!pid) return
     try {
       const handleSlug = getCleanUsernameSlug(cfg.profile?.handle || cfg.profile?.title)
-      
-      // Get existing card data to preserve analytics
-      const existingCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      const existingCard = existingCards[pid] || existingCards[handleSlug]
       
       const cardPayload = {
         id: pid,
@@ -174,31 +170,14 @@ export default function EditorPage() {
           theme: cfg.theme,
           socialLinks: cfg.socialLinks,
         },
-        analytics: existingCard?.analytics || { views: 0, clicks: 0 },
-        createdAt: existingCard?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        analytics: { views: 0, clicks: 0 },
+        createdAt: new Date().toISOString(),
       }
       
-      // Save to Firestore + localStorage
+      // Save to Firestore (single source of truth)
       await saveCard(pid, cardPayload)
-      
-      // Also save by handle slug
-      if (handleSlug) {
-        await saveCard(handleSlug, cardPayload)
-      }
-
-      // Async live server sync
-      fetch('/api/cards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cardId: pid,
-          handle: handleSlug,
-          config: cardPayload.config,
-        }),
-      }).catch(() => {})
     } catch (err) {
-      console.error('Sync error:', err)
+      console.error('Save error:', err)
     }
   }
 
@@ -322,7 +301,6 @@ export default function EditorPage() {
     if (!config) return
 
     try {
-      // Reuse the stable preview card ID so the URL never changes
       const cardId = previewCardId || localStorage.getItem('editorPreviewCardId') || Math.random().toString(36).substr(2, 9)
       const handleSlug = getCleanUsernameSlug(config.profile.handle || config.profile.title)
 
@@ -339,48 +317,13 @@ export default function EditorPage() {
         },
         analytics: { views: 0, clicks: 0 },
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       }
 
-      // Try saving to API (with fallback if API is unavailable)
-      try {
-        await fetch('/api/cards', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            cardId,
-            handle: handleSlug,
-            config: cardPayload.config,
-            analytics: cardPayload.analytics,
-          }),
-        })
-      } catch (apiErr) {
-        console.warn('⚠️ Backend API save fallback to local storage:', apiErr)
-      }
+      // Save to Firestore (single source of truth)
+      await saveCard(cardId, cardPayload)
       
-      // Save to localStorage under both cardId and handle slug for 100% reliable retrieval
-      const existingCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-      existingCards[cardId] = cardPayload
-      if (handleSlug) {
-        existingCards[handleSlug] = cardPayload
-      }
-      localStorage.setItem('bioCards', JSON.stringify(existingCards))
       localStorage.setItem('editorPreviewCardId', cardId)
       localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
-
-      // Keep userProfile in sync
-      const currentProfile = JSON.parse(localStorage.getItem('userProfile') || '{}')
-      const updatedProfile = {
-        ...currentProfile,
-        displayName: config.profile.title || currentProfile.displayName,
-        username: handleSlug || currentProfile.username,
-        bio: config.profile.bio || currentProfile.bio,
-        avatar: config.profile.avatar || currentProfile.avatar,
-        location: config.profile.location || currentProfile.location,
-      }
-      localStorage.setItem('userProfile', JSON.stringify(updatedProfile))
 
       const cardUrl = getCardPublicUrl(cardId, handleSlug)
       console.log('✅ Card saved successfully! Public URL:', cardUrl)

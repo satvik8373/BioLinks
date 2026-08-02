@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
+import { getAllCards, deleteCard as removeCard } from '@/lib/storage'
 import { 
   Plus, 
   Eye, 
@@ -62,10 +63,17 @@ export default function Dashboard() {
 
     setUserProfile(JSON.parse(profile))
 
-    const loadCards = () => {
+    const loadCards = async () => {
       try {
-        const savedCards = JSON.parse(localStorage.getItem('bioCards') || '{}')
-        setCards(savedCards)
+        // Load from Firestore (single source of truth)
+        const result = await getAllCards()
+        if (result.success) {
+          const cardMap: { [key: string]: CardData } = {}
+          result.cards.forEach((card: any) => {
+            cardMap[card.id] = card
+          })
+          setCards(cardMap)
+        }
       } catch (error) {
         console.error('Error loading cards:', error)
       } finally {
@@ -76,12 +84,15 @@ export default function Dashboard() {
     loadCards()
   }, [router])
 
-  const deleteCard = (cardId: string) => {
+  const deleteCard = async (cardId: string) => {
     if (confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+      // Delete from Firestore (single source of truth)
+      await removeCard(cardId)
+      
+      // Update local state
       const updatedCards = { ...cards }
       delete updatedCards[cardId]
       setCards(updatedCards)
-      localStorage.setItem('bioCards', JSON.stringify(updatedCards))
     }
   }
 
