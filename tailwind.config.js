@@ -56,25 +56,35 @@ module.exports = {
         'clay-lg': '24px',
       },
       boxShadow: {
-        // Professional Claymorphism (Refined, Subtle 3D Depth, Sleek & Premium)
+        // Claymorphism Shadow System (Soft, Subtle, Premium)
+        'clay-sm': `
+          0 1px 2px rgba(15, 23, 42, 0.04),
+          0 1px 3px rgba(15, 23, 42, 0.02),
+          inset 0 1px 0 rgba(255, 255, 255, 0.95)
+        `,
         'clay': `
-          0 10px 25px -5px rgba(15, 23, 42, 0.06),
-          0 8px 10px -6px rgba(15, 23, 42, 0.04),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9)
+          0 2px 4px -1px rgba(15, 23, 42, 0.06),
+          0 4px 8px -2px rgba(15, 23, 42, 0.04),
+          inset 0 1px 0 rgba(255, 255, 255, 0.95)
         `,
         'clay-lg': `
-          0 20px 35px -10px rgba(124, 58, 237, 0.12),
-          0 10px 15px -5px rgba(15, 23, 42, 0.04),
+          0 4px 12px -2px rgba(15, 23, 42, 0.06),
+          0 8px 24px -4px rgba(15, 23, 42, 0.04),
           inset 0 1px 0 rgba(255, 255, 255, 1)
         `,
         'clay-btn': `
-          0 4px 14px rgba(124, 58, 237, 0.35),
-          inset 0 1px 0 rgba(255, 255, 255, 0.35),
-          inset 0 -2px 0 rgba(0, 0, 0, 0.2)
+          0 2px 8px rgba(124, 58, 237, 0.25),
+          0 1px 3px rgba(124, 58, 237, 0.15),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2)
         `,
         'clay-input': `
-          inset 0 2px 4px rgba(15, 23, 42, 0.05),
-          0 1px 2px rgba(0, 0, 0, 0.02)
+          0 1px 2px rgba(15, 23, 42, 0.02),
+          inset 0 1px 2px rgba(15, 23, 42, 0.03)
+        `,
+        'clay-focus': `
+          0 0 0 3px rgba(139, 92, 246, 0.08),
+          0 1px 3px rgba(124, 58, 237, 0.06),
+          inset 0 1px 0 rgba(255, 255, 255, 1)
         `,
         // Legacy neo
         'neo':    '4px 4px 0px 0px #000000',

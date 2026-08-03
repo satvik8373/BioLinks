@@ -60,7 +60,10 @@ export default function Home() {
       {/* ── Official Welcome Banner (Slate 900) ── */}
       <div className="max-w-6xl mx-auto px-5 pt-6 pb-2">
         <div
-          className="rounded-[24px] p-7 bg-slate-900 text-white border border-slate-800 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+          className="rounded-[24px] p-7 bg-gradient-to-br from-slate-900 to-slate-800 text-white border border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+          style={{
+            boxShadow: '0 8px 24px -4px rgba(15, 23, 42, 0.2), 0 4px 12px -2px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+          }}
         >
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold mb-1 tracking-tight">
@@ -72,7 +75,7 @@ export default function Home() {
           </div>
           <Link
             href="/create"
-            className="clay-btn clay-btn-primary px-5 py-2.5 text-xs font-bold flex-shrink-0 flex items-center gap-2 shadow-md"
+            className="clay-btn clay-btn-primary px-5 py-2.5 text-xs font-bold flex-shrink-0 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Create New Card
           </Link>
@@ -86,14 +89,17 @@ export default function Home() {
           {STAT_CONFIG.map(({ key, label, icon: Icon, bgColor }) => (
             <div
               key={key}
-              className="clay-card-flat p-5 flex items-center justify-between bg-white"
+              className="clay-card-flat p-5 flex items-center justify-between bg-white hover:shadow-clay transition-shadow duration-200"
             >
               <div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
                 <p className="text-3xl font-extrabold text-slate-900">{(statValues as any)[key]}</p>
               </div>
               <div
-                className={`w-11 h-11 rounded-xl flex items-center justify-center ${bgColor} text-white shadow-sm`}
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center ${bgColor} text-white`}
+                style={{
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                }}
               >
                 <Icon className="w-5 h-5" />
               </div>
@@ -111,7 +117,10 @@ export default function Home() {
             >
               <div className="flex items-center gap-3 mb-3">
                 <div
-                  className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 flex items-center justify-center font-bold"
+                  className="w-10 h-10 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200/80 text-slate-800 flex items-center justify-center font-bold"
+                  style={{
+                    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
+                  }}
                 >
                   <Icon className="w-5 h-5" />
                 </div>

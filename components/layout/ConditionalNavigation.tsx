@@ -11,7 +11,8 @@ export default function ConditionalNavigation() {
   const hideNavigation = 
     pathname?.startsWith('/card/') || 
     pathname?.startsWith('/editor') ||
-    pathname?.startsWith('/r/') // tracking redirects
+    pathname?.startsWith('/r/') || // tracking redirects
+    (pathname?.match(/^\/[a-z0-9-]+$/i) && pathname !== '/' && pathname !== '/login' && pathname !== '/signup' && pathname !== '/create') // username pages
   
   if (hideNavigation) {
     return null

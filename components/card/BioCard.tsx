@@ -5,7 +5,7 @@ import {
   Eye, ExternalLink, ShoppingBag, Phone, Mail,
   MessageCircle, Send, MapPin, Calendar, Music, Video,
   CheckCircle, AlertTriangle, XCircle, Globe, Share2, Sparkles,
-  Copy, Check, X, QrCode, Image as ImageIcon
+  Copy, Check, X, QrCode, Image as ImageIcon, Link2, Lock, Play, ArrowLeft
 } from 'lucide-react'
 import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
@@ -18,13 +18,16 @@ import { getEmbedIframeUrl, parseGoogleDriveUrl, formatAndNormalizeTheme } from 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface LinkItem {
   id: string
-  type: 'link' | 'header' | 'text' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event'
+  type: 'link' | 'header' | 'text' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
   text: string
   url: string
   icon?: string
   isVisible?: boolean
   platform?: string
   description?: string
+  layout?: 'classic' | 'featured' | 'compact'
+  thumbnail?: string
+  embedUrl?: string
   price?: string
   currency?: string
   originalPrice?: string
@@ -34,7 +37,29 @@ interface LinkItem {
   eventDate?: string
   eventTime?: string
   eventLocation?: string
-  embedUrl?: string
+  paymentType?: 'stripe' | 'paypal' | 'venmo' | 'cashapp' | 'tip' | 'donation'
+  paymentAmount?: string
+  bookingProvider?: 'calendly' | 'cal.com' | 'acuity' | 'custom'
+  formType?: 'contact' | 'survey' | 'email-capture' | 'newsletter' | 'waitlist' | 'custom'
+  nftChain?: 'ethereum' | 'polygon' | 'solana' | 'base'
+  nftContract?: string
+  nftPrice?: string
+  isPinned?: boolean
+  prioritizeMode?: 'none' | 'animate' | 'redirect'
+  scheduleStart?: string
+  scheduleEnd?: string
+  groupId?: string
+  isGroupHeader?: boolean
+  groupTitle?: string
+  collectionLayout?: 'stack' | 'grid' | 'carousel' | 'showcase'
+  videoClickOption?: 'display_video' | 'open_youtube' | 'open_latest' | 'display_latest'
+  videoMute?: boolean
+  isScheduled?: boolean
+  scheduleNotify?: boolean
+  scheduleTimezone?: string
+  isLocked?: boolean
+  lockType?: 'subscribe' | 'code' | 'password' | 'dob' | 'sensitive'
+  lockValue?: string
 }
 
 interface ThemeColors {
@@ -263,6 +288,87 @@ export default function BioCard({ cardId }: { cardId: string }) {
   const [loading, setLoading] = useState(true)
   const [showShareModal, setShowShareModal] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [lockedModalLink, setLockedModalLink] = useState<LinkItem | null>(null)
+  const [unlockInput, setUnlockInput] = useState('')
+  const [unlockError, setUnlockError] = useState('')
+  const [unlockedLinks, setUnlockedLinks] = useState<Record<string, boolean>>({})
+  const [activeVideoModal, setActiveVideoModal] = useState<LinkItem | null>(null)
+  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean | string>>({})
+  const [latestVideoDetails, setLatestVideoDetails] = useState<Record<string, { thumbnailUrl?: string; title?: string; latestUrl?: string }>>({})
+
+  useEffect(() => {
+    if (!cardData?.config?.links) return
+    const targetLinks = cardData.config.links.filter(l => (l.videoClickOption === 'open_latest' || l.videoClickOption === 'display_latest') && l.url)
+    if (targetLinks.length === 0) return
+
+    targetLinks.forEach(async (link) => {
+      try {
+        const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.thumbnailUrl || data.title) {
+            setLatestVideoDetails(prev => ({
+              ...prev,
+              [link.id]: {
+                thumbnailUrl: data.thumbnailUrl,
+                title: data.title,
+                latestUrl: data.latestUrl,
+              }
+            }))
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })
+  }, [cardData?.config?.links])
+
+  const handleUnlockSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!lockedModalLink) return
+
+    const { lockType, lockValue } = lockedModalLink
+
+    if (lockType === 'code' || lockType === 'password') {
+      if (lockValue && unlockInput.trim() !== lockValue.trim()) {
+        setUnlockError('Incorrect passcode or password. Please try again.')
+        return
+      }
+    }
+    if (lockType === 'subscribe') {
+      if (!unlockInput.includes('@') || !unlockInput.includes('.')) {
+        setUnlockError('Please enter a valid email address.')
+        return
+      }
+    }
+
+    setUnlockedLinks(prev => ({ ...prev, [lockedModalLink.id]: true }))
+    const targetUrl = ensureAbsoluteUrl(lockedModalLink.url)
+    setLockedModalLink(null)
+    if (targetUrl && targetUrl !== '#') {
+      window.open(targetUrl, '_blank')
+    }
+  }
+
+  const handleLinkClick = (e: React.MouseEvent, link: LinkItem) => {
+    trackClick(link.id)
+    if (link.lockType && !unlockedLinks[link.id]) {
+      e.preventDefault()
+      setLockedModalLink(link)
+      setUnlockInput('')
+      setUnlockError('')
+      return
+    }
+
+    const isYouTubeUrl = (link.url || '').toLowerCase().includes('youtube.com') || (link.url || '').toLowerCase().includes('youtu.be')
+    const clickOpt = link.videoClickOption || 'display_video'
+    const isShowcaseMode = clickOpt === 'display_video' || clickOpt === 'display_latest'
+
+    if (isShowcaseMode && (isYouTubeUrl || link.type === 'video')) {
+      e.preventDefault()
+      setActiveVideoModal(link)
+    }
+  }
 
   useEffect(() => {
     const fetchCard = async () => {
@@ -358,7 +464,7 @@ export default function BioCard({ cardId }: { cardId: string }) {
 
   if (!cardData) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-gray-900 text-white">
-      <p className="text-6xl mb-4">🔗</p>
+      <Link2 className="w-16 h-16 mb-4 text-gray-500" />
       <h1 className="text-2xl font-bold mb-2">Page not found</h1>
       <p className="text-gray-400 mb-6 text-sm">This bio link doesn't exist or hasn't been saved yet.</p>
       <a href="/" className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm transition-colors">Go Home</a>
@@ -370,7 +476,27 @@ export default function BioCard({ cardId }: { cardId: string }) {
   const c = theme.colors
   const bg = getBg(c)
   const btnStyle = buildBtnStyle(theme)
-  const visibleLinks = (config.links || []).filter(l => l.isVisible !== false)
+  
+  // Filter visible links + apply scheduling logic
+  const now = new Date()
+  const allLinks = (config.links || []).filter(l => {
+    if (l.isVisible === false) return false
+    if (l.isScheduled && (l.scheduleStart || l.scheduleEnd)) {
+      const start = l.scheduleStart ? new Date(l.scheduleStart) : null
+      const end = l.scheduleEnd ? new Date(l.scheduleEnd) : null
+      if (start && now < start) return false
+      if (end && now > end) return false
+    }
+    return true
+  })
+  
+  // Sort: pinned links first
+  const visibleLinks = [...allLinks].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1
+    if (!a.isPinned && b.isPinned) return 1
+    return 0
+  })
+  
   const hasSocials = config.socialLinks && Object.values(config.socialLinks).some(Boolean)
   const pageUrl = typeof window !== 'undefined' ? window.location.href : `https://biolink.ee/${cardId}`
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(pageUrl)}`
@@ -383,19 +509,35 @@ export default function BioCard({ cardId }: { cardId: string }) {
     }
   }
 
+  const extractYouTubeThumb = (url?: string): string | null => {
+    if (!url) return null
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
+    if (match && match[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
+    if (url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be')) {
+      return `https://img.youtube.com/vi/hqdefault.jpg`
+    }
+    return null
+  }
+
   const renderLink = (link: LinkItem) => {
     const key = link.id
 
-    if (link.type === 'header') return (
-      <div key={key} className="flex items-center gap-3 py-1">
-        <div className="flex-1 h-px" style={{ backgroundColor: c.buttonText, opacity: 0.15 }} />
-        <span className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: c.profileText, opacity: 0.5, fontFamily: theme.fonts?.body }}>
-          {link.text}
-        </span>
-        <div className="flex-1 h-px" style={{ backgroundColor: c.buttonText, opacity: 0.15 }} />
-      </div>
-    )
+    if (link.type === 'header') {
+      const text = (link.groupTitle || link.text || '').trim()
+      const isDefault = !text || text.toLowerCase() === 'add collection title' || text.toLowerCase() === 'new section' || text.toLowerCase() === 'section header'
+      if (isDefault) return null
+
+      return (
+        <div key={key} className="flex items-center gap-3 py-1">
+          <div className="flex-1 h-px" style={{ backgroundColor: c.buttonText, opacity: 0.15 }} />
+          <span className="text-xs font-semibold uppercase tracking-widest"
+            style={{ color: c.profileText, opacity: 0.5, fontFamily: theme.fonts?.body }}>
+            {text}
+          </span>
+          <div className="flex-1 h-px" style={{ backgroundColor: c.buttonText, opacity: 0.15 }} />
+        </div>
+      )
+    }
 
     const animEnabled = theme.buttonStyle?.enableAnimations ?? true
     const animStyle = theme.buttonStyle?.animation ?? 'bounce'
@@ -415,30 +557,59 @@ export default function BioCard({ cardId }: { cardId: string }) {
       </p>
     )
 
-    if (link.type === 'shop') return (
-      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-        onClick={() => trackClick(key)} style={btnStyle}
-        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-        <div className="flex items-center justify-between px-4 py-3.5 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-              <ShoppingBag size={18} />
+    const isFeatured = link.layout === 'featured'
+    const isCompact = link.layout === 'compact'
+
+    if (link.type === 'shop') {
+      if (isFeatured) {
+        return (
+          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', display: 'flex', flexDirection: 'column', padding: 0 }}
+            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl ${animClasses}`}>
+            <div className="w-full aspect-video bg-black/10 overflow-hidden relative">
+              <img src={link.thumbnail || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'} alt={link.text} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              {link.price && (
+                <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md text-white font-extrabold text-xs px-3 py-1 rounded-full shadow-md">
+                  {link.currency || '$'}{link.price}
+                </div>
+              )}
             </div>
-            <div className="min-w-0">
-              <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
-              {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
-              <StockBadge status={link.stockStatus} textColor={c.buttonText} />
+            <div className="p-4 flex flex-col gap-1 text-left w-full">
+              <h3 className="font-extrabold text-base leading-snug" style={{ color: c.buttonText }}>{link.text}</h3>
+              {link.description && <p className="text-xs opacity-75 leading-relaxed line-clamp-2" style={{ color: c.buttonText }}>{link.description}</p>}
+              <div className="mt-2 w-full py-2 px-4 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                Buy Now &rarr;
+              </div>
             </div>
+          </a>
+        )
+      }
+      
+      return (
+        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackClick(key)} style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+          <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <ShoppingBag size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
+                {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
+                <StockBadge status={link.stockStatus} textColor={c.buttonText} />
+              </div>
+            </div>
+            {link.price && (
+              <div className="text-right flex-shrink-0">
+                {link.originalPrice && <p className="text-xs line-through" style={{ color: c.buttonText, opacity: 0.45 }}>{link.currency || '$'}{link.originalPrice}</p>}
+                <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.currency || '$'}{link.price}</p>
+              </div>
+            )}
           </div>
-          {link.price && (
-            <div className="text-right flex-shrink-0">
-              {link.originalPrice && <p className="text-xs line-through" style={{ color: c.buttonText, opacity: 0.45 }}>{link.currency || '$'}{link.originalPrice}</p>}
-              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.currency || '$'}{link.price}</p>
-            </div>
-          )}
-        </div>
-      </a>
-    )
+        </a>
+      )
+    }
 
     if (link.type === 'contact') return (
       <a key={key} href={contactHref(link)} target="_blank" rel="noopener noreferrer"
@@ -489,67 +660,469 @@ export default function BioCard({ cardId }: { cardId: string }) {
       </a>
     )
 
-    if (link.type === 'music') return (
+    if (link.type === 'payment') return (
+      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+        onClick={() => trackClick(key)} style={btnStyle}
+        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+        <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              <ShoppingBag size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
+              {link.paymentType && (
+                <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
+                  {link.paymentType}
+                </p>
+              )}
+            </div>
+          </div>
+          {link.paymentAmount && (
+            <div className="text-right flex-shrink-0">
+              <p className="font-extrabold text-base" style={{ color: c.buttonText }}>
+                {link.currency || '$'}{link.paymentAmount}
+              </p>
+            </div>
+          )}
+        </div>
+      </a>
+    )
+
+    if (link.type === 'booking') return (
       <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
         onClick={() => trackClick(key)} style={btnStyle}
         className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-            {link.platform && PLATFORM_ICONS[link.platform]
-              ? (() => { const I = PLATFORM_ICONS[link.platform!]; return <I size={18} /> })()
-              : <Music size={18} />}
+            <Calendar size={18} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-            {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
+            {link.bookingProvider && (
+              <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
+                via {link.bookingProvider}
+              </p>
+            )}
           </div>
+          <ExternalLink size={14} style={{ color: c.buttonText, opacity: 0.4 }} />
         </div>
       </a>
     )
 
-    if (link.type === 'video') return (
+    if (link.type === 'form') return (
       <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
         onClick={() => trackClick(key)} style={btnStyle}
         className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-            {link.platform && PLATFORM_ICONS[link.platform]
-              ? (() => { const I = PLATFORM_ICONS[link.platform!]; return <I size={18} /> })()
-              : <Video size={18} />}
+            <Mail size={18} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-            {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
+            {link.formType && (
+              <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
+                {link.formType.replace('-', ' ')}
+              </p>
+            )}
           </div>
+          <ExternalLink size={14} style={{ color: c.buttonText, opacity: 0.4 }} />
         </div>
       </a>
     )
 
-    const Icon = link.platform ? PLATFORM_ICONS[link.platform] : null
+    if (link.type === 'nft') return (
+      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+        onClick={() => trackClick(key)} style={btnStyle}
+        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+        <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              <ImageIcon size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
+              {link.nftChain && (
+                <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
+                  {link.nftChain}
+                </p>
+              )}
+            </div>
+          </div>
+          {link.nftPrice && (
+            <div className="text-right flex-shrink-0">
+              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>
+                {link.nftPrice} ETH
+              </p>
+            </div>
+          )}
+        </div>
+      </a>
+    )
 
+    if (link.type === 'music') {
+      const isFeatured = link.layout === 'featured'
+      const embedSrc = getEmbedIframeUrl(link.embedUrl || link.url || '')
+      const isAutoEmbed = embedSrc && (embedSrc.includes('spotify.com/embed') || embedSrc.includes('soundcloud.com') || embedSrc.includes('apple.com'))
+      
+      // If embedUrl or embeddable music link is provided, render embedded player
+      if (link.embedUrl || isAutoEmbed) {
+        return (
+          <div key={key} className="w-full mb-3 shadow-sm rounded-xl overflow-hidden">
+            <iframe
+              src={embedSrc}
+              className="w-full h-[152px] rounded-xl border-0"
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+            />
+          </div>
+        )
+      }
+      
+      if (isFeatured && link.thumbnail) {
+        return (
+          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+            onClick={() => trackClick(key)} style={btnStyle}
+            className={`group relative overflow-hidden transform-gpu ${animClasses}`}>
+            <div className="flex flex-col">
+              <div className="w-full aspect-video bg-black/10 overflow-hidden">
+                <img src={link.thumbnail} alt={link.text} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0">
+                  {link.platform && PLATFORM_ICONS[link.platform]
+                    ? (() => { const I = PLATFORM_ICONS[link.platform!]; return <I size={16} /> })()
+                    : <Music size={16} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
+                  {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
+                </div>
+                <Sparkles size={14} style={{ color: c.buttonText, opacity: 0.4 }} className="flex-shrink-0" />
+              </div>
+            </div>
+          </a>
+        )
+      }
+      
+      return (
+        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackClick(key)} style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              {link.platform && PLATFORM_ICONS[link.platform]
+                ? (() => { const I = PLATFORM_ICONS[link.platform!]; return <I size={18} /> })()
+                : <Music size={18} />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
+              {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
+            </div>
+          </div>
+        </a>
+      )
+    }
+
+    const isYouTubeUrl = (link.url || '').toLowerCase().includes('youtube.com') || (link.url || '').toLowerCase().includes('youtu.be')
+    const ytThumb = isYouTubeUrl ? extractYouTubeThumb(link.url) : null
+    const latestInfo = latestVideoDetails[link.id]
+    const cardThumb = latestInfo?.thumbnailUrl || link.thumbnail || ytThumb
+    const cardTitle = latestInfo?.title || link.text || 'YouTube Video'
+    const clickOpt = link.videoClickOption || 'display_video'
+    const isShowcaseMode = clickOpt === 'display_video' || clickOpt === 'display_latest'
+
+    // ── YOUTUBE FORMAT 1: "Display my video on my Linktree" (display_video / display_latest) ──
+    if (isYouTubeUrl && (clickOpt === 'display_video' || clickOpt === 'display_latest')) {
+      const isPlaying = Boolean(playingVideos[link.id])
+
+      if (isPlaying) {
+        const playingTarget = typeof playingVideos[link.id] === 'string' ? (playingVideos[link.id] as unknown as string) : ''
+        const embedSrc = getEmbedIframeUrl(playingTarget || link.embedUrl || link.url || '')
+        const autoSrc = embedSrc ? `${embedSrc}${embedSrc.includes('?') ? '&' : '?'}autoplay=1${link.videoMute ? '&mute=1' : ''}` : ''
+
+        return (
+          <div key={key} className="relative w-full h-[140px] rounded-lg overflow-hidden shadow-md border border-white/10 bg-black flex flex-col justify-center">
+            <iframe
+              src={autoSrc}
+              className="w-full h-full absolute inset-0 border-0 rounded-md"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setPlayingVideos(prev => ({ ...prev, [link.id]: false }))
+              }}
+              className="absolute top-2 right-2 z-30 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors shadow-md cursor-pointer"
+              title="Close video"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )
+      }
+
+      return (
+        <a
+          key={key}
+          href={ensureAbsoluteUrl(link.url)}
+          onClick={async (e) => {
+            e.preventDefault()
+            trackClick(link.id)
+            if (clickOpt === 'display_latest') {
+              const preEmbed = latestInfo?.latestUrl
+              if (preEmbed) {
+                setPlayingVideos(prev => ({ ...prev, [link.id]: preEmbed }))
+                return
+              }
+              try {
+                const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+                const data = await res.json()
+                if (data.embedUrl || data.latestUrl) {
+                  setPlayingVideos(prev => ({ ...prev, [link.id]: data.embedUrl || data.latestUrl }))
+                  return
+                }
+              } catch {
+                // fallback
+              }
+            }
+            setPlayingVideos(prev => ({ ...prev, [link.id]: true }))
+          }}
+          className={`group relative w-full h-[140px] flex flex-col justify-end rounded-lg overflow-hidden shadow-md border border-white/10 block text-decoration-none transition-all ${animClasses}`}
+        >
+          {/* Background Thumbnail Image */}
+          {cardThumb ? (
+            <img
+              src={cardThumb}
+              alt={cardTitle}
+              className="w-full h-full absolute inset-0 object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full absolute inset-0 bg-slate-900 flex items-center justify-center">
+              <YouTubeIcon size={40} className="text-red-600" />
+            </div>
+          )}
+
+          {/* Center Translucent Play Button Icon */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <Play size={20} className="fill-white ml-0.5" />
+            </div>
+          </div>
+
+          {/* Bottom Gradient Overlay & Video Title Info */}
+          <div className="relative bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-2.5 z-10 text-left w-full pt-8">
+            <h4 className="font-bold text-white text-xs leading-tight drop-shadow-md line-clamp-2">
+              {cardTitle}
+            </h4>
+          </div>
+        </a>
+      )
+    }
+
+    // ── YOUTUBE FORMAT 2: "Open YouTube video" (open_youtube) ──
+    if (isYouTubeUrl && clickOpt === 'open_youtube') {
+      return (
+        <a
+          key={key}
+          href={ensureAbsoluteUrl(link.url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackClick(link.id)}
+          className={`group w-full h-[140px] flex flex-col justify-between rounded-lg overflow-hidden shadow-sm border border-white/10 bg-white block text-decoration-none transition-all hover:shadow-md ${animClasses}`}
+        >
+          {/* Top Bezel-less Image Header */}
+          <div className="w-full flex-1 overflow-hidden bg-black relative">
+            {cardThumb ? (
+              <img
+                src={cardThumb}
+                alt={cardTitle}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                <YouTubeIcon size={32} className="text-red-600" />
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Light Section with Title */}
+          <div className="p-2 bg-white border-t border-gray-100/50">
+            <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">
+              {cardTitle}
+            </h4>
+          </div>
+        </a>
+      )
+    }
+
+    // ── YOUTUBE FORMAT 3: "Open my channel's latest video" (open_latest) ──
+    if (isYouTubeUrl && clickOpt === 'open_latest') {
+      return (
+        <button
+          key={key}
+          type="button"
+          onClick={async () => {
+            trackClick(link.id)
+            try {
+              const targetUrl = latestInfo?.latestUrl
+              if (targetUrl) {
+                window.open(targetUrl, '_blank', 'noopener,noreferrer')
+                return
+              }
+              const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+              const data = await res.json()
+              const target = data.latestUrl || link.url
+              window.open(target, '_blank', 'noopener,noreferrer')
+            } catch {
+              window.open(link.url, '_blank', 'noopener,noreferrer')
+            }
+          }}
+          className={`group w-full h-[140px] flex flex-col justify-between rounded-lg overflow-hidden shadow-sm border border-white/10 bg-white text-left transition-all hover:shadow-md ${animClasses}`}
+        >
+          {/* Top Bezel-less Image Header */}
+          <div className="w-full flex-1 overflow-hidden bg-black relative">
+            {cardThumb ? (
+              <img
+                src={cardThumb}
+                alt={cardTitle}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                <YouTubeIcon size={32} className="text-red-600" />
+              </div>
+            )}
+            {/* "Latest" badge */}
+            <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shadow">
+              Latest
+            </span>
+          </div>
+          {/* Bottom section */}
+          <div className="p-2 bg-white border-t border-gray-100/50">
+            <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">
+              {cardTitle}
+            </h4>
+          </div>
+        </button>
+      )
+    }
+
+    const iconKey = (link.platform || link.icon || '').toLowerCase()
+    const Icon = PLATFORM_ICONS[iconKey] || null
+
+    // ── 1. FEATURED CARD LAYOUT (Linktree Full-Bleed Image Showcase) ──
+    if (isFeatured) {
+      const embedSrc = getEmbedIframeUrl(link.embedUrl || link.url || '')
+      const isEmbed = Boolean(embedSrc && (embedSrc.includes('youtube') || embedSrc.includes('spotify') || embedSrc.includes('soundcloud') || embedSrc.includes('vimeo')))
+
+      if (isEmbed) {
+        return (
+          <div key={key} className="w-full rounded-2xl overflow-hidden shadow-lg border border-white/20 mb-2">
+            <iframe
+              src={embedSrc}
+              className={`w-full ${embedSrc.includes('spotify') ? 'h-[152px]' : 'aspect-video'} rounded-2xl border-0`}
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              loading="lazy"
+            />
+          </div>
+        )
+      }
+
+      const defaultThumb = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80'
+      const thumbUrl = link.thumbnail || defaultThumb
+
+      return (
+        <a 
+          key={key} 
+          href={ensureAbsoluteUrl(link.url)} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          onClick={(e) => handleLinkClick(e, link)} 
+          className={`group relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl transform-gpu border-2 border-white/20 block text-decoration-none ${animClasses}`}
+        >
+          <img
+            src={thumbUrl}
+            alt={link.text}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end justify-between p-4 z-10">
+            <div className="flex-1 min-w-0 pr-3">
+              <h3 className="font-extrabold text-white text-base leading-snug drop-shadow-md truncate">
+                {link.text}
+              </h3>
+              {link.description && (
+                <p className="text-xs text-white/80 line-clamp-1 font-medium mt-0.5">
+                  {link.description}
+                </p>
+              )}
+            </div>
+            <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white font-mono text-sm tracking-widest flex-shrink-0 group-hover:bg-white/30 transition-colors">
+              ...
+            </div>
+          </div>
+        </a>
+      )
+    }
+
+    // ── 2. COMPACT ROW LAYOUT (Slim Chip Bar) ──
+    if (isCompact) {
+      return (
+        <a 
+          key={key} 
+          href={ensureAbsoluteUrl(link.url)} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          onClick={(e) => handleLinkClick(e, link)} 
+          style={{ ...btnStyle, height: '48px', minHeight: '48px', padding: '0 16px' }}
+          className={`group relative overflow-hidden transform-gpu transition-all ${animClasses}`}
+        >
+          <div className="flex items-center gap-2.5 w-full">
+            <div className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0">
+              {Icon ? <Icon size={12} /> : <Globe size={12} />}
+            </div>
+            <span className="font-bold text-xs truncate flex-1 text-left" style={{ color: c.buttonText }}>
+              {link.text}
+            </span>
+            <ExternalLink size={11} style={{ color: c.buttonText, opacity: 0.4 }} />
+          </div>
+        </a>
+      )
+    }
+
+    // Classic Button Layout (Default)
     return (
       <a 
         key={key} 
         href={ensureAbsoluteUrl(link.url)} 
         target="_blank" 
         rel="noopener noreferrer"
-        onClick={() => trackClick(key)} 
+        onClick={(e) => handleLinkClick(e, link)} 
         style={btnStyle}
         className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}
       >
         <div className="flex items-center px-4 py-3.5 gap-3.5">
-          <div className="w-10 h-10 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
+          <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
             {Icon ? (
-              <Icon size={19} />
+              <Icon size={18} />
             ) : (
-              <Globe size={19} />
+              <Globe size={18} />
             )}
           </div>
-          <p className="font-extrabold text-sm md:text-base flex-1 text-center truncate px-2" style={{ color: c.buttonText }}>
-            {link.text}
-          </p>
-          <div className="w-6 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
-            <ExternalLink size={15} />
+          <div className="flex-1 min-w-0">
+            <p className="font-extrabold text-sm md:text-base leading-tight truncate" style={{ color: c.buttonText }}>
+              {link.text}
+            </p>
+            {link.description && (
+              <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>
+                {link.description}
+              </p>
+            )}
+          </div>
+          <div className="w-5 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
+            <ExternalLink size={14} />
           </div>
         </div>
       </a>
@@ -558,6 +1131,39 @@ export default function BioCard({ cardId }: { cardId: string }) {
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden" style={bg}>
+
+      {/* ── Mobile Header (Linktree Style) ── */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={() => window.history.back()}
+          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all"
+        >
+          <ArrowLeft className="w-5 h-5 text-slate-700" />
+        </button>
+        
+        <div className="flex-1 text-center">
+          <p className="text-sm font-bold text-slate-900 truncate">
+            biolink.ee/{config.profile.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const cardUrl = window.location.href
+              if (navigator.share) {
+                navigator.share({ title: config.profile.title, url: cardUrl })
+              } else {
+                navigator.clipboard.writeText(cardUrl)
+                alert('Link copied!')
+              }
+            }}
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all"
+          >
+            <Share2 className="w-4 h-4 text-slate-700" />
+          </button>
+        </div>
+      </div>
 
       {c.backgroundImage && (
         <div
@@ -608,22 +1214,8 @@ export default function BioCard({ cardId }: { cardId: string }) {
         }} />
       )}
 
-      {/* ── Floating Desktop Card Frame ── */}
-      <div className="relative z-10 w-full min-h-screen md:min-h-0 flex flex-col justify-between md:my-10 md:max-w-[480px] md:rounded-[36px] md:border md:border-white/20 md:shadow-2xl md:backdrop-blur-xl md:bg-black/20 p-5 md:p-8 overflow-hidden">
-
-        {/* ── Top Header Actions (Star Badge & Share Button) ── */}
-        <div className="flex items-center justify-between mb-6 relative z-30">
-          <div className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white shadow-sm hover:scale-105 transition-transform cursor-pointer">
-            <Sparkles size={16} />
-          </div>
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="w-9 h-9 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white shadow-sm hover:scale-105 transition-transform cursor-pointer"
-            title="Share this BioLink"
-          >
-            <Share2 size={16} />
-          </button>
-        </div>
+      {/* ── Floating Mobile-First Card Frame ── */}
+      <div className="relative z-10 w-full min-h-screen flex flex-col justify-between pt-16 px-4 pb-4 sm:pt-20 sm:px-5 sm:pb-5 md:pt-8 md:my-10 md:max-w-[480px] md:min-h-0 md:rounded-[36px] md:border md:border-white/20 md:shadow-2xl md:backdrop-blur-xl md:bg-black/20 md:px-8 md:pb-8 overflow-hidden">
 
         <div>
           {/* ── Profile Section ── */}
@@ -635,10 +1227,10 @@ export default function BioCard({ cardId }: { cardId: string }) {
             const avatarSrc = config.profile.avatar && config.profile.avatar !== 'user' ? config.profile.avatar : ''
             const hasImg = (src?: string) => Boolean(src && (src.startsWith('http') || src.startsWith('data:') || src.length > 10))
 
-            // 1. HERO LAYOUT
+            // 1. HERO LAYOUT (Mobile Optimized)
             if (headerLayout === 'hero') {
               return (
-                <div className="mb-8 -mx-5 md:-mx-8 -mt-[80px] md:-mt-[92px] pt-24 md:pt-28 relative h-[380px] overflow-hidden flex flex-col justify-end p-6 text-center rounded-t-[36px]">
+                <div className="mb-6 sm:mb-8 -mx-4 sm:-mx-5 md:-mx-8 -mt-16 sm:-mt-20 md:-mt-8 relative h-[320px] sm:h-[360px] md:h-[380px] overflow-hidden flex flex-col justify-end p-4 sm:p-6 text-center rounded-t-[28px] sm:rounded-t-[36px]">
                   {hasImg(avatarSrc) ? (
                     <img
                       src={avatarSrc}
@@ -664,20 +1256,20 @@ export default function BioCard({ cardId }: { cardId: string }) {
                     </div>
                   )}
 
-                  {/* Overlaid Title & Bio */}
+                  {/* Overlaid Title & Bio (Mobile Responsive) */}
                   <div className="relative z-10 text-center pb-2">
-                    <h1 className="text-2xl font-bold mb-1.5 leading-tight text-white drop-shadow-md"
+                    <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight text-white drop-shadow-md px-4"
                       style={{ fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
                       {config.profile.title || 'Your Name'}
                     </h1>
                     {config.profile.bio && (
-                      <p className="text-sm leading-relaxed max-w-xs mx-auto text-white/95 drop-shadow-sm"
+                      <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto text-white/95 drop-shadow-sm px-4"
                         style={{ fontFamily: theme.fonts?.body || 'Inter, sans-serif' }}>
                         {config.profile.bio}
                       </p>
                     )}
                     {config.profile.location && (
-                      <p className="text-xs mt-2 flex items-center justify-center gap-1 text-white/90 drop-shadow-sm">
+                      <p className="text-xs mt-1.5 sm:mt-2 flex items-center justify-center gap-1 text-white/90 drop-shadow-sm">
                         <MapPin size={11} />{config.profile.location}
                       </p>
                     )}
@@ -686,12 +1278,12 @@ export default function BioCard({ cardId }: { cardId: string }) {
               )
             }
 
-            // 2. BANNER LAYOUT
+            // 2. BANNER LAYOUT (Mobile Optimized)
             if (headerLayout === 'banner') {
               return (
-                <div className="text-center mb-8">
+                <div className="text-center mb-6 sm:mb-8">
                   {/* Banner strip */}
-                  <div className="w-[calc(100%+40px)] md:w-[calc(100%+64px)] h-44 -mx-5 md:-mx-8 -mt-[80px] md:-mt-[92px] relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center rounded-t-[36px]">
+                  <div className="w-[calc(100%+32px)] sm:w-[calc(100%+40px)] md:w-[calc(100%+64px)] h-36 sm:h-44 -mx-4 sm:-mx-5 md:-mx-8 -mt-16 sm:-mt-20 md:-mt-8 relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center rounded-t-[28px] sm:rounded-t-[36px]">
                     {hasImg(bannerImage) ? (
                       <img src={bannerImage} alt="banner" className="w-full h-full object-cover" />
                     ) : (
@@ -703,35 +1295,37 @@ export default function BioCard({ cardId }: { cardId: string }) {
                             : c.backgroundMesh || `linear-gradient(135deg, ${c.accent || '#ec4899'}, ${c.buttonDefault || '#4f46e5'})`
                         }}
                       >
-                        <ImageIcon size={32} opacity={0.7} />
+                        <ImageIcon size={28} opacity={0.7} className="sm:w-8 sm:h-8" />
                       </div>
                     )}
                   </div>
 
-                  {/* Overlapping Avatar */}
-                  <div className="mb-4 flex justify-center relative z-10 -mt-12">
+                  {/* Overlapping Avatar (Mobile Responsive) */}
+                  <div className="mb-3 sm:mb-4 flex justify-center relative z-10 -mt-10 sm:-mt-12">
                     {hasImg(avatarSrc) ? (
-                      <img src={avatarSrc} alt="avatar" className="w-24 h-24 rounded-full object-cover shadow-lg" />
+                      <img src={avatarSrc} alt="avatar" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg" />
                     ) : (
                       <div
-                        className="w-24 h-24 rounded-full flex items-center justify-center text-4xl shadow-lg"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-lg"
                         style={{
                           backgroundColor: c.buttonDefault || '#1e293b',
                           color: c.buttonText || c.profileText || '#ffffff'
                         }}
                       >
-                        {(config.profile.title || '?')[0].toUpperCase()}
+                        <span className="text-2xl sm:text-4xl font-bold">
+                          {(config.profile.title || '?')[0].toUpperCase()}
+                        </span>
                       </div>
                     )}
                   </div>
 
-                  <h1 className="text-2xl font-bold mb-1.5 leading-tight"
+                  <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight px-4"
                     style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
                     {config.profile.title || 'Your Name'}
                   </h1>
 
                   {config.profile.bio && (
-                    <p className="text-sm leading-relaxed max-w-xs mx-auto"
+                    <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
                       style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif', opacity: 0.9 }}>
                       {config.profile.bio}
                     </p>
@@ -740,7 +1334,7 @@ export default function BioCard({ cardId }: { cardId: string }) {
               )
             }
 
-            // 4. SHAPE LAYOUT
+            // 4. SHAPE LAYOUT (Mobile Responsive)
             if (headerLayout === 'shape') {
               // Shapes: loop, flower, oval, rounded, burst
               const shapeBorderRadius =
@@ -750,10 +1344,10 @@ export default function BioCard({ cardId }: { cardId: string }) {
                 headerShape === 'burst' ? '30% 70% 70% 30% / 50% 30% 70% 50%' : '36px'
 
               return (
-                <div className="text-center mb-8">
-                  <div className="mb-4 flex justify-center">
+                <div className="text-center mb-6 sm:mb-8">
+                  <div className="mb-3 sm:mb-4 flex justify-center">
                     <div
-                      className="w-48 h-40 overflow-hidden shadow-2xl flex items-center justify-center relative transition-all duration-300 border-4 border-white/40"
+                      className="w-40 h-32 sm:w-48 sm:h-40 overflow-hidden shadow-2xl flex items-center justify-center relative transition-all duration-300 border-4 border-white/40"
                       style={{
                         borderRadius: shapeBorderRadius,
                         backgroundColor: c.buttonDefault || c.accent || '#4F46E5'
@@ -762,20 +1356,20 @@ export default function BioCard({ cardId }: { cardId: string }) {
                       {hasImg(avatarSrc) ? (
                         <img src={avatarSrc} alt="avatar shape" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-4xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
+                        <span className="text-3xl sm:text-4xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
                           {(config.profile.title || '?')[0].toUpperCase()}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <h1 className="text-2xl font-bold mb-1.5 leading-tight"
+                  <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight px-4"
                     style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
                     {config.profile.title || 'Your Name'}
                   </h1>
 
                   {config.profile.bio && (
-                    <p className="text-sm leading-relaxed max-w-xs mx-auto"
+                    <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
                       style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif', opacity: 0.9 }}>
                       {config.profile.bio}
                     </p>
@@ -784,36 +1378,36 @@ export default function BioCard({ cardId }: { cardId: string }) {
               )
             }
 
-            // 5. CLASSIC LAYOUT (DEFAULT)
+            // 5. CLASSIC LAYOUT (DEFAULT - Mobile Optimized)
             return (
-              <div className="text-center mb-8">
-                <div className="mb-4 flex justify-center">
+              <div className="text-center mb-6 sm:mb-8">
+                <div className="mb-3 sm:mb-4 flex justify-center">
                   {hasImg(avatarSrc) ? (
                     <img src={avatarSrc} alt="avatar"
-                      className="w-24 h-24 rounded-full object-cover shadow-lg" />
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg" />
                   ) : (
-                    <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl shadow-lg bg-white/15">
-                      <span className="text-3xl font-bold" style={{ color: c.profileText }}>
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-lg bg-white/15">
+                      <span className="text-2xl sm:text-3xl font-bold" style={{ color: c.profileText }}>
                         {(config.profile.title || '?')[0].toUpperCase()}
                       </span>
                     </div>
                   )}
                 </div>
 
-                <h1 className="text-2xl font-bold mb-1.5 leading-tight"
+                <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight px-4"
                   style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
                   {config.profile.title || 'Your Name'}
                 </h1>
 
                 {config.profile.bio && (
-                  <p className="text-sm leading-relaxed max-w-xs mx-auto"
+                  <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
                     style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif', opacity: 0.9 }}>
                     {config.profile.bio}
                   </p>
                 )}
 
                 {config.profile.location && (
-                  <p className="text-xs mt-2 flex items-center justify-center gap-1"
+                  <p className="text-xs mt-1.5 sm:mt-2 flex items-center justify-center gap-1"
                     style={{ color: c.profileBio, opacity: 0.7 }}>
                     <MapPin size={11} />{config.profile.location}
                   </p>
@@ -822,10 +1416,66 @@ export default function BioCard({ cardId }: { cardId: string }) {
             )
           })()}
 
-          {/* ── Links ── */}
+          {/* ── Links (Mobile Optimized) ── */}
           {visibleLinks.length > 0 && (
-            <div className="space-y-3 mb-8">
-              {visibleLinks.map(renderLink)}
+            <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8 w-full">
+              {visibleLinks.map((link) => {
+                if (link.groupId && !link.isGroupHeader) return null // Handled inside parent collection
+
+                if (link.isGroupHeader) {
+                  const groupLinks = visibleLinks.filter(l => l.groupId === link.id && !l.isGroupHeader)
+                  const layout = link.collectionLayout || 'stack'
+
+                  return (
+                    <div key={link.id} className="space-y-2.5 w-full">
+                      {renderLink(link)}
+
+                      {groupLinks.length > 0 && (
+                        <div>
+                          {layout === 'grid' && (
+                            <div className="grid grid-cols-2 gap-2.5 w-full items-stretch">
+                              {groupLinks.map((gLink) => (
+                                <div key={gLink.id} className="w-full h-full flex flex-col">
+                                  {renderLink(gLink)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {layout === 'carousel' && (
+                            <div className="-mx-1 px-1 flex gap-3 overflow-x-auto pb-3 pt-1.5 w-full snap-x snap-mandatory scrollbar-none items-stretch">
+                              {groupLinks.map((gLink) => (
+                                <div key={gLink.id} className="w-[240px] shrink-0 snap-center flex flex-col">
+                                  {renderLink(gLink)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {layout === 'showcase' && (
+                            <div className="space-y-2.5 w-full">
+                              {renderLink({ ...groupLinks[0], layout: 'featured' })}
+                              {groupLinks.length > 1 && (
+                                <div className="grid grid-cols-2 gap-2.5 w-full">
+                                  {groupLinks.slice(1).map(renderLink)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {layout === 'stack' && (
+                            <div className="space-y-2.5 w-full">
+                              {groupLinks.map(renderLink)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                return renderLink(link)
+              })}
             </div>
           )}
 
@@ -954,6 +1604,122 @@ export default function BioCard({ cardId }: { cardId: string }) {
                 </div>
                 <span className="text-[11px] font-bold">Email</span>
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Lock Unlock Modal Overlay ── */}
+      {lockedModalLink && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4 relative border border-gray-100">
+            <button
+              onClick={() => setLockedModalLink(null)}
+              className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mx-auto shadow-sm">
+              <Lock size={28} />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-extrabold text-gray-900">{lockedModalLink.text || 'Locked Content'}</h3>
+              <p className="text-xs text-gray-500 mt-1 font-medium">
+                {lockedModalLink.lockType === 'subscribe' && 'Please subscribe with your email to unlock this link.'}
+                {lockedModalLink.lockType === 'code' && 'Enter the secret access code to unlock.'}
+                {lockedModalLink.lockType === 'password' && 'Enter password to access this protected link.'}
+                {lockedModalLink.lockType === 'dob' && 'Age verification required. Confirm your birth date.'}
+                {lockedModalLink.lockType === 'sensitive' && '18+ Sensitive content warning disclaimer.'}
+              </p>
+            </div>
+
+            <form onSubmit={handleUnlockSubmit} className="space-y-3 pt-1">
+              {(lockedModalLink.lockType === 'code' || lockedModalLink.lockType === 'password') && (
+                <input
+                  type={lockedModalLink.lockType === 'password' ? 'password' : 'text'}
+                  value={unlockInput}
+                  onChange={e => setUnlockInput(e.target.value)}
+                  placeholder={lockedModalLink.lockType === 'password' ? 'Enter password...' : 'Enter access code...'}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 focus:border-purple-600 rounded-xl text-sm outline-none font-medium"
+                  autoFocus
+                />
+              )}
+
+              {lockedModalLink.lockType === 'subscribe' && (
+                <input
+                  type="email"
+                  value={unlockInput}
+                  onChange={e => setUnlockInput(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 focus:border-purple-600 rounded-xl text-sm outline-none font-medium"
+                  autoFocus
+                />
+              )}
+
+              {lockedModalLink.lockType === 'dob' && (
+                <input
+                  type="date"
+                  value={unlockInput}
+                  onChange={e => setUnlockInput(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 focus:border-purple-600 rounded-xl text-sm outline-none font-medium"
+                  autoFocus
+                />
+              )}
+
+              {lockedModalLink.lockType === 'sensitive' && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-medium text-left">
+                  ⚠️ Warning: This link contains adult or sensitive material. By clicking Unlock, you confirm you are 18 years of age or older.
+                </div>
+              )}
+
+              {unlockError && (
+                <p className="text-xs font-bold text-red-600 animate-shake">{unlockError}</p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-sm rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                Unlock Link & Continue &rarr;
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── LINKTREE VIDEO LIGHTBOX MODAL ── */}
+      {activeVideoModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setActiveVideoModal(null)}
+        >
+          <div 
+            className="relative w-full max-w-2xl bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 py-3 bg-neutral-900 border-b border-neutral-800 text-white">
+              <div className="flex items-center gap-2 min-w-0 pr-4">
+                <YouTubeIcon size={18} className="text-red-600 fill-red-600 shrink-0" />
+                <h3 className="font-bold text-sm truncate">{activeVideoModal.text || 'YouTube Video'}</h3>
+              </div>
+              <button
+                onClick={() => setActiveVideoModal(null)}
+                className="p-1.5 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Embedded Video iFrame */}
+            <div className="w-full aspect-video bg-black relative">
+              <iframe
+                src={`${getEmbedIframeUrl(activeVideoModal.embedUrl || activeVideoModal.url || '')}?autoplay=1${activeVideoModal.videoMute ? '&mute=1' : ''}`}
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>

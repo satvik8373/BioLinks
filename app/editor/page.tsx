@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemeById, formatAndNormalizeTheme, Theme, getEmbedIframeUrl } from '@/lib/themes'
 import { getCardPublicUrl, getCleanUsernameSlug, getDisplayUrlSlug, getAccountUsername, resolveCardKey } from '@/lib/urlHelper'
+import LinkListEditor from '@/components/editor/links/LinkListEditor'
+import AddLinkModal from '@/components/editor/links/AddLinkModal'
+import { LinkItem as TypedLinkItem, formatSocialUrl } from '@/lib/types/link'
 import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
   FacebookIcon, LinkedInIcon, DiscordIcon, GitHubIcon, WhatsAppIcon,
   TelegramIcon, SoundCloudIcon, ShopifyIcon, EmailIcon, PhoneIcon,
-  WebsiteIcon, AppleMusicIcon
+  WebsiteIcon, AppleMusicIcon, ServiceIcon
 } from '@/components/icons/ServiceIcons'
 import { saveCard, saveUserProfile, uploadWallpaperFile } from '@/lib/storage'
 import { 
@@ -30,6 +33,7 @@ import {
   Globe,
   MapPin,
   ExternalLink,
+  Play,
   ChevronRight,
   ChevronLeft,
   X,
@@ -52,18 +56,35 @@ import {
   Paintbrush,
   Dices,
   Pencil,
-  Upload
+  Upload,
+  Calendar,
+  Video
 } from 'lucide-react'
 
 interface LinkItem {
   id: string
-  type: 'link' | 'header' | 'text' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event'
+  type: 'link' | 'header' | 'text' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
   text: string
   url: string
   icon: string
   isVisible: boolean
   platform?: string
   description?: string
+  // Layout & Display
+  layout?: 'classic' | 'featured' | 'compact'
+  isPinned?: boolean
+  priority?: number
+  // Collection Grouping
+  groupId?: string
+  isGroupHeader?: boolean
+  groupTitle?: string
+  collectionLayout?: 'stack' | 'grid' | 'carousel' | 'showcase'
+  videoClickOption?: 'display_video' | 'open_youtube' | 'open_latest' | 'display_latest'
+  videoMute?: boolean
+  // Scheduling
+  scheduleStart?: string // ISO date
+  scheduleEnd?: string   // ISO date
+  isScheduled?: boolean
   // shop
   price?: string
   currency?: string
@@ -79,6 +100,24 @@ interface LinkItem {
   // media
   thumbnail?: string
   embedUrl?: string
+  autoPlay?: boolean
+  // payment
+  paymentType?: 'stripe' | 'paypal' | 'venmo' | 'cashapp' | 'tip' | 'donation'
+  paymentAmount?: string
+  paymentCurrency?: string
+  // booking/calendar
+  bookingUrl?: string
+  bookingDuration?: string
+  bookingProvider?: 'calendly' | 'cal.com' | 'acuity' | 'custom'
+  // form
+  formType?: 'contact' | 'survey' | 'email-capture' | 'custom'
+  formFields?: Array<{ name: string; type: string; required: boolean }>
+  formAction?: string
+  // nft
+  nftContract?: string
+  nftChain?: 'ethereum' | 'polygon' | 'solana' | 'base'
+  nftPrice?: string
+  nftImage?: string
 }
 
 interface BioLinkConfig {
@@ -106,6 +145,13 @@ export default function EditorPage() {
   const [loading, setLoading] = useState(true)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showAddLinkModal, setShowAddLinkModal] = useState(false)
+  const [targetGroupId, setTargetGroupId] = useState<string | undefined>(undefined)
+  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean | string>>({})
+
+  const handleOpenAddModal = (groupId?: string) => {
+    setTargetGroupId(groupId)
+    setShowAddLinkModal(true)
+  }
   const [isEditingHandle, setIsEditingHandle] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -121,15 +167,26 @@ export default function EditorPage() {
   // Undo & Redo History Stacks
   const [pastConfigs, setPastConfigs] = useState<BioLinkConfig[]>([])
   const [futureConfigs, setFutureConfigs] = useState<BioLinkConfig[]>([])
-
+  const isUndoRedoRef = useRef(false)
   const handleUndo = () => {
     if (pastConfigs.length === 0 || !config) return
     const previous = pastConfigs[pastConfigs.length - 1]
     const newPast = pastConfigs.slice(0, pastConfigs.length - 1)
     
+    isUndoRedoRef.current = true
     setPastConfigs(newPast)
     setFutureConfigs(prev => [config, ...prev])
     setConfig(previous)
+    
+    // Immediately update localStorage
+    try {
+      localStorage.setItem('currentBioLinkConfig', JSON.stringify(previous))
+    } catch (e) {
+      console.error('Failed to save undo state to localStorage', e)
+    }
+    
+    // Reset flag after state update
+    setTimeout(() => { isUndoRedoRef.current = false }, 0)
   }
 
   const handleRedo = () => {
@@ -137,9 +194,20 @@ export default function EditorPage() {
     const next = futureConfigs[0]
     const newFuture = futureConfigs.slice(1)
     
+    isUndoRedoRef.current = true
     setPastConfigs(prev => [...prev, config])
     setFutureConfigs(newFuture)
     setConfig(next)
+    
+    // Immediately update localStorage
+    try {
+      localStorage.setItem('currentBioLinkConfig', JSON.stringify(next))
+    } catch (e) {
+      console.error('Failed to save redo state to localStorage', e)
+    }
+    
+    // Reset flag after state update
+    setTimeout(() => { isUndoRedoRef.current = false }, 0)
   }
 
   // Keyboard shortcut listener for Ctrl+Z / Ctrl+Y
@@ -311,8 +379,11 @@ export default function EditorPage() {
   const updateConfig = (pathOrUpdates: string | Array<{ path: string; value: any }>, value?: any) => {
     if (!config) return
 
-    setPastConfigs(prev => [...prev, JSON.parse(JSON.stringify(config))].slice(-30))
-    setFutureConfigs([])
+    // Don't save to history during undo/redo operations
+    if (!isUndoRedoRef.current) {
+      setPastConfigs(prev => [...prev, JSON.parse(JSON.stringify(config))].slice(-30))
+      setFutureConfigs([])
+    }
 
     const updates: Array<{ path: string; value: any }> = Array.isArray(pathOrUpdates)
       ? pathOrUpdates
@@ -360,25 +431,62 @@ export default function EditorPage() {
     setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
   }, [config, previewCardId])
 
-  const addLink = (preset?: Partial<LinkItem>) => {
+  const addLink = (preset?: Partial<TypedLinkItem>) => {
     if (!config) return
 
     const newLink: LinkItem = {
       id: Date.now().toString(),
-      type: preset?.type || 'link',
+      type: (preset?.type || 'link') as any,
       text: preset?.text || 'New Link',
       url: preset?.url || '',
       icon: preset?.icon || '🔗',
       isVisible: true,
+      groupId: targetGroupId,
       platform: preset?.platform,
       description: preset?.description,
+      layout: preset?.layout || 'classic',
       price: preset?.price,
+      currency: preset?.currency,
+      originalPrice: preset?.originalPrice,
+      stockStatus: preset?.stockStatus,
+      contactType: preset?.contactType,
+      contactValue: preset?.contactValue,
+      eventDate: preset?.eventDate,
+      eventTime: preset?.eventTime,
+      eventLocation: preset?.eventLocation,
       thumbnail: preset?.thumbnail,
+      embedUrl: preset?.embedUrl,
+      paymentType: preset?.paymentType,
+      paymentAmount: preset?.paymentAmount,
+      paymentCurrency: preset?.paymentCurrency,
+      bookingProvider: preset?.bookingProvider,
+      bookingDuration: preset?.bookingDuration,
+      bookingUrl: preset?.bookingUrl,
     }
 
-    updateConfig('links', [...config.links, newLink])
+    let updatedLinks: LinkItem[]
+    if (targetGroupId) {
+      const headerIdx = config.links.findIndex(l => l.id === targetGroupId)
+      if (headerIdx !== -1) {
+        let lastChildIdx = headerIdx
+        for (let i = headerIdx + 1; i < config.links.length; i++) {
+          if (config.links[i].groupId === targetGroupId) {
+            lastChildIdx = i
+          }
+        }
+        updatedLinks = [...config.links]
+        updatedLinks.splice(lastChildIdx + 1, 0, newLink)
+      } else {
+        updatedLinks = [...config.links, newLink]
+      }
+    } else {
+      updatedLinks = [...config.links, newLink]
+    }
+
+    updateConfig('links', updatedLinks)
     setSelectedLinkId(newLink.id)
     setShowAddLinkModal(false)
+    setTargetGroupId(undefined)
   }
 
   const removeLink = (id: string) => {
@@ -401,6 +509,14 @@ export default function EditorPage() {
     if (!config) return
     const newLinks = config.links.map(link => 
       link.id === id ? { ...link, [field]: value } : link
+    )
+    updateConfig('links', newLinks)
+  }
+
+  const updateFullLink = (updatedLink: any) => {
+    if (!config) return
+    const newLinks = config.links.map(link => 
+      link.id === updatedLink.id ? updatedLink : link
     )
     updateConfig('links', newLinks)
   }
@@ -489,10 +605,14 @@ export default function EditorPage() {
 
   if (loading || !config) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-lg font-semibold text-gray-700">Loading editor...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #EEF0F8 0%, #E8E9F5 100%)' }}>
+        <div className="text-center clay-card p-10 clay-pop-in">
+          <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.25), 0 4px 0 #4F46E5, 0 8px 20px rgba(124,58,237,0.35)' }}>
+            <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" style={{ borderWidth: '3px' }} />
+          </div>
+          <p className="text-base font-extrabold text-slate-800 tracking-tight">Loading editor...</p>
+          <p className="text-xs text-slate-400 font-medium mt-1">Preparing your workspace</p>
         </div>
       </div>
     )
@@ -524,97 +644,107 @@ export default function EditorPage() {
   const isDesignTab = ['profile','themes','background','buttons','fonts','appearance','colors'].includes(activeTab)
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
+    <div className="h-screen flex flex-col md:flex-row overflow-hidden" style={{ background: 'linear-gradient(170deg, #EEF0F8 0%, #E8E9F5 60%, #EBE8F8 100%)' }}>
 
-      {/* ── Left Sidebar ── */}
-      <aside className="w-56 bg-white border-r border-indigo-100 flex flex-col flex-shrink-0 shadow-[4px_0_16px_rgba(79,70,229,0.04)]">
+      {/* ── Left Sidebar (Hidden on mobile, shown on tablet+) ── */}
+      <aside className="hidden md:flex w-56 flex-col flex-shrink-0 clay-sidebar">
 
         {/* User profile row */}
-        <div className="px-4 py-3 border-b border-indigo-50 flex-shrink-0 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Avatar src={config.profile.avatar} size="sm" fallback="user" />
-            <span className="text-xs font-extrabold text-indigo-950 truncate">
+        <div className="px-4 py-3.5 flex-shrink-0 flex items-center justify-between gap-2" style={{ borderBottom: '1.5px solid rgba(148,163,184,0.2)' }}>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="relative flex-shrink-0">
+              <Avatar src={config.profile.avatar} size="sm" fallback="user" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white"
+                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+            </div>
+            <span className="text-[11px] font-extrabold text-slate-800 truncate tracking-tight">
               {config.profile.title || 'My BioLink'}
             </span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <button onClick={handleUndo} disabled={pastConfigs.length === 0} title="Undo (Ctrl+Z)"
-              className={`p-1.5 rounded-lg border transition-all ${
+              className={`p-1.5 rounded-xl transition-all ${
                 pastConfigs.length > 0
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm'
-                  : 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
-              }`}>
-              <Undo2 className="w-3.5 h-3.5" />
+                  ? 'cursor-pointer'
+                  : 'opacity-30 cursor-not-allowed'
+              }`}
+              style={pastConfigs.length > 0 ? { background: 'rgba(124,58,237,0.08)', color: '#7C3AED', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(124,58,237,0.08)' } : { background: 'rgba(148,163,184,0.08)', color: '#CBD5E1' }}>
+              <Undo2 className="w-3 h-3" />
             </button>
             <button onClick={handleRedo} disabled={futureConfigs.length === 0} title="Redo (Ctrl+Y)"
-              className={`p-1.5 rounded-lg border transition-all ${
+              className={`p-1.5 rounded-xl transition-all ${
                 futureConfigs.length > 0
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer shadow-sm'
-                  : 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed'
-              }`}>
-              <Redo2 className="w-3.5 h-3.5" />
+                  ? 'cursor-pointer'
+                  : 'opacity-30 cursor-not-allowed'
+              }`}
+              style={futureConfigs.length > 0 ? { background: 'rgba(124,58,237,0.08)', color: '#7C3AED', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(124,58,237,0.08)' } : { background: 'rgba(148,163,184,0.08)', color: '#CBD5E1' }}>
+              <Redo2 className="w-3 h-3" />
             </button>
           </div>
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-1">
           {[
-            { id: 'links',      label: 'Links',     icon: LinkIcon  },
-            { id: 'appearance', label: 'Design',    icon: Palette   },
-            { id: 'analytics',  label: 'Analytics', icon: BarChart3 },
-            { id: 'settings',   label: 'Settings',  icon: Settings  },
-          ].map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id === 'appearance' ? 'appearance' : id as any)}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-extrabold transition-all ${
-                (id === 'appearance' && isDesignTab) || (!isDesignTab && activeTab === id)
-                  ? 'bg-indigo-600 text-white shadow-[2px_4px_12px_rgba(79,70,229,0.3)]'
-                  : 'text-indigo-950/80 hover:bg-indigo-50 font-bold'
-              }`}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              <span>{label}</span>
-            </button>
-          ))}
+            { id: 'links',      label: 'Links',     icon: LinkIcon, color: '#7C3AED' },
+            { id: 'appearance', label: 'Design',    icon: Palette,  color: '#EC4899' },
+            { id: 'analytics',  label: 'Analytics', icon: BarChart3, color: '#0EA5E9' },
+            { id: 'settings',   label: 'Settings',  icon: Settings, color: '#10B981' },
+          ].map(({ id, label, icon: Icon, color }) => {
+            const isActive = (id === 'appearance' && isDesignTab) || (!isDesignTab && activeTab === id)
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id === 'appearance' ? 'appearance' : id as any)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-xs font-extrabold transition-all clay-nav-item ${
+                  isActive ? 'clay-nav-item-active' : 'clay-nav-item-idle'
+                }`}
+              >
+                <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+                  isActive ? 'bg-white/20' : 'bg-white'
+                }`}
+                style={isActive ? {} : { boxShadow: `inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 4px rgba(15,23,42,0.06), 0 1.5px 0 rgba(148,163,184,0.2)` }}>
+                  <Icon className="w-3.5 h-3.5" style={{ color: isActive ? 'rgba(255,255,255,0.9)' : color }} />
+                </div>
+                <span className="tracking-tight">{label}</span>
+              </button>
+            )
+          })}
         </nav>
 
         {/* Bottom actions */}
-        <div className="flex-shrink-0 border-t border-indigo-50 p-3 space-y-2">
+        <div className="flex-shrink-0 p-3 space-y-2" style={{ borderTop: '1.5px solid rgba(148,163,184,0.2)' }}>
           <button
             type="button"
             onClick={saveBioLink}
             disabled={isSaving}
-            className={`w-full py-2.5 px-4 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.98] ${
-              isSaving
-                ? 'bg-slate-600 cursor-not-allowed'
-                : 'bg-slate-900 hover:bg-slate-800 cursor-pointer'
+            className={`w-full py-2.5 px-4 text-white text-xs clay-save-btn flex items-center justify-center gap-2 ${
+              isSaving ? 'opacity-70 cursor-not-allowed' : ''
             }`}
           >
             {isSaving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Saving...
               </>
             ) : (
               <>
-                <Share2 className="w-4 h-4" />
-                Save & Share Link
+                <Share2 className="w-3.5 h-3.5" />
+                Save & Share
               </>
             )}
           </button>
           
           {/* Error Message */}
           {saveError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-              <p className="text-xs font-semibold text-red-600 flex items-center gap-2">
-                <X className="w-4 h-4" />
+            <div className="p-2.5 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.2)' }}>
+              <p className="text-[10px] font-bold text-red-600 flex items-center gap-1.5">
+                <X className="w-3.5 h-3.5" />
                 {saveError}
               </p>
               <button
                 onClick={() => setSaveError(null)}
-                className="text-xs text-red-500 hover:text-red-700 mt-1 underline"
+                className="text-[10px] text-red-500 hover:text-red-700 mt-1 underline font-semibold"
               >
                 Dismiss
               </button>
@@ -630,36 +760,83 @@ export default function EditorPage() {
                 window.open(cardUrl, '_blank')
                 syncPreviewCard(config, previewCardId).catch(() => {})
               }}
-              className="flex-1 py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-indigo-200/80 shadow-xs"
+              className="flex-1 py-2 px-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer clay-btn clay-btn-ghost"
             >
-              <Eye className="w-3.5 h-3.5 text-indigo-600" />
-              Preview
+              <Eye className="w-3.5 h-3.5" style={{ color: '#7C3AED' }} />
+              <span className="text-slate-700">Preview</span>
             </button>
             <button
               type="button"
               onClick={() => router.push('/my-cards')}
-              className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 shadow-xs"
+              className="flex-1 py-2 px-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              style={{ background: 'rgba(148,163,184,0.12)', color: '#64748B', border: '1.5px solid rgba(148,163,184,0.25)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 0 rgba(148,163,184,0.18)' }}
             >
-              <X className="w-3.5 h-3.5 text-rose-500" />
-              Exit
+              <X className="w-3.5 h-3.5 text-rose-400" />
+              <span>Exit</span>
             </button>
           </div>
         </div>
       </aside>
 
 
-      {/* ── Middle Panel ── */}
-      <main className="flex-1 bg-gray-50 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto p-6">
+      {/* ── Middle Panel (Mobile Optimized) ── */}
+      <main className="flex-1 overflow-hidden flex flex-col clay-main">
+        
+        {/* ── Top Mobile Header Bar ── */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
+          <div className="flex items-center gap-3">
+            <Avatar src={config.profile.avatar} size="sm" fallback="user" />
+            <span className="text-sm font-bold text-slate-800 truncate max-w-[180px]">
+              {config.profile.title || 'My BioLink'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                if (!config) return
+                await syncPreviewCard(config, previewCardId)
+                const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
+                const cardUrl = getCardPublicUrl(previewCardId, slug)
+                window.location.href = cardUrl
+              }}
+              className="p-2 rounded-xl bg-slate-100 text-slate-700 active:scale-95 transition-transform"
+            >
+              <Eye className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
+          <div className="max-w-3xl mx-auto p-4 sm:p-6">
 
             {/* LINKS */}
             {activeTab === 'links' && (
-              <LinksPanel config={config} updateConfig={updateConfig}
-                onOpenAddModal={() => setShowAddLinkModal(true)}
-                removeLink={removeLink} toggleLinkVisibility={toggleLinkVisibility}
-                updateLink={updateLink} selectedLinkId={selectedLinkId} setSelectedLinkId={setSelectedLinkId}
-                reorderLinks={reorderLinks}
+              <LinkListEditor
+                links={config.links}
+                selectedLinkId={selectedLinkId}
+                setSelectedLinkId={setSelectedLinkId}
+                onOpenAddModal={handleOpenAddModal}
+                onAddCollection={() => {
+                  const newGroupId = `group-${Date.now()}`
+                  const newCollectionHeader: any = {
+                    id: newGroupId,
+                    type: 'header',
+                    text: 'Add collection title',
+                    url: '',
+                    icon: 'folder',
+                    isVisible: true,
+                    isGroupHeader: true,
+                    groupTitle: 'Add collection title',
+                    groupId: newGroupId
+                  }
+                  const updatedLinks = [newCollectionHeader, ...config.links]
+                  updateConfig([{ path: 'links', value: updatedLinks }])
+                }}
+                onUpdateLink={updateFullLink}
+                onRemoveLink={removeLink}
+                onToggleVisibility={toggleLinkVisibility}
+                onReorderLinks={reorderLinks}
+                onSetLinks={(newLinks) => updateConfig('links', newLinks)}
               />
             )}
 
@@ -700,11 +877,11 @@ export default function EditorPage() {
 
 
 
-        {/* Right Panel - Live Preview */}
-        <aside className="w-[380px] bg-[#F4F4F2] border-l border-gray-200 flex flex-col items-center flex-shrink-0 overflow-hidden py-6 px-4">
+        {/* Right Panel - Live Preview (Always Visible with Share URL) */}
+        <aside className="hidden lg:flex w-[380px] flex-col items-center flex-shrink-0 overflow-hidden py-6 px-4 clay-right-panel">
 
-          {/* ── Top Share URL Pill Bar (Click-To-Edit Handle) ── */}
-          <div className="w-[270px] mb-6 flex-shrink-0">
+          {/* ── Bezel-less Floating Mobile Card Screen ── */}
+          <div className="w-[270px] mb-5 flex-shrink-0">
             {isEditingHandle ? (
               <div className="bg-white border border-indigo-300 rounded-2xl px-3.5 py-2.5 shadow-sm ring-2 ring-indigo-500/10 space-y-2">
                 {/* Input row */}
@@ -803,13 +980,15 @@ export default function EditorPage() {
                   setHandleError('')
                   setIsEditingHandle(true)
                 }}
-                className="bg-white border border-slate-200 rounded-full px-3.5 py-1.5 flex items-center justify-between shadow-xs transition-all hover:border-indigo-300 cursor-pointer"
+                className="clay-url-pill px-4 py-2 flex items-center justify-between cursor-pointer"
                 title="Click to edit URL handle"
               >
-                <span className="text-xs font-semibold text-slate-700 truncate mr-2 flex-1">
-                  biolink.ee/{getDisplayUrlSlug(config.profile.handle || config.profile.title)}
+                <span className="text-[11px] font-bold text-slate-600 truncate mr-2 flex-1">
+                  biolink.ee/<span className="text-slate-900">{getDisplayUrlSlug(config.profile.handle || config.profile.title)}</span>
                 </span>
-                <Pencil className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(124,58,237,0.08)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' }}>
+                  <Pencil className="w-2.5 h-2.5 text-violet-500" />
+                </div>
               </div>
             )}
           </div>
@@ -817,12 +996,11 @@ export default function EditorPage() {
           {/* ── Bezel-less Floating Mobile Card Screen ── */}
           <div className="flex-1 flex items-center justify-center overflow-hidden w-full">
             <div 
-              className="relative flex-shrink-0 shadow-2xl overflow-hidden transition-all duration-300"
+              className="relative flex-shrink-0 overflow-hidden transition-all duration-300 clay-preview-shell"
               style={{
-                width: 270,
-                height: 520,
-                borderRadius: 32,
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0,0,0,0.06)'
+                width: 268,
+                height: 518,
+                borderRadius: 34,
               }}
             >
               <BioLinkPreview config={config} />
@@ -831,11 +1009,103 @@ export default function EditorPage() {
 
           {/* Active Links Count */}
           <div className="pt-3 text-center flex-shrink-0">
-            <p className="text-[11px] font-bold text-slate-400">
-              {config.links.filter(l => l.isVisible !== false).length} active links
-            </p>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{ background: 'rgba(255,255,255,0.7)', border: '1.5px solid rgba(148,163,184,0.25)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 4px rgba(15,23,42,0.05)' }}>
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 4px rgba(52,211,153,0.6)' }} />
+              <p className="text-[10px] font-extrabold text-slate-500 tracking-tight">
+                {config.links.filter(l => l.isVisible !== false).length} active links
+              </p>
+            </div>
           </div>
         </aside>
+
+      {/* ── Mobile Bottom Navigation Bar ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 safe-area-bottom z-50">
+        <div className="flex items-center justify-around px-4 py-3">
+          {[
+            { id: 'links', label: 'Links', icon: LinkIcon, color: '#7C3AED' },
+            { id: 'appearance', label: 'Design', icon: Palette, color: '#EC4899' },
+            { id: 'preview', label: 'Preview', icon: Eye, color: '#0EA5E9' },
+            { id: 'settings', label: 'Settings', icon: Settings, color: '#10B981' },
+          ].map(({ id, label, icon: Icon, color }) => {
+            if (id === 'preview') {
+              return (
+                <button
+                  key={id}
+                  onClick={async () => {
+                    if (!config) return
+                    await syncPreviewCard(config, previewCardId)
+                    const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
+                    const cardUrl = getCardPublicUrl(previewCardId, slug)
+                    window.location.href = cardUrl
+                  }}
+                  className="flex flex-col items-center gap-1 min-w-[64px] py-1 active:scale-95 transition-transform"
+                >
+                  <div 
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
+                    style={{ background: '#F1F5F9' }}
+                  >
+                    <Icon 
+                      className="w-5 h-5" 
+                      style={{ color: color }} 
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold tracking-tight text-slate-500">
+                    {label}
+                  </span>
+                </button>
+              )
+            }
+            
+            const isActive = (id === 'appearance' && isDesignTab) || (!isDesignTab && activeTab === id)
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id === 'appearance' ? 'appearance' : id as any)}
+                className="flex flex-col items-center gap-1 min-w-[64px] py-1 active:scale-95 transition-transform"
+              >
+                <div 
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                    isActive ? 'scale-110' : ''
+                  }`}
+                  style={isActive 
+                    ? { background: color, boxShadow: `0 2px 8px ${color}40` }
+                    : { background: '#F1F5F9' }
+                  }
+                >
+                  <Icon 
+                    className="w-5 h-5" 
+                    style={{ color: isActive ? '#ffffff' : color }} 
+                  />
+                </div>
+                <span 
+                  className={`text-[10px] font-bold tracking-tight ${
+                    isActive ? 'text-slate-900' : 'text-slate-500'
+                  }`}
+                >
+                  {label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+
+      {/* ── Mobile Save Button (Floating) ── */}
+      <button
+        onClick={saveBioLink}
+        disabled={isSaving}
+        className={`md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg flex items-center justify-center active:scale-95 transition-all ${
+          isSaving ? 'opacity-70' : ''
+        }`}
+        style={{ boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)' }}
+      >
+        {isSaving ? (
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Share2 className="w-6 h-6" />
+        )}
+      </button>
 
       {/* Share Modal */}
       {showShareModal && (
@@ -847,7 +1117,10 @@ export default function EditorPage() {
       {/* Add Link Modal */}
       {showAddLinkModal && (
         <AddLinkModal
-          onClose={() => setShowAddLinkModal(false)}
+          onClose={() => {
+            setShowAddLinkModal(false)
+            setTargetGroupId(undefined)
+          }}
           onAdd={addLink}
         />
       )}
@@ -912,27 +1185,32 @@ function DesignIndexPanel({ config, bgSummary, fontSummary, buttonSummary, theme
   }) => (
     <button
       onClick={() => onNavigate(id)}
-      className="w-full bg-white rounded-[26px] px-4 py-3 flex items-center gap-3.5 border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-slate-300 transition-all text-left group cursor-pointer"
+      className="w-full clay-design-row px-4 py-3.5 flex items-center gap-3.5 text-left group"
     >
       {/* Left thumbnail squircle */}
-      <div className="w-[50px] h-[50px] rounded-[18px] overflow-hidden flex-shrink-0 border border-slate-100 flex items-center justify-center bg-slate-50">
+      <div className="w-[48px] h-[48px] rounded-[16px] overflow-hidden flex-shrink-0 flex items-center justify-center"
+        style={{ boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.8), inset 0 -1.5px 0 rgba(148,163,184,0.12), 0 2px 0 rgba(148,163,184,0.18), 0 3px 8px rgba(15,23,42,0.07)', border: '1.5px solid rgba(148,163,184,0.2)' }}>
         {thumbnail}
       </div>
 
       {/* Label */}
-      <span className="flex-1 text-base font-semibold text-slate-800 tracking-tight">{label}</span>
+      <span className="flex-1 text-[13px] font-extrabold text-slate-800 tracking-tight">{label}</span>
 
       {/* Right side controls (Zap badge, Summary text, Chevron) */}
       <div className="flex items-center gap-2.5 flex-shrink-0">
         {showZap && (
-          <div className="w-7 h-7 rounded-full bg-slate-500 text-white flex items-center justify-center shadow-xs">
-            <Zap className="w-3.5 h-3.5 fill-white text-white" />
+          <div className="w-6 h-6 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 0 #4F46E5, 0 3px 8px rgba(124,58,237,0.30)' }}>
+            <Zap className="w-3 h-3 fill-white text-white" />
           </div>
         )}
         {summary && (
-          <span className="text-sm font-medium text-slate-500">{summary}</span>
+          <span className="text-[11px] font-bold text-slate-400">{summary}</span>
         )}
-        <ChevronRight className="w-4 h-4 text-slate-400 stroke-[2] group-hover:text-slate-600 transition-colors" />
+        <div className="w-6 h-6 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover:translate-x-0.5"
+          style={{ background: 'rgba(148,163,184,0.12)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' }}>
+          <ChevronRight className="w-3 h-3 text-slate-400 stroke-[2.5]" />
+        </div>
       </div>
     </button>
   )
@@ -2601,6 +2879,59 @@ function LinkEditForm({ link, updateLink, removeLink, onDone, toggleLinkVisibili
         />
       </div>
 
+      {/* ── LAYOUT OPTIONS (for video, music, media types) ── */}
+      {(['video', 'music', 'shop'].includes(link.type)) && (
+        <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-100">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-bold text-purple-900 uppercase tracking-wide">Display Layout</label>
+            <span className="text-[10px] text-purple-600 bg-white px-2 py-0.5 rounded-full font-semibold">PRO</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => updateLink(link.id, 'layout', 'classic')}
+              className={`px-3 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
+                (link.layout || 'classic') === 'classic'
+                  ? 'bg-white border-purple-500 text-purple-700 shadow-sm'
+                  : 'bg-white/50 border-purple-200 text-gray-600 hover:border-purple-300'
+              }`}
+            >
+              📋 Classic
+            </button>
+            <button
+              type="button"
+              onClick={() => updateLink(link.id, 'layout', 'featured')}
+              className={`px-3 py-2 text-xs font-semibold rounded-lg border-2 transition-all ${
+                link.layout === 'featured'
+                  ? 'bg-white border-purple-500 text-purple-700 shadow-sm'
+                  : 'bg-white/50 border-purple-200 text-gray-600 hover:border-purple-300'
+              }`}
+            >
+              ✨ Featured
+            </button>
+          </div>
+          <p className="text-[10px] text-purple-600 mt-2">
+            {link.layout === 'featured' 
+              ? '✓ Show large preview with thumbnail' 
+              : 'Compact text-based link'}
+          </p>
+        </div>
+      )}
+
+      {/* ── PRIORITY / PIN ── */}
+      <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={link.isPinned || false}
+            onChange={e => updateLink(link.id, 'isPinned', e.target.checked)}
+            className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+          />
+          <label className="text-xs font-semibold text-gray-700">📌 Pin to top</label>
+        </div>
+        <span className="text-[10px] text-gray-500">Priority link</span>
+      </div>
+
       {/* ── LINK / SOCIAL — just URL ── */}
       {(link.type === 'link' || link.type === 'social') && (
         field('URL', 'url', 'url', 'https://example.com')
@@ -2693,6 +3024,117 @@ function LinkEditForm({ link, updateLink, removeLink, onDone, toggleLinkVisibili
         {textarea('Description', 'description', 'What is this video about?')}
       </>)}
 
+      {/* ── PAYMENT — payment type + amount + URL ── */}
+      {link.type === 'payment' && (<>
+        <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 mb-3">
+          <p className="text-xs font-semibold text-green-900 mb-1 flex items-center gap-1">
+            💳 Payment Integration
+          </p>
+          <p className="text-[10px] text-green-700">Connect Stripe, PayPal, or other payment providers</p>
+        </div>
+        {select('Payment Type', 'paymentType', [
+          { value: 'stripe',   label: 'Stripe Payment' },
+          { value: 'paypal',   label: 'PayPal' },
+          { value: 'venmo',    label: 'Venmo' },
+          { value: 'cashapp',  label: 'Cash App' },
+          { value: 'tip',      label: 'Tip Jar' },
+          { value: 'donation', label: 'Donation' },
+        ])}
+        {field('Payment URL', 'url', 'url', 'https://buy.stripe.com/... or paypal.me/...')}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+              {link.paymentType === 'tip' || link.paymentType === 'donation' ? 'Suggested Amount' : 'Price'}
+            </label>
+            <div className="flex">
+              <select
+                value={link.paymentCurrency || '$'}
+                onChange={e => updateLink(link.id, 'paymentCurrency', e.target.value)}
+                className="px-2 py-2 text-sm border border-r-0 border-gray-200 rounded-l-lg bg-gray-50 focus:outline-none"
+              >
+                {['$','€','£','¥','₹','₩'].map(c => <option key={c}>{c}</option>)}
+              </select>
+              <input
+                type="number"
+                value={link.paymentAmount || ''}
+                onChange={e => updateLink(link.id, 'paymentAmount', e.target.value)}
+                placeholder={link.paymentType === 'tip' || link.paymentType === 'donation' ? '5.00' : '0.00'}
+                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-r-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:bg-white"
+              />
+            </div>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              className="w-full py-2 px-3 text-xs font-semibold bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+            >
+              Test Payment
+            </button>
+          </div>
+        </div>
+        {textarea('Description', 'description', 'What are people paying for?')}
+      </>)}
+
+      {/* ── BOOKING / CALENDAR — booking provider + URL ── */}
+      {link.type === 'booking' && (<>
+        <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200 mb-3">
+          <p className="text-xs font-semibold text-blue-900 mb-1 flex items-center gap-1">
+            📅 Booking Integration
+          </p>
+          <p className="text-[10px] text-blue-700">Connect Calendly, Cal.com, or your booking system</p>
+        </div>
+        {select('Booking Provider', 'bookingProvider', [
+          { value: 'calendly', label: 'Calendly' },
+          { value: 'cal.com',  label: 'Cal.com' },
+          { value: 'acuity',   label: 'Acuity Scheduling' },
+          { value: 'custom',   label: 'Custom Link' },
+        ])}
+        {field('Booking URL', 'bookingUrl', 'url', 'https://calendly.com/yourname/...')}
+        {field('Meeting Duration', 'bookingDuration', 'text', 'e.g., 30 min, 1 hour')}
+        {textarea('Description', 'description', 'What will you discuss in this meeting?')}
+      </>)}
+
+      {/* ── FORM — form type + fields ── */}
+      {link.type === 'form' && (<>
+        <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 mb-3">
+          <p className="text-xs font-semibold text-purple-900 mb-1 flex items-center gap-1">
+            📝 Form Builder
+          </p>
+          <p className="text-[10px] text-purple-700">Collect emails, feedback, or custom responses</p>
+        </div>
+        {select('Form Type', 'formType', [
+          { value: 'email-capture', label: 'Email Capture' },
+          { value: 'contact',       label: 'Contact Form' },
+          { value: 'survey',        label: 'Survey' },
+          { value: 'custom',        label: 'Custom Form' },
+        ])}
+        {field('Form Action URL', 'formAction', 'url', 'https://formspree.io/... (optional)')}
+        {textarea('Success Message', 'description', 'Thank you for submitting!')}
+      </>)}
+
+      {/* ── NFT — contract + chain + price ── */}
+      {link.type === 'nft' && (<>
+        <div className="p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200 mb-3">
+          <p className="text-xs font-semibold text-violet-900 mb-1 flex items-center gap-1">
+            🎨 NFT Showcase
+          </p>
+          <p className="text-[10px] text-violet-700">Display and sell your NFT collection</p>
+        </div>
+        {field('NFT Marketplace URL', 'url', 'url', 'https://opensea.io/assets/...')}
+        {field('Contract Address', 'nftContract', 'text', '0x...')}
+        {select('Blockchain', 'nftChain', [
+          { value: 'ethereum', label: 'Ethereum' },
+          { value: 'polygon',  label: 'Polygon' },
+          { value: 'solana',   label: 'Solana' },
+          { value: 'base',     label: 'Base' },
+        ])}
+        <div className="grid grid-cols-2 gap-3">
+          {field('Price (ETH/SOL)', 'nftPrice', 'text', '0.05')}
+          {field('NFT Image URL', 'nftImage', 'url', 'https://...')}
+        </div>
+        {textarea('Description', 'description', 'Describe your NFT collection...')}
+      </>)}
+
       {/* ── HEADER — just a label, no URL ── */}
       {link.type === 'header' && (
         <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
@@ -2704,6 +3146,58 @@ function LinkEditForm({ link, updateLink, removeLink, onDone, toggleLinkVisibili
       {link.type === 'text' && (
         textarea('Text Content', 'description', 'Write your text here…', 3)
       )}
+
+      {/* ── SCHEDULING OPTIONS ── */}
+      <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-bold text-blue-900 uppercase tracking-wide flex items-center gap-1.5">
+            <Calendar className="w-3 h-3" />
+            Schedule Link
+          </label>
+          <input
+            type="checkbox"
+            checked={link.isScheduled || false}
+            onChange={e => {
+              updateLink(link.id, 'isScheduled', e.target.checked)
+              if (!e.target.checked) {
+                updateLink(link.id, 'scheduleStart', '')
+                updateLink(link.id, 'scheduleEnd', '')
+              }
+            }}
+            className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+          />
+        </div>
+        {link.isScheduled && (
+          <div className="space-y-2">
+            <div>
+              <label className="block text-[10px] font-semibold text-blue-700 mb-1">Start Date & Time</label>
+              <input
+                type="datetime-local"
+                value={link.scheduleStart || ''}
+                onChange={e => updateLink(link.id, 'scheduleStart', e.target.value)}
+                className="w-full px-2 py-1.5 text-xs border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-blue-700 mb-1">End Date & Time (Optional)</label>
+              <input
+                type="datetime-local"
+                value={link.scheduleEnd || ''}
+                onChange={e => updateLink(link.id, 'scheduleEnd', e.target.value)}
+                className="w-full px-2 py-1.5 text-xs border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <p className="text-[10px] text-blue-600">
+              🕐 Link will auto-publish/hide based on schedule
+            </p>
+          </div>
+        )}
+        {!link.isScheduled && (
+          <p className="text-[10px] text-blue-600">
+            Set dates to auto-publish content at specific times
+          </p>
+        )}
+      </div>
 
       {/* Action row */}
       <div className="flex items-center justify-between pt-1 border-t border-gray-100">
@@ -3037,48 +3531,101 @@ function SettingsPanel({ config, updateConfig }: any) {
 // Social Media Panel Component
 function SocialMediaPanel({ config, updateConfig }: any) {
   const socialPlatforms = [
-    { id: 'instagram', name: 'Instagram', placeholder: 'https://instagram.com/username' },
-    { id: 'twitter', name: 'Twitter/X', placeholder: 'https://twitter.com/username' },
-    { id: 'facebook', name: 'Facebook', placeholder: 'https://facebook.com/username' },
-    { id: 'linkedin', name: 'LinkedIn', placeholder: 'https://linkedin.com/in/username' },
-    { id: 'youtube', name: 'YouTube', placeholder: 'https://youtube.com/@username' },
-    { id: 'tiktok', name: 'TikTok', placeholder: 'https://tiktok.com/@username' },
-    { id: 'github', name: 'GitHub', placeholder: 'https://github.com/username' },
-    { id: 'discord', name: 'Discord', placeholder: 'https://discord.gg/invite' },
-    { id: 'twitch', name: 'Twitch', placeholder: 'https://twitch.tv/username' },
-    { id: 'spotify', name: 'Spotify', placeholder: 'https://open.spotify.com/artist/...' }
+    { id: 'instagram', name: 'Instagram', placeholder: '@username or https://instagram.com/username' },
+    { id: 'tiktok', name: 'TikTok', placeholder: '@username or https://tiktok.com/@username' },
+    { id: 'youtube', name: 'YouTube', placeholder: '@channel or https://youtube.com/@channel' },
+    { id: 'twitter', name: 'Twitter / X', placeholder: '@handle or https://x.com/handle' },
+    { id: 'github', name: 'GitHub', placeholder: 'username or https://github.com/username' },
+    { id: 'linkedin', name: 'LinkedIn', placeholder: 'in/username or https://linkedin.com/in/username' },
+    { id: 'facebook', name: 'Facebook', placeholder: 'username or https://facebook.com/username' },
+    { id: 'discord', name: 'Discord', placeholder: 'invite-code or https://discord.gg/invite' },
+    { id: 'whatsapp', name: 'WhatsApp', placeholder: '+1234567890 (phone number)' },
+    { id: 'telegram', name: 'Telegram', placeholder: '@username or https://t.me/username' },
+    { id: 'spotify', name: 'Spotify', placeholder: 'artist-id or https://open.spotify.com/artist/...' },
+    { id: 'soundcloud', name: 'SoundCloud', placeholder: 'username or https://soundcloud.com/username' },
+    { id: 'apple-music', name: 'Apple Music', placeholder: 'https://music.apple.com/...' },
+    { id: 'shopify', name: 'Shopify Store', placeholder: 'https://yourstore.myshopify.com' },
   ]
 
+  const handleInputChange = (platformId: string, val: string) => {
+    const formatted = formatSocialUrl(platformId, val)
+    updateConfig(`socialLinks.${platformId}`, formatted)
+  }
+
+  const activeCount = Object.values(config.socialLinks || {}).filter(Boolean).length
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Social Media</h2>
-        <p className="text-gray-600">Add your social media profiles</p>
+    <div className="space-y-6 animate-fadeIn">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Social Channels</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Connect your social media profiles & channels</p>
+        </div>
+        <span className="text-xs font-bold px-3 py-1 bg-purple-100 text-purple-800 rounded-lg">
+          {activeCount} Connected
+        </span>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <Instagram className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-blue-900 mb-1">Social Icons</h3>
-            <p className="text-sm text-blue-700">Add your social media links below. They'll appear as icons on your profile.</p>
-          </div>
+      <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center p-2 flex-shrink-0 shadow-2xs">
+          <Share2 className="w-5 h-5" />
+        </div>
+        <div>
+          <h3 className="font-bold text-sm text-purple-950">Official Brand Icons</h3>
+          <p className="text-xs text-purple-800 mt-0.5 leading-relaxed">
+            Enter your handle (e.g. <code className="bg-purple-100 px-1 py-0.5 rounded font-mono text-purple-900">@username</code>) or full URL. All connected accounts display crisp, official SVG brand icons on your bio page.
+          </p>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {socialPlatforms.map((platform) => (
-          <div key={platform.id}>
-            <label className="block text-sm font-semibold text-gray-900 mb-2">{platform.name}</label>
-            <input
-              type="url"
-              value={config.socialLinks?.[platform.id] || ''}
-              onChange={(e) => updateConfig(`socialLinks.${platform.id}`, e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              placeholder={platform.placeholder}
-            />
-          </div>
-        ))}
+      <div className="space-y-3">
+        {socialPlatforms.map((platform) => {
+          const rawVal = config.socialLinks?.[platform.id] || ''
+          const isConnected = Boolean(rawVal)
+          return (
+            <div 
+              key={platform.id}
+              className={`p-3.5 bg-white border rounded-2xl transition-all shadow-2xs ${
+                isConnected ? 'border-purple-300 ring-2 ring-purple-500/10' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-2 transition-colors flex-shrink-0 ${
+                  isConnected ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <ServiceIcon iconId={platform.id} size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-900 flex items-center gap-2">
+                      <span>{platform.name}</span>
+                      {isConnected && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Connected
+                        </span>
+                      )}
+                    </label>
+                    {isConnected && (
+                      <button
+                        onClick={() => updateConfig(`socialLinks.${platform.id}`, '')}
+                        className="text-[11px] font-semibold text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={rawVal}
+                    onChange={(e) => handleInputChange(platform.id, e.target.value)}
+                    placeholder={platform.placeholder}
+                    className="w-full bg-gray-50/50 border border-gray-200 focus:border-purple-500 focus:bg-white rounded-xl px-3 py-2 text-xs text-gray-900 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -3328,6 +3875,36 @@ function PreviewIcon({ link, color }: { link: LinkItem; color: string }) {
 // ── Preview Component — matches Linktree's exact layout ─────────────────
 // ── Preview Component — compact, fits 500px screen height, no scroll ─────
 function BioLinkPreview({ config }: { config: BioLinkConfig }) {
+  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean | string>>({})
+  const [latestVideoDetails, setLatestVideoDetails] = useState<Record<string, { thumbnailUrl?: string; title?: string; latestUrl?: string }>>({})
+
+  useEffect(() => {
+    if (!config?.links) return
+    const targetLinks = config.links.filter(l => (l.videoClickOption === 'open_latest' || l.videoClickOption === 'display_latest') && l.url)
+    if (targetLinks.length === 0) return
+
+    targetLinks.forEach(async (link) => {
+      try {
+        const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.thumbnailUrl || data.title) {
+            setLatestVideoDetails(prev => ({
+              ...prev,
+              [link.id]: {
+                thumbnailUrl: data.thumbnailUrl,
+                title: data.title,
+                latestUrl: data.latestUrl,
+              }
+            }))
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })
+  }, [config?.links])
+
   if (!config) return null
 
   // Use formatAndNormalizeTheme for button/font/palette — but read background
@@ -3363,7 +3940,7 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
     else if (animStyle === 'slide') animClasses = 'cursor-pointer hover:translate-x-1.5 transition-transform duration-200 ease-out'
   }
 
-  const makeBtnStyle = (): React.CSSProperties => {
+  const makeBtnStyle = (overrideHeight?: number | string, flexDir?: any): React.CSSProperties => {
     const r = bs?.borderRadius ?? 20
     const shStyle = bs?.shadowStyle ?? (bs?.shadow ? 'soft' : 'none')
     const bWidth = bs?.borderWidth ?? 0
@@ -3379,13 +3956,15 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
       borderRadius: r > 20 ? '9999px' : `${r}px`,
       width: '100%',
       display: 'flex',
-      alignItems: 'center',
+      flexDirection: flexDir || 'row',
+      alignItems: flexDir === 'column' ? 'stretch' : 'center',
       justifyContent: 'space-between',
-      height: 42,
-      padding: '0 8px',
+      height: overrideHeight !== undefined ? overrideHeight : 44,
+      padding: flexDir === 'column' ? '0' : (overrideHeight === 32 ? '0 10px' : '0 12px'),
       flexShrink: 0,
       position: 'relative',
       textDecoration: 'none',
+      overflow: 'hidden',
       boxShadow,
     }
     const getSmartContrast = (bgHex?: string, fallbackText?: string) => {
@@ -3475,10 +4054,45 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
   }
 
   const btnStyle = makeBtnStyle()
-  const visible = config.links.filter(l => l.isVisible !== false)
-  const maxVisible = 5
-  const displayLinks = visible.slice(0, maxVisible)
-  const hasMore = visible.length > maxVisible
+  
+  // Filter visible links and check schedule
+  const now = new Date()
+  const visible = config.links.filter(l => {
+    if (l.isVisible === false) return false
+    
+    // Check scheduling
+    if (l.isScheduled) {
+      if (l.scheduleStart) {
+        const start = new Date(l.scheduleStart)
+        if (now < start) return false
+      }
+      if (l.scheduleEnd) {
+        const end = new Date(l.scheduleEnd)
+        if (now > end) return false
+      }
+    }
+    
+    return true
+  })
+  
+  // Sort: pinned first, then by order
+  const sortedLinks = [...visible].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1
+    if (!a.isPinned && b.isPinned) return 1
+    return 0
+  })
+  
+  const displayLinks = sortedLinks
+
+  function extractYouTubeThumb(url?: string): string | null {
+    if (!url) return null
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
+    if (match && match[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
+    if (url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be')) {
+      return `https://img.youtube.com/vi/hqdefault.jpg`
+    }
+    return null
+  }
 
   const PlatformThumb = ({ link }: { link: LinkItem }) => {
     const map: Record<string, React.FC<{ size?: number; className?: string }>> = {
@@ -3489,9 +4103,27 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
       shopify: ShopifyIcon, email: EmailIcon, phone: PhoneIcon, website: WebsiteIcon,
       'apple-music': AppleMusicIcon,
     }
-    const Icon = link.platform ? map[link.platform] : null
+    const url = (link.url || '').toLowerCase()
+    let iconKey = (link.platform || link.icon || '').toLowerCase()
+
+    if (!map[iconKey]) {
+      if (url.includes('youtube.com') || url.includes('youtu.be')) iconKey = 'youtube'
+      else if (url.includes('instagram.com')) iconKey = 'instagram'
+      else if (url.includes('spotify.com')) iconKey = 'spotify'
+      else if (url.includes('twitter.com') || url.includes('x.com')) iconKey = 'twitter'
+      else if (url.includes('facebook.com')) iconKey = 'facebook'
+      else if (url.includes('tiktok.com')) iconKey = 'tiktok'
+      else if (url.includes('github.com')) iconKey = 'github'
+      else if (url.includes('linkedin.com')) iconKey = 'linkedin'
+    }
+
+    const Icon = map[iconKey] || null
+    const isYouTube = iconKey === 'youtube'
+
     return (
-      <div className="w-7 h-7 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 overflow-hidden text-current">
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+        isYouTube ? 'bg-red-600 text-white' : 'bg-black/10 text-current'
+      }`}>
         {link.thumbnail ? (
           <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
         ) : Icon ? (
@@ -3559,7 +4191,7 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
       )}
 
       {/* ── Outer Card Wrapper matching user reference image ── */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', padding: '16px 14px 10px' }}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', padding: '16px 14px 10px', overflowY: 'auto' }}>
 
         {/* ── Top Bar Action Buttons (Inside Card) ── */}
         <div className="flex items-center justify-between w-full mb-3 flex-shrink-0 relative z-30">
@@ -3755,48 +4387,334 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
               No links added yet
             </p>
           )}
-          {displayLinks.map(link => {
-            if (link.type === 'header') return (
-              <div key={link.id} className="flex items-center gap-2 py-1">
-                <div className="flex-1 h-px bg-white/20" />
-                <span className="text-[9px] font-bold tracking-wider uppercase opacity-60" style={{ color: c.profileText }}>
-                  {link.text}
-                </span>
-                <div className="flex-1 h-px bg-white/20" />
-              </div>
-            )
-            if (link.type === 'text') return (
-              <p key={link.id} className="text-center text-[10px] opacity-75 font-medium leading-relaxed" style={{ color: c.profileBio }}>
-                {(link.description || link.text).slice(0, 60)}
-              </p>
-            )
-            return (
-              <a
-                key={link.id}
-                href={link.url || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (!link.url || link.url === '#') e.preventDefault()
-                }}
-                style={btnStyle}
-                className={`group ${animClasses}`}
-              >
-                <PlatformThumb link={link} />
-                <span className="flex-1 text-center font-extrabold text-[11px] truncate px-2" style={{ color: c.buttonText }}>
-                  {link.text}
-                </span>
-                <div className="w-6 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </div>
-              </a>
-            )
-          })}
-          {hasMore && (
-            <p style={{ textAlign: 'center', fontSize: 9, color: c.profileBio, opacity: 0.5 }}>
-              +{visible.length - maxVisible} more links
-            </p>
-          )}
+          {(() => {
+            const renderSinglePreviewLink = (link: LinkItem) => {
+              if (link.type === 'header') {
+                const text = (link.groupTitle || link.text || '').trim()
+                const isDefault = !text || text.toLowerCase() === 'add collection title' || text.toLowerCase() === 'new section' || text.toLowerCase() === 'section header'
+                if (isDefault) return null
+
+                return (
+                  <div key={link.id} className="flex items-center gap-2 py-1">
+                    <div className="flex-1 h-px bg-white/20" />
+                    <span className="text-[9px] font-bold tracking-wider uppercase opacity-60" style={{ color: c.profileText }}>
+                      {text}
+                    </span>
+                    <div className="flex-1 h-px bg-white/20" />
+                  </div>
+                )
+              }
+              if (link.type === 'text') return (
+                <p key={link.id} className="text-center text-[10px] opacity-75 font-medium leading-relaxed px-1" style={{ color: c.profileBio }}>
+                  {link.description || link.text}
+                </p>
+              )
+
+              const isFeatured = link.layout === 'featured'
+              const isCompact = link.layout === 'compact'
+              const customStyle = isCompact 
+                ? makeBtnStyle(32) 
+                : isFeatured 
+                ? makeBtnStyle('auto', 'column') 
+                : makeBtnStyle(44)
+
+              const isYouTube = (link.url || '').toLowerCase().includes('youtube.com') || (link.url || '').toLowerCase().includes('youtu.be')
+              const ytThumb = isYouTube ? extractYouTubeThumb(link.url) : null
+              const latestInfo = latestVideoDetails[link.id]
+              const cardThumb = latestInfo?.thumbnailUrl || link.thumbnail || ytThumb
+              const cardTitle = latestInfo?.title || link.text || 'YouTube Video'
+              const clickOpt = link.videoClickOption || 'display_video'
+
+              // ── YOUTUBE VIDEO CARD FORMAT 1: "Display my video on my Linktree" (display_video / display_latest) ──
+              if (isYouTube && (clickOpt === 'display_video' || clickOpt === 'display_latest')) {
+                const isPlaying = Boolean(playingVideos[link.id])
+
+                if (isPlaying) {
+                  const playingTarget = typeof playingVideos[link.id] === 'string' ? (playingVideos[link.id] as unknown as string) : ''
+                  const embedSrc = getEmbedIframeUrl(playingTarget || link.embedUrl || link.url || '')
+                  const autoSrc = embedSrc ? `${embedSrc}${embedSrc.includes('?') ? '&' : '?'}autoplay=1${link.videoMute ? '&mute=1' : ''}` : ''
+                  return (
+                    <div key={link.id} className="relative w-full h-[140px] rounded-lg overflow-hidden shadow-md border border-white/10 bg-black flex flex-col justify-center">
+                      <iframe
+                        src={autoSrc}
+                        className="w-full h-full absolute inset-0 border-0 rounded-md"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setPlayingVideos(prev => ({ ...prev, [link.id]: false }))
+                        }}
+                        className="absolute top-2 right-2 z-30 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors shadow-md cursor-pointer"
+                        title="Close video"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                }
+
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url || '#'}
+                    onClick={async (e) => {
+                      e.preventDefault()
+                      if (clickOpt === 'display_latest') {
+                        const preEmbed = latestInfo?.latestUrl
+                        if (preEmbed) {
+                          setPlayingVideos(prev => ({ ...prev, [link.id]: preEmbed }))
+                          return
+                        }
+                        try {
+                          const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url || '')}`)
+                          const data = await res.json()
+                          if (data.embedUrl || data.latestUrl) {
+                            setPlayingVideos(prev => ({ ...prev, [link.id]: data.embedUrl || data.latestUrl }))
+                            return
+                          }
+                        } catch {
+                          // fallback
+                        }
+                      }
+                      setPlayingVideos(prev => ({ ...prev, [link.id]: true }))
+                    }}
+                    className={`group relative w-full h-[140px] flex flex-col justify-end rounded-lg overflow-hidden shadow-md border border-white/10 block text-decoration-none transition-all ${animClasses}`}
+                  >
+                    {/* Background Image */}
+                    {cardThumb ? (
+                      <img
+                        src={cardThumb}
+                        alt={cardTitle}
+                        className="w-full h-full absolute inset-0 object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full absolute inset-0 bg-slate-900 flex items-center justify-center">
+                        <YouTubeIcon size={36} className="text-red-600" />
+                      </div>
+                    )}
+
+                    {/* Center Translucent Play Button Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                      <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <Play className="w-4.5 h-4.5 fill-white ml-0.5" />
+                      </div>
+                    </div>
+
+                    {/* Bottom Gradient & Video Info */}
+                    <div className="relative bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-2.5 z-10 text-left w-full pt-8">
+                      <h4 className="font-bold text-white text-xs leading-tight drop-shadow-md line-clamp-2">
+                        {cardTitle}
+                      </h4>
+                    </div>
+                  </a>
+                )
+              }
+
+              // ── YOUTUBE VIDEO CARD FORMAT 2: "Open YouTube video" (open_youtube) ──
+              if (isYouTube && clickOpt === 'open_youtube') {
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (!link.url || link.url === '#') e.preventDefault()
+                    }}
+                    className={`group w-full h-[140px] flex flex-col justify-between rounded-lg overflow-hidden shadow-sm border border-white/10 bg-white block text-decoration-none transition-all hover:shadow-md ${animClasses}`}
+                  >
+                    {/* Top Bezel-less Image Header */}
+                    <div className="w-full flex-1 overflow-hidden bg-black relative">
+                      {cardThumb ? (
+                        <img
+                          src={cardThumb}
+                          alt={cardTitle}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                          <YouTubeIcon size={32} className="text-red-600" />
+                        </div>
+                      )}
+                    </div>
+                    {/* Bottom Light Section with Title */}
+                    <div className="p-2 bg-white border-t border-gray-100/50">
+                      <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">
+                        {cardTitle}
+                      </h4>
+                    </div>
+                  </a>
+                )
+              }
+
+              // ── YOUTUBE VIDEO CARD FORMAT 3: "Open my channel's latest video" (open_latest) ──
+              if (isYouTube && clickOpt === 'open_latest') {
+                return (
+                  <button
+                    key={link.id}
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const targetUrl = latestInfo?.latestUrl
+                        if (targetUrl) {
+                          window.open(targetUrl, '_blank', 'noopener,noreferrer')
+                          return
+                        }
+                        const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url || '')}`)
+                        const data = await res.json()
+                        const target = data.latestUrl || link.url
+                        window.open(target, '_blank', 'noopener,noreferrer')
+                      } catch {
+                        window.open(link.url || '', '_blank', 'noopener,noreferrer')
+                      }
+                    }}
+                    className={`group w-full h-[140px] flex flex-col justify-between rounded-lg overflow-hidden shadow-sm border border-white/10 bg-white text-left transition-all hover:shadow-md ${animClasses}`}
+                  >
+                    {/* Top Bezel-less Image Header */}
+                    <div className="w-full flex-1 overflow-hidden bg-black relative">
+                      {cardThumb ? (
+                        <img
+                          src={cardThumb}
+                          alt={cardTitle}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                          <YouTubeIcon size={32} className="text-red-600" />
+                        </div>
+                      )}
+                      {/* "Latest" badge */}
+                      <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shadow">
+                        Latest
+                      </span>
+                    </div>
+                    {/* Bottom section */}
+                    <div className="p-2 bg-white border-t border-gray-100/50">
+                      <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">
+                        {cardTitle}
+                      </h4>
+                    </div>
+                  </button>
+                )
+              }
+
+              // ── 2. COMPACT ROW LAYOUT (Slim Chip Bar) ──
+              if (isCompact) {
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      if (!link.url || link.url === '#') e.preventDefault()
+                    }}
+                    style={{ ...makeBtnStyle(32), padding: '0 10px' }}
+                    className={`group ${animClasses}`}
+                  >
+                    <PlatformThumb link={link} />
+                    <span className="flex-1 text-left font-bold text-[10px] truncate px-2" style={{ color: c.buttonText }}>
+                      {link.text}
+                    </span>
+                    <div className="w-4 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
+                      <ChevronRight className="w-3 h-3" />
+                    </div>
+                  </a>
+                )
+              }
+
+              // CLASSIC BUTTON LAYOUT (DEFAULT)
+              return (
+                <a
+                  key={link.id}
+                  href={link.url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (!link.url || link.url === '#') e.preventDefault()
+                  }}
+                  style={customStyle}
+                  className={`group ${animClasses}`}
+                >
+                  <PlatformThumb link={link} />
+                  <div className="flex-1 min-w-0 text-center px-2">
+                    <p className="font-extrabold text-[11px] leading-tight truncate" style={{ color: c.buttonText }}>
+                      {link.text}
+                    </p>
+                    {link.description && (
+                      <p className="text-[9.5px] truncate opacity-65 leading-tight mt-0.5" style={{ color: c.buttonText }}>
+                        {link.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="w-5 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </a>
+              )
+            }
+
+            return displayLinks.map((link) => {
+              if (link.groupId && !link.isGroupHeader) return null
+
+              if (link.isGroupHeader) {
+                const groupLinks = displayLinks.filter(l => l.groupId === link.id && !l.isGroupHeader)
+                const layout = link.collectionLayout || 'stack'
+
+                return (
+                  <div key={link.id} className="w-full space-y-2">
+                    {renderSinglePreviewLink(link)}
+
+                    {groupLinks.length > 0 && (
+                      <div className="w-full">
+                        {layout === 'grid' && (
+                          <div className="grid grid-cols-2 gap-2.5 w-full items-stretch">
+                            {groupLinks.map(gLink => (
+                              <div key={gLink.id} className="w-full h-full flex flex-col">
+                                {renderSinglePreviewLink(gLink)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {layout === 'carousel' && (
+                          <div className="-mx-1 px-1 flex gap-3 overflow-x-auto pb-3 pt-1.5 w-full snap-x snap-mandatory scrollbar-none items-stretch">
+                            {groupLinks.map(gLink => (
+                              <div key={gLink.id} className="w-[220px] shrink-0 snap-center flex flex-col">
+                                {renderSinglePreviewLink(gLink)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {layout === 'showcase' && (
+                          <div className="w-full space-y-2">
+                            {renderSinglePreviewLink({ ...groupLinks[0], layout: 'featured' })}
+                            {groupLinks.length > 1 && (
+                              <div className="grid grid-cols-2 gap-2 w-full">
+                                {groupLinks.slice(1).map(renderSinglePreviewLink)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {layout === 'stack' && (
+                          <div className="w-full space-y-2">
+                            {groupLinks.map(renderSinglePreviewLink)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+
+              return renderSinglePreviewLink(link)
+            })
+          })()}
         </div>
 
         <div className="flex-1" />
@@ -3821,6 +4739,7 @@ const LINK_CATEGORIES = [
   { id: 'media',     label: 'Media'     },
   { id: 'contact',   label: 'Contact'   },
   { id: 'events',    label: 'Events'    },
+  { id: 'forms',     label: 'Forms'     },
   { id: 'text',      label: 'Text'      },
 ]
 
@@ -3841,9 +4760,6 @@ const EtsySvg = ({ size = 20, className = '' }: { size?: number; className?: str
 const GumroadSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 19.2c-3.975 0-7.2-3.225-7.2-7.2S8.025 4.8 12 4.8c2.7 0 5.04 1.485 6.3 3.675H14.4v2.4h6.6c.12-.615.2-1.245.2-1.875C21.2 5.37 17.03 1.2 12 1.2S2.8 5.37 2.8 10.4 6.97 19.6 12 19.6c3.15 0 5.94-1.545 7.65-3.9H16.2c-1.005 1.14-2.46 1.5-4.2 1.5z"/></svg>
 )
-const ZoomSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M24 12c0 6.627-5.373 12-12 12S0 18.627 0 12 5.373 0 12 0s12 5.373 12 12zM9.5 7.5A1.5 1.5 0 0 0 8 9v6a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 18 15V9a1.5 1.5 0 0 0-1.5-1.5h-7zm8.5 2.25 2.25-1.5v7.5L18 14.25V9.75z"/></svg>
-)
 const SnapchatSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12.017 0C8.396 0 5.29 2.69 5.29 6.3c0 .42.04.83.12 1.23-.27.14-.56.22-.87.22-.5 0-.96-.2-1.3-.52l-.01-.01c-.1-.09-.23-.14-.37-.14-.28 0-.5.22-.5.5 0 .16.08.31.2.41.52.46 1.2.74 1.95.74.17 0 .34-.02.5-.05-.02.22-.03.44-.03.67 0 3.61 3.11 6.3 6.73 6.3.18 0 .36-.01.54-.02.28.5.44 1.07.44 1.67 0 .28-.04.55-.11.81-.07.26.08.53.34.6.26.07.53-.08.6-.34.1-.35.15-.71.15-1.07 0-.74-.19-1.44-.52-2.05 3.28-.42 5.82-3.04 5.82-6.3 0-3.61-3.11-6.3-6.73-6.3z"/></svg>
 )
@@ -3854,23 +4770,32 @@ const TwitchSvg = ({ size = 20, className = '' }: { size?: number; className?: s
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
 )
 
+const ZoomSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M4 3C2.346 3 1 4.346 1 6v12c0 1.654 1.346 3 3 3h11c1.654 0 3-1.346 3-3v-2.738l4.553 2.276c.285.143.625-.036.625-.357V7.819c0-.321-.34-.5-.625-.357L18 9.738V6c0-1.654-1.346-3-3-3H4Z"/></svg>
+)
+
 const LINK_OPTIONS: Record<string, LinkOption[]> = {
   suggested: [
     { id: 'instagram', label: 'Instagram',   description: 'Display your posts and reels',        bg: 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400', SvgIcon: InstagramIcon,  type: 'social',  platform: 'instagram'  },
     { id: 'tiktok',    label: 'TikTok',      description: 'Share your TikToks on your page',     bg: 'bg-black',       SvgIcon: TikTokIcon,    type: 'social',  platform: 'tiktok'     },
-    { id: 'youtube',   label: 'YouTube',     description: 'Share YouTube videos on your page',   bg: 'bg-red-600',     SvgIcon: YouTubeIcon,   type: 'social',  platform: 'youtube'    },
-    { id: 'spotify',   label: 'Spotify',     description: 'Share your latest or favorite music', bg: 'bg-green-500',   SvgIcon: SpotifyIcon,   type: 'social',  platform: 'spotify'    },
-    { id: 'twitter',   label: 'Twitter / X', description: 'Share your tweets and profile',       bg: 'bg-black',       SvgIcon: TwitterIcon,   type: 'social',  platform: 'twitter'    },
+    { id: 'youtube',   label: 'YouTube',     description: 'Embed videos with auto-play',         bg: 'bg-red-600',     SvgIcon: YouTubeIcon,   type: 'video',   platform: 'youtube'    },
+    { id: 'spotify',   label: 'Spotify',     description: 'Embed music player on page',          bg: 'bg-green-500',   SvgIcon: SpotifyIcon,   type: 'music',   platform: 'spotify'    },
     { id: 'link',      label: 'Link',        description: 'Add any URL to your page',            bg: 'bg-gray-600',    SvgIcon: WebsiteIcon,   type: 'link'                            },
-    { id: 'product',   label: 'Product',     description: 'Sell a product or service',           bg: 'bg-purple-600',  SvgIcon: ShopifyIcon,   type: 'shop'                            },
+    { id: 'product',   label: 'Product',     description: 'Sell products with pricing',          bg: 'bg-purple-600',  SvgIcon: ShopifyIcon,   type: 'shop'                            },
+    { id: 'payment',   label: 'Payment',     description: 'Accept payments & tips',              bg: 'bg-blue-600',    SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment'  },
   ],
   commerce: [
-    { id: 'product',  label: 'Product',  description: 'Sell a product or service',     bg: 'bg-purple-600',  SvgIcon: ShopifyIcon,  type: 'shop'                         },
-    { id: 'shopify',  label: 'Shopify',  description: 'Connect your Shopify store',    bg: 'bg-green-600',   SvgIcon: ShopifyIcon,  type: 'shop', platform: 'shopify'    },
-    { id: 'etsy',     label: 'Etsy',     description: 'Link to your Etsy shop',        bg: 'bg-orange-500',  SvgIcon: EtsySvg,      type: 'shop', platform: 'etsy'       },
-    { id: 'gumroad',  label: 'Gumroad',  description: 'Sell digital products',         bg: 'bg-pink-600',    SvgIcon: GumroadSvg,   type: 'shop', platform: 'gumroad'    },
-    { id: 'patreon',  label: 'Patreon',  description: 'Support from your fans',        bg: 'bg-orange-600',  SvgIcon: PatreonSvg,   type: 'shop', platform: 'patreon'    },
-    { id: 'ko-fi',    label: 'Ko-fi',    description: 'Accept tips and donations',     bg: 'bg-blue-400',    SvgIcon: KoFiSvg,      type: 'shop', platform: 'ko-fi'      },
+    { id: 'product',      label: 'Product',        description: 'Sell products with pricing',         bg: 'bg-purple-600',  SvgIcon: ShopifyIcon,  type: 'shop'                         },
+    { id: 'shopify',      label: 'Shopify',        description: 'Connect your Shopify store',         bg: 'bg-green-600',   SvgIcon: ShopifyIcon,  type: 'shop',    platform: 'shopify' },
+    { id: 'digital',      label: 'Digital Product', description: 'Sell downloads & digital goods',    bg: 'bg-indigo-600',  SvgIcon: ({ size, className }: any) => <Upload size={size} className={className} />, type: 'shop', platform: 'digital' },
+    { id: 'payment-link', label: 'Payment Link',   description: 'Accept one-time payments',           bg: 'bg-blue-600',    SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment', platform: 'stripe' },
+    { id: 'tip-jar',      label: 'Tip Jar',        description: 'Accept tips from supporters',        bg: 'bg-yellow-500',  SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment', platform: 'tip' },
+    { id: 'donation',     label: 'Donation',       description: 'Accept charitable donations',        bg: 'bg-pink-500',    SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment', platform: 'donation' },
+    { id: 'nft',          label: 'NFT',            description: 'Showcase & sell NFTs',               bg: 'bg-purple-700',  SvgIcon: ({ size, className }: any) => <Sticker size={size} className={className} />, type: 'nft' },
+    { id: 'etsy',         label: 'Etsy',           description: 'Link to your Etsy shop',             bg: 'bg-orange-500',  SvgIcon: EtsySvg,      type: 'shop',    platform: 'etsy'    },
+    { id: 'gumroad',      label: 'Gumroad',        description: 'Sell digital products',              bg: 'bg-pink-600',    SvgIcon: GumroadSvg,   type: 'shop',    platform: 'gumroad' },
+    { id: 'patreon',      label: 'Patreon',        description: 'Get support from fans',              bg: 'bg-orange-600',  SvgIcon: PatreonSvg,   type: 'payment', platform: 'patreon' },
+    { id: 'ko-fi',        label: 'Ko-fi',          description: 'Accept tips and donations',          bg: 'bg-blue-400',    SvgIcon: KoFiSvg,      type: 'payment', platform: 'ko-fi'   },
   ],
   social: [
     { id: 'instagram', label: 'Instagram',   description: 'Display your posts and reels',     bg: 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400', SvgIcon: InstagramIcon,  type: 'social', platform: 'instagram'  },
@@ -3885,11 +4810,13 @@ const LINK_OPTIONS: Record<string, LinkOption[]> = {
     { id: 'github',    label: 'GitHub',      description: 'Share your repositories',          bg: 'bg-gray-900',    SvgIcon: GitHubIcon,    type: 'social', platform: 'github'     },
   ],
   media: [
-    { id: 'youtube',     label: 'YouTube',     description: 'Share YouTube videos',       bg: 'bg-red-600',    SvgIcon: YouTubeIcon,    type: 'social', platform: 'youtube'     },
-    { id: 'spotify',     label: 'Spotify',     description: 'Share your music',           bg: 'bg-green-500',  SvgIcon: SpotifyIcon,    type: 'social', platform: 'spotify'     },
-    { id: 'soundcloud',  label: 'SoundCloud',  description: 'Share your tracks',          bg: 'bg-orange-500', SvgIcon: SoundCloudIcon, type: 'social', platform: 'soundcloud'  },
-    { id: 'apple-music', label: 'Apple Music', description: 'Share your Apple Music',     bg: 'bg-red-500',    SvgIcon: AppleMusicIcon, type: 'music',  platform: 'apple-music' },
-    { id: 'tiktok',      label: 'TikTok',      description: 'Share your TikTok videos',   bg: 'bg-black',      SvgIcon: TikTokIcon,     type: 'social', platform: 'tiktok'      },
+    { id: 'youtube',     label: 'YouTube Video',  description: 'Embed video with preview',    bg: 'bg-red-600',    SvgIcon: YouTubeIcon,    type: 'video',  platform: 'youtube'     },
+    { id: 'spotify',     label: 'Spotify',        description: 'Embed music player',          bg: 'bg-green-500',  SvgIcon: SpotifyIcon,    type: 'music',  platform: 'spotify'     },
+    { id: 'soundcloud',  label: 'SoundCloud',     description: 'Embed SoundCloud tracks',     bg: 'bg-orange-500', SvgIcon: SoundCloudIcon, type: 'music',  platform: 'soundcloud'  },
+    { id: 'apple-music', label: 'Apple Music',    description: 'Link Apple Music content',    bg: 'bg-red-500',    SvgIcon: AppleMusicIcon, type: 'music',  platform: 'apple-music' },
+    { id: 'tiktok-embed',label: 'TikTok Video',   description: 'Embed TikTok with preview',   bg: 'bg-black',      SvgIcon: TikTokIcon,     type: 'video',  platform: 'tiktok'      },
+    { id: 'vimeo',       label: 'Vimeo',          description: 'Embed Vimeo videos',          bg: 'bg-blue-500',   SvgIcon: ({ size, className }: any) => <Video size={size} className={className} />, type: 'video', platform: 'vimeo' },
+    { id: 'podcast',     label: 'Podcast',        description: 'Embed podcast episodes',      bg: 'bg-purple-600', SvgIcon: ({ size, className }: any) => <Video size={size} className={className} />, type: 'music', platform: 'podcast' },
   ],
   contact: [
     { id: 'email',    label: 'Email',    description: 'Let people email you',     bg: 'bg-blue-500',  SvgIcon: EmailIcon,    type: 'contact', platform: 'email'    },
@@ -3899,13 +4826,24 @@ const LINK_OPTIONS: Record<string, LinkOption[]> = {
     { id: 'website',  label: 'Website',  description: 'Link to your website',     bg: 'bg-gray-600',  SvgIcon: WebsiteIcon,  type: 'link',    platform: 'website'  },
   ],
   events: [
-    { id: 'event',    label: 'Event',    description: 'Promote an upcoming event',      bg: 'bg-purple-500', SvgIcon: WebsiteIcon, type: 'event'                       },
-    { id: 'calendar', label: 'Calendar', description: 'Let people book time with you',  bg: 'bg-blue-500',   SvgIcon: WebsiteIcon, type: 'event', platform: 'calendar' },
-    { id: 'zoom',     label: 'Zoom',     description: 'Share a Zoom meeting link',      bg: 'bg-blue-600',   SvgIcon: ZoomSvg,     type: 'event', platform: 'zoom'     },
+    { id: 'event',    label: 'Event',          description: 'Promote an upcoming event',       bg: 'bg-purple-500', SvgIcon: ({ size, className }: any) => <Globe size={size} className={className} />,    type: 'event'                       },
+    { id: 'calendar', label: 'Book a Meeting', description: 'Let people schedule with you',    bg: 'bg-blue-500',   SvgIcon: ({ size, className }: any) => <Calendar size={size} className={className} />, type: 'booking', platform: 'calendly' },
+    { id: 'zoom',     label: 'Zoom Meeting',   description: 'Share Zoom meeting link',         bg: 'bg-blue-600',   SvgIcon: ZoomSvg,     type: 'event',   platform: 'zoom'     },
+    { id: 'webinar',  label: 'Webinar',        description: 'Promote online webinar',          bg: 'bg-indigo-600', SvgIcon: ({ size, className }: any) => <Video size={size} className={className} />,    type: 'event',   platform: 'webinar'  },
+    { id: 'meetup',   label: 'Meetup',         description: 'Share meetup event',              bg: 'bg-red-500',    SvgIcon: ({ size, className }: any) => <MapPin size={size} className={className} />,   type: 'event',   platform: 'meetup'   },
+    { id: 'ticket',   label: 'Ticket Sales',   description: 'Sell event tickets',              bg: 'bg-orange-600', SvgIcon: ({ size, className }: any) => <ShoppingBag size={size} className={className} />, type: 'shop', platform: 'eventbrite' },
+  ],
+  forms: [
+    { id: 'email-capture', label: 'Email Capture',  description: 'Collect email addresses',         bg: 'bg-green-500',   SvgIcon: ({ size, className }: any) => <User size={size} className={className} />,   type: 'form', platform: 'email-capture' },
+    { id: 'contact-form',  label: 'Contact Form',   description: 'Let people reach out',            bg: 'bg-purple-500',  SvgIcon: ({ size, className }: any) => <User size={size} className={className} />,   type: 'form', platform: 'contact' },
+    { id: 'survey',        label: 'Survey',         description: 'Gather feedback',                 bg: 'bg-blue-500',    SvgIcon: ({ size, className }: any) => <BarChart3 size={size} className={className} />, type: 'form', platform: 'survey' },
+    { id: 'newsletter',    label: 'Newsletter',     description: 'Newsletter signup',               bg: 'bg-indigo-500',  SvgIcon: ({ size, className }: any) => <Type size={size} className={className} />,   type: 'form', platform: 'newsletter' },
+    { id: 'waitlist',      label: 'Waitlist',       description: 'Collect waitlist signups',        bg: 'bg-yellow-600',  SvgIcon: ({ size, className }: any) => <User size={size} className={className} />,   type: 'form', platform: 'waitlist' },
   ],
   text: [
-    { id: 'header', label: 'Header', description: 'Add a section heading', bg: 'bg-gray-500', SvgIcon: WebsiteIcon, type: 'header' },
-    { id: 'text',   label: 'Text',   description: 'Add a block of text',   bg: 'bg-gray-400', SvgIcon: WebsiteIcon, type: 'text'   },
+    { id: 'header', label: 'Header',   description: 'Add a section heading',    bg: 'bg-gray-600', SvgIcon: ({ size, className }: any) => <Layout size={size} className={className} />, type: 'header' },
+    { id: 'text',   label: 'Text',     description: 'Add a block of text',      bg: 'bg-gray-500', SvgIcon: ({ size, className }: any) => <Type size={size} className={className} />,   type: 'text'   },
+    { id: 'divider',label: 'Divider',  description: 'Add a visual separator',   bg: 'bg-gray-400', SvgIcon: ({ size, className }: any) => <Asterisk size={size} className={className} />, type: 'text'   },
   ],
 }
 
@@ -3918,20 +4856,25 @@ function CatIcon({ id }: { id: string }) {
   if (id === 'social')    return <Share2 className={cls} />
   if (id === 'media')     return <Smartphone className={cls} />
   if (id === 'contact')   return <User className={cls} />
-  if (id === 'events')    return <Globe className={cls} />
-  if (id === 'text')      return <Type className={cls} />
+  if (id === 'events')    return <Calendar className={cls} />
+  if (id === 'forms')     return <Type className={cls} />
+  if (id === 'text')      return <Layout className={cls} />
   return <LinkIcon className={cls} />
 }
 
 // Quick-add tiles (top of Suggested) — Lucide icons, no emojis
 const QUICK_TILES = [
-  { id: 'collection', label: 'Collection', Icon: Layout,      type: 'header' as LinkItem['type'], text: 'New Collection' },
-  { id: 'link',       label: 'Link',       Icon: LinkIcon,    type: 'link'   as LinkItem['type'], text: 'New Link'       },
-  { id: 'product',    label: 'Product',    Icon: ShoppingBag, type: 'shop'   as LinkItem['type'], text: 'New Product'    },
-  { id: 'form',       label: 'Form',       Icon: Type,        type: 'text'   as LinkItem['type'], text: 'New Form'       },
+  { id: 'link',       label: 'Link',       Icon: LinkIcon,    type: 'link'    as LinkItem['type'], text: 'New Link'       },
+  { id: 'video',      label: 'Video',      Icon: Video,       type: 'video'   as LinkItem['type'], text: 'Video Embed'    },
+  { id: 'music',      label: 'Music',      Icon: Sparkles,    type: 'music'   as LinkItem['type'], text: 'Music Link'     },
+  { id: 'product',    label: 'Product',    Icon: ShoppingBag, type: 'shop'    as LinkItem['type'], text: 'New Product'    },
+  { id: 'payment',    label: 'Payment',    Icon: User,        type: 'payment' as LinkItem['type'], text: 'Payment Link'   },
+  { id: 'booking',    label: 'Booking',    Icon: Calendar,    type: 'booking' as LinkItem['type'], text: 'Book Meeting'   },
+  { id: 'form',       label: 'Form',       Icon: Type,        type: 'form'    as LinkItem['type'], text: 'Email Capture'  },
+  { id: 'header',     label: 'Header',     Icon: Layout,      type: 'header'  as LinkItem['type'], text: 'Section Header' },
 ]
 
-function AddLinkModal({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: Partial<LinkItem>) => void }) {
+function LegacyAddLinkModal({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: Partial<LinkItem>) => void }) {
   const [activeCategory, setActiveCategory] = useState('suggested')
   const [search, setSearch] = useState('')
 
@@ -4123,9 +5066,6 @@ function ShareModal({ onClose }: { onClose: () => void }) {
 
         {/* Copy Link Section */}
         <div className="mb-6">
-          <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
-            Your Link
-          </label>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <input

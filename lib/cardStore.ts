@@ -31,15 +31,19 @@ function ensureDataDir() {
 function loadCardsFromFile() {
   try {
     ensureDataDir()
-    // The file is the source of truth. Clear the cache before loading so a
-    // handle deleted by another route/module does not stay reserved here.
     globalCardsMap.clear()
     if (fs.existsSync(CARDS_FILE)) {
       const data = fs.readFileSync(CARDS_FILE, 'utf-8')
-      const json = JSON.parse(data)
-      Object.entries(json).forEach(([key, card]: [string, any]) => {
-        globalCardsMap.set(key, card)
-      })
+      if (data && data.trim()) {
+        try {
+          const json = JSON.parse(data)
+          Object.entries(json).forEach(([key, card]: [string, any]) => {
+            globalCardsMap.set(key, card)
+          })
+        } catch (jsonErr) {
+          console.error('cards.json contains invalid JSON:', jsonErr)
+        }
+      }
     }
   } catch (err) {
     console.warn('Error reading cards file:', err)

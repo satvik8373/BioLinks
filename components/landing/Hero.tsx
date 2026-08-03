@@ -50,7 +50,7 @@ export default function Hero() {
       {/* ── Hero Main Content ── */}
       <div className="relative z-10 text-center max-w-3xl mx-auto mb-14">
         {/* Pill Badge */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm text-xs font-bold text-slate-800 mb-6">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200/60 shadow-clay-sm text-xs font-bold text-slate-800 mb-6 hover:shadow-clay transition-shadow duration-200">
           <Sparkles className="w-3.5 h-3.5 text-brand-600" />
           <span>Next-Gen Bio Link Platform</span>
         </div>
@@ -64,14 +64,14 @@ export default function Hero() {
         </h1>
 
         <p className="text-base sm:text-lg text-slate-600 mb-9 max-w-xl mx-auto font-medium leading-relaxed">
-          Create a sleek, professional clay-morphic bio page in seconds. Share all your links, stores, and media with a single URL.
+          Create a sleek, professional bio page in seconds. Share all your links, stores, and media with a single URL.
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/create"
-            className="clay-btn clay-btn-primary px-7 py-3.5 text-sm font-bold flex items-center gap-2 shadow-md"
+            className="clay-btn clay-btn-primary px-7 py-3.5 text-sm font-bold flex items-center gap-2"
           >
             <Sparkles className="w-4 h-4" />
             Create Your Card Free
@@ -91,9 +91,12 @@ export default function Hero() {
         {PREVIEW_CARDS.map((card, i) => (
           <div
             key={i}
-            className={`${card.rotate} w-48 p-5 rounded-[22px] ${card.bgColor} text-white shadow-xl border border-slate-700/50 transition-all duration-300 hover:scale-105 hover:rotate-0`}
+            className={`${card.rotate} w-48 p-5 rounded-[22px] ${card.bgColor} text-white shadow-clay-lg border border-white/10 transition-all duration-300 hover:scale-105 hover:rotate-0 hover:shadow-clay-lg`}
+            style={{
+              boxShadow: '0 8px 24px -4px rgba(15, 23, 42, 0.15), 0 4px 12px -2px rgba(15, 23, 42, 0.08)'
+            }}
           >
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-xl mx-auto mb-3 border border-white/20">
+            <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center text-xl mx-auto mb-3 border border-white/20">
               {card.emoji}
             </div>
             <h3 className="font-extrabold text-white text-sm text-center mb-0.5">{card.name}</h3>
@@ -102,7 +105,10 @@ export default function Hero() {
               {card.links.map((l, j) => (
                 <div
                   key={j}
-                  className={`text-xs font-bold text-white text-center py-2 rounded-lg ${card.btnBg} shadow-sm`}
+                  className={`text-xs font-bold text-white text-center py-2 rounded-xl ${card.btnBg} shadow-sm hover:shadow-md transition-shadow duration-200`}
+                  style={{
+                    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
+                  }}
                 >
                   {l}
                 </div>
@@ -117,14 +123,14 @@ export default function Hero() {
         {FEATURES.map((f, i) => (
           <div
             key={i}
-            className="clay-card-flat p-5 bg-white flex flex-col items-start gap-2.5"
+            className="clay-card-flat p-6 bg-white flex flex-col items-start gap-3 hover:shadow-clay transition-shadow duration-200"
           >
-            <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-brand-600">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200/40 flex items-center justify-center text-brand-600 shadow-sm">
               <f.icon className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm mb-1">{f.title}</h3>
-              <p className="text-slate-500 text-xs font-medium leading-relaxed">{f.desc}</p>
+              <h3 className="font-bold text-slate-900 text-sm mb-1.5">{f.title}</h3>
+              <p className="text-slate-600 text-xs font-medium leading-relaxed">{f.desc}</p>
             </div>
           </div>
         ))}
