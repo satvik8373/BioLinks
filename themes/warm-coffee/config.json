@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "id": "warm-coffee",
+  "name": "Warm Coffee",
+  "namespace": "theme-warm-coffee",
+  "extends": "base-light",
+  "category": "minimal",
+  "order": 8,
+  "license": "free",
+  "compatibility": { "minVersion": "2.0.0" },
+  "meta": {
+    "author": "BioLinks",
+    "description": "Warm coffee, terracotta and parchment paper light theme. Cozy and inviting for lifestyle, food and wellness creators.",
+    "tags": ["light", "warm", "coffee", "cozy", "minimal", "earthy"]
+  },
+  "background": "coffee-paper",
+  "palette": "palette-coffee",
+  "typography": {
+    "font": "font-manrope",
+    "heading": "font-fraunces",
+    "headingWeight": 700,
+    "bodyWeight": 400,
+    "buttonWeight": 600
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": false, "clay": false, "blur": 0 },
+  "components": {
+    "button": { "variant": "button-soft", "radius": "radius-md", "shadow": "shadow-soft", "borderWidth": 1 },
+    "card": { "variant": "card-elevated", "radius": "radius-md", "shadow": "shadow-soft" },
+    "avatar": { "variant": "avatar-circle", "size": 96 },
+    "social": { "variant": "social-rounded" }
+  },
+  "link": { "style": "button", "icon": "left", "arrow": true },
+  "visibility": { "avatar": true, "bio": true, "verified": true, "social": true, "footer": true, "shareButton": true },
+  "supports": { "imageBackground": true, "videoBackground": false, "animatedGradient": false, "particles": false },
+  "a11y": { "contrast": "AA", "reducedMotion": true }
+}

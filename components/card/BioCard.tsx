@@ -5,7 +5,7 @@ import {
   Eye, ExternalLink, ShoppingBag, Phone, Mail,
   MessageCircle, Send, MapPin, Calendar, Music, Video,
   CheckCircle, AlertTriangle, XCircle, Globe, Share2, Sparkles,
-  Copy, Check, X, QrCode, Image as ImageIcon, Link2, Lock, Play, ArrowLeft
+  Copy, Check, X, QrCode, Image as ImageIcon, Link2, Lock, Play, ArrowLeft, ChevronRight
 } from 'lucide-react'
 import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
@@ -14,11 +14,12 @@ import {
   WebsiteIcon, AppleMusicIcon
 } from '@/components/icons/ServiceIcons'
 import { getEmbedIframeUrl, parseGoogleDriveUrl, formatAndNormalizeTheme } from '@/lib/themes'
+import { detectPlatformFromUrl } from '@/lib/detectPlatform'
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface LinkItem {
   id: string
-  type: 'link' | 'header' | 'text' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
+  type: 'link' | 'header' | 'text' | 'image' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
   text: string
   url: string
   icon?: string
@@ -98,6 +99,7 @@ interface BioLinkConfig {
   profile: { avatar: string; title: string; bio: string; location?: string; website?: string }
   links: LinkItem[]
   socialLinks: { [key: string]: string }
+  socialIconPosition?: 'top' | 'bottom'
 }
 
 interface CardData {
@@ -130,11 +132,18 @@ function ensureAbsoluteUrl(url?: string): string {
 
 // ─── Background helper ────────────────────────────────────────────────────
 function getBg(c: ThemeColors): React.CSSProperties {
-  // For video backgrounds, return transparent so the <video> element shows through
-  if (c.backgroundVideo || c.backgroundIframe) {
+  const type = c.backgroundType || (
+    c.backgroundVideo || c.backgroundIframe ? 'video' :
+    c.backgroundImage ? 'image' :
+    c.backgroundMesh ? (c.backgroundMesh.includes('radial-gradient(circle') ? 'pattern' : 'blur') :
+    c.backgroundGradient ? 'gradient' : 'fill'
+  )
+
+  if (type === 'video') {
     return { backgroundColor: 'transparent' }
   }
-  if (c.backgroundImage) {
+
+  if (type === 'image' && c.backgroundImage) {
     const driveObj = parseGoogleDriveUrl(c.backgroundImage)
     const imgUrl = driveObj.directUrl || c.backgroundImage
     return {
@@ -143,12 +152,28 @@ function getBg(c: ThemeColors): React.CSSProperties {
       backgroundPosition: 'center',
     }
   }
-  if (c.backgroundMesh) return { background: c.backgroundMesh }
-  if (c.backgroundGradient) {
+
+  if (type === 'pattern' && c.backgroundMesh) {
+    return {
+      backgroundColor: c.background || '#0f172a',
+      backgroundImage: c.backgroundMesh,
+      backgroundSize: (c as any).backgroundPatternSize || '20px 20px',
+    }
+  }
+
+  if (type === 'blur' && c.backgroundMesh) {
+    return { background: c.backgroundMesh }
+  }
+
+  if (type === 'gradient' && c.backgroundGradient) {
     const g = c.backgroundGradient
+    if (g.direction === 'radial') {
+      return { background: `radial-gradient(circle, ${g.from}, ${g.to})` }
+    }
     return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
   }
-  return { backgroundColor: c.background }
+
+  return { backgroundColor: c.background || '#7F2AEB' }
 }
 
 function getSmartContrastTextColor(bgHex?: string, fallbackText?: string, profileText?: string): string {
@@ -283,7 +308,19 @@ function contactHref(link: LinkItem): string {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────
-export default function BioCard({ cardId }: { cardId: string }) {
+export interface BioCardProps {
+  cardId?: string
+  overrideConfig?: BioLinkConfig
+  isPreview?: boolean
+  hideQRCode?: boolean
+}
+
+export default function BioCard({ 
+  cardId = 'default',
+  overrideConfig,
+  isPreview = false,
+  hideQRCode = false
+}: BioCardProps) {
   const [cardData, setCardData] = useState<CardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -295,7 +332,12 @@ export default function BioCard({ cardId }: { cardId: string }) {
   const [activeVideoModal, setActiveVideoModal] = useState<LinkItem | null>(null)
   const [playingVideos, setPlayingVideos] = useState<Record<string, boolean | string>>({})
   const [latestVideoDetails, setLatestVideoDetails] = useState<Record<string, { thumbnailUrl?: string; title?: string; latestUrl?: string }>>({})
-
+  const [activeGallery, setActiveGallery] = useState<{
+    title: string
+    photos: Array<{ id?: string; url: string; title?: string; description?: string; targetUrl?: string }>
+    ctaLabel?: string
+    ctaUrl?: string
+  } | null>(null)
   useEffect(() => {
     if (!cardData?.config?.links) return
     const targetLinks = cardData.config.links.filter(l => (l.videoClickOption === 'open_latest' || l.videoClickOption === 'display_latest') && l.url)
@@ -371,6 +413,19 @@ export default function BioCard({ cardId }: { cardId: string }) {
   }
 
   useEffect(() => {
+    // If overrideConfig is provided (editor preview), use it directly
+    if (overrideConfig) {
+      setCardData({
+        id: cardId || 'preview',
+        config: overrideConfig,
+        analytics: { views: 0, clicks: 0 },
+        createdAt: new Date().toISOString(),
+      })
+      setLoading(false)
+      return
+    }
+
+    // Otherwise load from API/localStorage (public page)
     const fetchCard = async () => {
       // 1. Always try the API first with cache:no-store — this is the source of truth.
       //    cardStore on the server is updated on every editor save via PUT.
@@ -434,7 +489,7 @@ export default function BioCard({ cardId }: { cardId: string }) {
     }
 
     fetchCard()
-  }, [cardId])
+  }, [cardId, overrideConfig])
 
   const trackClick = async (linkId: string) => {
     try {
@@ -497,7 +552,17 @@ export default function BioCard({ cardId }: { cardId: string }) {
     return 0
   })
   
-  const hasSocials = config.socialLinks && Object.values(config.socialLinks).some(Boolean)
+  // Social icons come EXCLUSIVELY from config.socialLinks
+  const allSocialItems: { platform: string; url: string }[] = []
+  if (config.socialLinks) {
+    Object.entries(config.socialLinks).forEach(([platform, url]) => {
+      if (url && url.trim()) {
+        allSocialItems.push({ platform: platform.toLowerCase(), url: url.trim() })
+      }
+    })
+  }
+
+  const hasSocials = allSocialItems.length > 0
   const pageUrl = typeof window !== 'undefined' ? window.location.href : `https://biolink.ee/${cardId}`
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(pageUrl)}`
 
@@ -560,14 +625,19 @@ export default function BioCard({ cardId }: { cardId: string }) {
     const isFeatured = link.layout === 'featured'
     const isCompact = link.layout === 'compact'
 
+
     if (link.type === 'shop') {
       if (isFeatured) {
         return (
           <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
             onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', display: 'flex', flexDirection: 'column', padding: 0 }}
             className={`group relative overflow-hidden transform-gpu border-2 shadow-xl ${animClasses}`}>
-            <div className="w-full aspect-video bg-black/10 overflow-hidden relative">
-              <img src={link.thumbnail || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'} alt={link.text} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            <div className="w-full aspect-video bg-black/10 overflow-hidden relative flex items-center justify-center">
+              {link.thumbnail ? (
+                <img src={link.thumbnail} alt={link.text} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              ) : (
+                <ShoppingBag size={44} style={{ color: c.buttonText, opacity: 0.35 }} />
+              )}
               {link.price && (
                 <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md text-white font-extrabold text-xs px-3 py-1 rounded-full shadow-md">
                   {link.currency || '$'}{link.price}
@@ -577,7 +647,7 @@ export default function BioCard({ cardId }: { cardId: string }) {
             <div className="p-4 flex flex-col gap-1 text-left w-full">
               <h3 className="font-extrabold text-base leading-snug" style={{ color: c.buttonText }}>{link.text}</h3>
               {link.description && <p className="text-xs opacity-75 leading-relaxed line-clamp-2" style={{ color: c.buttonText }}>{link.description}</p>}
-              <div className="mt-2 w-full py-2 px-4 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              <div className="mt-2 w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
                 Buy Now &rarr;
               </div>
             </div>
@@ -611,125 +681,273 @@ export default function BioCard({ cardId }: { cardId: string }) {
       )
     }
 
-    if (link.type === 'contact') return (
-      <a key={key} href={contactHref(link)} target="_blank" rel="noopener noreferrer"
-        onClick={() => trackClick(key)} style={btnStyle}
-        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-        <div className="flex items-center justify-center gap-3 px-4 py-3.5">
-          <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-            {link.contactType === 'email'    && <Mail size={18} />}
-            {link.contactType === 'phone'    && <Phone size={18} />}
-            {link.contactType === 'whatsapp' && <MessageCircle size={18} />}
-            {link.contactType === 'telegram' && <Send size={18} />}
-            {link.contactType === 'address'  && <MapPin size={18} />}
-            {!link.contactType               && <Phone size={18} />}
-          </div>
-          <div className="text-left">
-            <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-            {link.contactValue && <p className="text-xs mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.contactValue}</p>}
-          </div>
-        </div>
-      </a>
-    )
+    if (link.type === 'contact') {
+      if (isFeatured) {
+        return (
+          <a key={key} href={contactHref(link)} target="_blank" rel="noopener noreferrer"
+            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', padding: '16px' }}
+            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                {link.contactType === 'email'    && <Mail size={22} />}
+                {link.contactType === 'phone'    && <Phone size={22} />}
+                {link.contactType === 'whatsapp' && <MessageCircle size={22} />}
+                {link.contactType === 'telegram' && <Send size={22} />}
+                {link.contactType === 'address'  && <MapPin size={22} />}
+                {!link.contactType               && <Phone size={22} />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-extrabold text-base leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
+                {link.contactValue && <p className="text-xs opacity-75 mt-0.5 truncate" style={{ color: c.buttonText }}>{link.contactValue}</p>}
+              </div>
+            </div>
+            <div className="w-full py-2 px-3 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              Get in Touch &rarr;
+            </div>
+          </a>
+        )
+      }
 
-    if (link.type === 'event') return (
-      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-        onClick={() => trackClick(key)} style={btnStyle}
-        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-        <div className="flex items-center justify-between px-4 py-3.5 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+      return (
+        <a key={key} href={contactHref(link)} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackClick(key)} style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+          <div className="flex items-center justify-center gap-3 px-4 py-3.5">
+            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              {link.contactType === 'email'    && <Mail size={18} />}
+              {link.contactType === 'phone'    && <Phone size={18} />}
+              {link.contactType === 'whatsapp' && <MessageCircle size={18} />}
+              {link.contactType === 'telegram' && <Send size={18} />}
+              {link.contactType === 'address'  && <MapPin size={18} />}
+              {!link.contactType               && <Phone size={18} />}
+            </div>
+            <div className="text-left">
+              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
+              {link.contactValue && <p className="text-xs mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.contactValue}</p>}
+            </div>
+          </div>
+        </a>
+      )
+    }
+
+    if (link.type === 'event') {
+      if (isFeatured) {
+        return (
+          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', padding: '16px' }}
+            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <Calendar size={22} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight" style={{ color: c.buttonText }}>{link.text}</h3>
+                  {link.eventLocation && (
+                    <p className="text-xs opacity-75 mt-0.5 flex items-center gap-1" style={{ color: c.buttonText }}>
+                      <MapPin size={12} />{link.eventLocation}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {(link.eventDate || link.eventTime) && (
+                <div className="px-2.5 py-1 bg-black/10 rounded-lg text-right flex-shrink-0">
+                  {link.eventDate && <p className="text-xs font-bold" style={{ color: c.buttonText }}>{link.eventDate}</p>}
+                  {link.eventTime && <p className="text-[10px] opacity-75" style={{ color: c.buttonText }}>{link.eventTime}</p>}
+                </div>
+              )}
+            </div>
+            <div className="w-full py-2 px-3 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              RSVP / Join Event &rarr;
+            </div>
+          </a>
+        )
+      }
+
+      return (
+        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackClick(key)} style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+          <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Calendar size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
+                {link.eventLocation && (
+                  <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: c.buttonText, opacity: 0.65 }}>
+                    <MapPin size={10} />{link.eventLocation}
+                  </p>
+                )}
+              </div>
+            </div>
+            {(link.eventDate || link.eventTime) && (
+              <div className="text-right flex-shrink-0">
+                {link.eventDate && <p className="text-xs font-bold" style={{ color: c.buttonText, opacity: 0.8 }}>{link.eventDate}</p>}
+                {link.eventTime && <p className="text-xs" style={{ color: c.buttonText, opacity: 0.55 }}>{link.eventTime}</p>}
+              </div>
+            )}
+          </div>
+        </a>
+      )
+    }
+
+    if (link.type === 'payment') {
+      if (isFeatured) {
+        return (
+          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', padding: '16px' }}
+            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <ShoppingBag size={22} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight" style={{ color: c.buttonText }}>{link.text}</h3>
+                  {link.paymentType && (
+                    <p className="text-xs opacity-75 mt-0.5 capitalize" style={{ color: c.buttonText }}>{link.paymentType}</p>
+                  )}
+                </div>
+              </div>
+              {link.paymentAmount && (
+                <div className="px-3 py-1 bg-black/15 rounded-xl font-extrabold text-base" style={{ color: c.buttonText }}>
+                  {link.currency || '$'}{link.paymentAmount}
+                </div>
+              )}
+            </div>
+            <div className="w-full py-2 px-3 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              Support / Send Tip &rarr;
+            </div>
+          </a>
+        )
+      }
+
+      return (
+        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackClick(key)} style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+          <div className="flex items-center justify-between px-4 py-3.5 gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <ShoppingBag size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
+                {link.paymentType && (
+                  <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
+                    {link.paymentType}
+                  </p>
+                )}
+              </div>
+            </div>
+            {link.paymentAmount && (
+              <div className="text-right flex-shrink-0">
+                <p className="font-extrabold text-base" style={{ color: c.buttonText }}>
+                  {link.currency || '$'}{link.paymentAmount}
+                </p>
+              </div>
+            )}
+          </div>
+        </a>
+      )
+    }
+
+    if (link.type === 'booking') {
+      if (isFeatured) {
+        return (
+          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', padding: '16px' }}
+            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <Calendar size={22} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight" style={{ color: c.buttonText }}>{link.text}</h3>
+                  {link.bookingProvider && (
+                    <p className="text-xs opacity-75 mt-0.5 capitalize" style={{ color: c.buttonText }}>via {link.bookingProvider}</p>
+                  )}
+                </div>
+              </div>
+              {(link as any).bookingDuration && (
+                <div className="px-2.5 py-1 bg-black/10 rounded-lg text-xs font-bold" style={{ color: c.buttonText }}>
+                  {(link as any).bookingDuration}
+                </div>
+              )}
+            </div>
+            <div className="w-full py-2 px-3 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+              Book Appointment &rarr;
+            </div>
+          </a>
+        )
+      }
+
+      return (
+        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackClick(key)} style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
+          <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
               <Calendar size={18} />
             </div>
-            <div className="min-w-0">
-              <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
-              {link.eventLocation && (
-                <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: c.buttonText, opacity: 0.65 }}>
-                  <MapPin size={10} />{link.eventLocation}
-                </p>
-              )}
-            </div>
-          </div>
-          {(link.eventDate || link.eventTime) && (
-            <div className="text-right flex-shrink-0">
-              {link.eventDate && <p className="text-xs font-bold" style={{ color: c.buttonText, opacity: 0.8 }}>{link.eventDate}</p>}
-              {link.eventTime && <p className="text-xs" style={{ color: c.buttonText, opacity: 0.55 }}>{link.eventTime}</p>}
-            </div>
-          )}
-        </div>
-      </a>
-    )
-
-    if (link.type === 'payment') return (
-      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-        onClick={() => trackClick(key)} style={btnStyle}
-        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-        <div className="flex items-center justify-between px-4 py-3.5 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-              <ShoppingBag size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
-              {link.paymentType && (
+            <div className="min-w-0 flex-1">
+              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
+              {link.bookingProvider && (
                 <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
-                  {link.paymentType}
+                  via {link.bookingProvider}
                 </p>
               )}
             </div>
+            <ExternalLink size={14} style={{ color: c.buttonText, opacity: 0.4 }} />
           </div>
-          {link.paymentAmount && (
-            <div className="text-right flex-shrink-0">
-              <p className="font-extrabold text-base" style={{ color: c.buttonText }}>
-                {link.currency || '$'}{link.paymentAmount}
-              </p>
+        </a>
+      )
+    }
+
+    if (link.type === 'form') {
+      const layout = (link as any).formLayout || 'inline'
+      const submissions = (link as any).submissions || []
+
+      const handleSubmitForm = (e: React.FormEvent, formData: any) => {
+        e.preventDefault()
+        const newSub = {
+          ...formData,
+          date: new Date().toLocaleDateString()
+        }
+        const updatedSubmissions = [...submissions, newSub]
+        // Save submission dynamically to card state if handler present
+        if ((config as any).onUpdateLink) {
+          (config as any).onUpdateLink({ ...link, submissions: updatedSubmissions })
+        }
+      }
+
+      return (
+        <div key={key} className="w-full mb-3">
+          <div
+            style={btnStyle}
+            className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}
+          >
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <Mail size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
+                {link.description && (
+                  <p className="text-xs mt-0.5 opacity-75 truncate" style={{ color: c.buttonText }}>
+                    {link.description}
+                  </p>
+                )}
+              </div>
+              <ChevronRight size={14} style={{ color: c.buttonText, opacity: 0.4 }} />
             </div>
-          )}
+          </div>
         </div>
-      </a>
-    )
-
-    if (link.type === 'booking') return (
-      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-        onClick={() => trackClick(key)} style={btnStyle}
-        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-            <Calendar size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-            {link.bookingProvider && (
-              <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
-                via {link.bookingProvider}
-              </p>
-            )}
-          </div>
-          <ExternalLink size={14} style={{ color: c.buttonText, opacity: 0.4 }} />
-        </div>
-      </a>
-    )
-
-    if (link.type === 'form') return (
-      <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-        onClick={() => trackClick(key)} style={btnStyle}
-        className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-            <Mail size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-            {link.formType && (
-              <p className="text-xs mt-0.5 capitalize" style={{ color: c.buttonText, opacity: 0.65 }}>
-                {link.formType.replace('-', ' ')}
-              </p>
-            )}
-          </div>
-          <ExternalLink size={14} style={{ color: c.buttonText, opacity: 0.4 }} />
-        </div>
-      </a>
-    )
+      )
+    }
 
     if (link.type === 'nft') return (
       <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
@@ -1031,9 +1249,41 @@ export default function BioCard({ cardId }: { cardId: string }) {
         )
       }
 
-      const defaultThumb = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80'
-      const thumbUrl = link.thumbnail || defaultThumb
+      if (link.thumbnail) {
+        return (
+          <a 
+            key={key} 
+            href={ensureAbsoluteUrl(link.url)} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            onClick={(e) => handleLinkClick(e, link)} 
+            className={`group relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl transform-gpu border-2 border-white/20 block text-decoration-none ${animClasses}`}
+          >
+            <img
+              src={link.thumbnail}
+              alt={link.text}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end justify-between p-4 z-10">
+              <div className="flex-1 min-w-0 pr-3">
+                <h3 className="font-extrabold text-white text-base leading-snug drop-shadow-md truncate">
+                  {link.text}
+                </h3>
+                {link.description && (
+                  <p className="text-xs text-white/80 line-clamp-1 font-medium mt-0.5">
+                    {link.description}
+                  </p>
+                )}
+              </div>
+              <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white font-mono text-sm tracking-widest flex-shrink-0 group-hover:bg-white/30 transition-colors">
+                &rarr;
+              </div>
+            </div>
+          </a>
+        )
+      }
 
+      // Featured card without image - rendered with theme button styles
       return (
         <a 
           key={key} 
@@ -1041,27 +1291,28 @@ export default function BioCard({ cardId }: { cardId: string }) {
           target="_blank" 
           rel="noopener noreferrer"
           onClick={(e) => handleLinkClick(e, link)} 
-          className={`group relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl transform-gpu border-2 border-white/20 block text-decoration-none ${animClasses}`}
+          style={{ ...btnStyle, height: 'auto', padding: '18px' }}
+          className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}
         >
-          <img
-            src={thumbUrl}
-            alt={link.text}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end justify-between p-4 z-10">
-            <div className="flex-1 min-w-0 pr-3">
-              <h3 className="font-extrabold text-white text-base leading-snug drop-shadow-md truncate">
-                {link.text}
-              </h3>
-              {link.description && (
-                <p className="text-xs text-white/80 line-clamp-1 font-medium mt-0.5">
-                  {link.description}
-                </p>
-              )}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                {Icon ? <Icon size={22} /> : <Globe size={22} />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-extrabold text-base md:text-lg leading-tight" style={{ color: c.buttonText }}>
+                  {link.text}
+                </h3>
+                {link.description && (
+                  <p className="text-xs opacity-75 mt-0.5 leading-relaxed line-clamp-2" style={{ color: c.buttonText }}>
+                    {link.description}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white font-mono text-sm tracking-widest flex-shrink-0 group-hover:bg-white/30 transition-colors">
-              ...
-            </div>
+          </div>
+          <div className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
+            Visit Link &rarr;
           </div>
         </a>
       )
@@ -1416,6 +1667,33 @@ export default function BioCard({ cardId }: { cardId: string }) {
             )
           })()}
 
+          {/* ── Social Icons (Top Position) ── */}
+          {hasSocials && (config.socialIconPosition || 'top') === 'top' && (
+            <div className="flex justify-center items-center gap-2.5 mb-6 px-4 flex-wrap">
+              {allSocialItems.map(({ platform, url }) => {
+                if (!url) return null
+                const Icon = PLATFORM_ICONS[platform]
+                if (!Icon) return null
+                return (
+                  <a 
+                    key={platform} 
+                    href={ensureAbsoluteUrl(url)} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
+                    style={{ 
+                      backgroundColor: 'rgba(255,255,255,0.15)',
+                      color: c.profileText
+                    }}
+                    title={platform}
+                  >
+                    <Icon size={16} />
+                  </a>
+                )
+              })}
+            </div>
+          )}
+
           {/* ── Links (Mobile Optimized) ── */}
           {visibleLinks.length > 0 && (
             <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8 w-full">
@@ -1479,24 +1757,34 @@ export default function BioCard({ cardId }: { cardId: string }) {
             </div>
           )}
 
-          {/* ── Social Icons ── */}
-          {hasSocials && (
-            <div className="flex justify-center flex-wrap gap-3 mb-8">
-              {Object.entries(config.socialLinks).map(([platform, url]) => {
-                if (!url) return null
-                const Icon = PLATFORM_ICONS[platform]
-                if (!Icon) return null
-                return (
-                  <a key={platform} href={ensureAbsoluteUrl(url)} target="_blank" rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-sm"
-                    style={{ backgroundColor: 'rgba(128,128,128,0.25)', color: c.profileText }}>
-                    <Icon size={18} />
-                  </a>
-                )
-              })}
-            </div>
-          )}
         </div>
+
+        {/* ── Social Icons (Bottom Position) ── */}
+        {hasSocials && config.socialIconPosition === 'bottom' && (
+          <div className="flex justify-center items-center gap-2.5 mb-4 px-4 flex-wrap">
+            {allSocialItems.map(({ platform, url }) => {
+              if (!url) return null
+              const Icon = PLATFORM_ICONS[platform]
+              if (!Icon) return null
+              return (
+                <a 
+                  key={platform} 
+                  href={ensureAbsoluteUrl(url)} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
+                  style={{ 
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    color: c.profileText
+                  }}
+                  title={platform}
+                >
+                  <Icon size={16} />
+                </a>
+              )
+            })}
+          </div>
+        )}
 
         {/* ── Join BioLink CTA Pill Button ── */}
         <div className="w-full my-6 flex justify-center">
@@ -1724,6 +2012,122 @@ export default function BioCard({ cardId }: { cardId: string }) {
           </div>
         </div>
       )}
+
+      {/* ── IMAGE GALLERY BOTTOM SHEET ── */}
+      {activeGallery && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col justify-end"
+          style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+          onClick={() => setActiveGallery(null)}
+        >
+          {/* Sheet container — slides up */}
+          <div
+            className="relative w-full rounded-t-3xl overflow-hidden flex flex-col"
+            style={{
+              maxHeight: '92vh',
+              background: '#fff',
+              animation: 'gallery-sheet-in 0.35s cubic-bezier(0.32,0.72,0,1) both',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+              <div className="w-9 h-1 rounded-full bg-gray-300" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
+              <div className="min-w-0">
+                <h2 className="text-base font-extrabold text-gray-900 truncate">{activeGallery.title}</h2>
+                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                  <ImageIcon className="w-3 h-3" />
+                  Gallery · {activeGallery.photos.length} photo{activeGallery.photos.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {activeGallery.ctaUrl && (
+                  <a
+                    href={ensureAbsoluteUrl(activeGallery.ctaUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                    title="Share"
+                    onClick={() => trackClick(activeGallery.title)}
+                  >
+                    <Share2 size={18} />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveGallery(null)}
+                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable photo list */}
+            <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-4">
+              {activeGallery.photos.map((photo, i) => (
+                <div key={photo.id || i} className="w-full">
+                  {/* Photo */}
+                  <div className="w-full rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
+                    {photo.targetUrl ? (
+                      <a href={ensureAbsoluteUrl(photo.targetUrl)} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={photo.url}
+                          alt={photo.title || ''}
+                          className="w-full h-auto object-cover"
+                          style={{ display: 'block' }}
+                        />
+                      </a>
+                    ) : (
+                      <img
+                        src={photo.url}
+                        alt={photo.title || ''}
+                        className="w-full h-auto object-cover"
+                        style={{ display: 'block' }}
+                      />
+                    )}
+                  </div>
+                  {/* Title / description */}
+                  {(photo.title || photo.description) && (
+                    <div className="mt-2 px-1">
+                      {photo.title && (
+                        <p className="text-sm font-extrabold text-gray-900 leading-snug">{photo.title}</p>
+                      )}
+                      {photo.description && (
+                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{photo.description}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* CTA button inside sheet */}
+              {activeGallery.ctaLabel && activeGallery.ctaUrl && (
+                <a
+                  href={ensureAbsoluteUrl(activeGallery.ctaUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-3 text-center font-extrabold text-sm rounded-2xl bg-gray-900 text-white shadow-md hover:bg-black transition-colors"
+                >
+                  {activeGallery.ctaLabel} →
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyframe for sheet slide-up */}
+      <style>{`
+        @keyframes gallery-sheet-in {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+      `}</style>
 
     </div>
   )

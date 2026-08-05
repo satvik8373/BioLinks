@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "id": "pastel-dream",
+  "name": "Pastel Dream",
+  "namespace": "theme-pastel-dream",
+  "extends": "base-light",
+  "category": "minimal",
+  "order": 5,
+  "license": "free",
+  "compatibility": { "minVersion": "2.0.0" },
+  "meta": {
+    "author": "BioLinks",
+    "description": "Soft kawaii pastel pink, lavender and blue cloud aesthetic. Perfect for lifestyle, beauty and fashion creators.",
+    "tags": ["light", "pastel", "kawaii", "soft", "pink", "beauty"]
+  },
+  "background": "pastel-cloud",
+  "palette": "palette-pastel",
+  "typography": {
+    "font": "font-plus-jakarta",
+    "heading": "font-plus-jakarta",
+    "headingWeight": 700,
+    "bodyWeight": 400,
+    "buttonWeight": 600
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": false, "clay": true, "blur": 0 },
+  "components": {
+    "button": { "variant": "button-soft", "radius": "radius-full", "shadow": "shadow-soft", "borderWidth": 1 },
+    "card": { "variant": "card-elevated", "radius": "radius-xl", "shadow": "shadow-soft" },
+    "avatar": { "variant": "avatar-circle", "size": 96 },
+    "social": { "variant": "social-rounded" }
+  },
+  "link": { "style": "button", "icon": "left", "arrow": true },
+  "visibility": { "avatar": true, "bio": true, "verified": true, "social": true, "footer": true, "shareButton": true },
+  "supports": { "imageBackground": true, "videoBackground": false, "animatedGradient": false, "particles": false },
+  "a11y": { "contrast": "AA", "reducedMotion": true }
+}

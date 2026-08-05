@@ -7,6 +7,7 @@ interface AvatarProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   fallback?: string
   className?: string
+  style?: React.CSSProperties
 }
 
 const sizes = {
@@ -23,6 +24,7 @@ export default function Avatar({
   size = 'md',
   fallback = 'user',
   className = '',
+  style,
 }: AvatarProps) {
   const [imageError, setImageError] = React.useState(false)
 
@@ -35,6 +37,7 @@ export default function Avatar({
 
   return (
     <div
+      style={style}
       className={`
         ${sizes[size]}
         rounded-full flex items-center justify-center overflow-hidden flex-shrink-0

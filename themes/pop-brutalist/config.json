@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "id": "pop-brutalist",
+  "name": "Pop Brutalist",
+  "namespace": "theme-pop-brutalist",
+  "extends": "base-light",
+  "category": "minimal",
+  "order": 11,
+  "license": "free",
+  "compatibility": { "minVersion": "2.0.0" },
+  "meta": {
+    "author": "BioLinks",
+    "description": "Bold neo-brutalist pop art theme. Yellow background with hot pink and black hard-shadow buttons. For bold personalities.",
+    "tags": ["light", "brutalist", "bold", "pop", "art", "yellow"]
+  },
+  "background": "brutalist-pop",
+  "palette": "palette-brutalist",
+  "typography": {
+    "font": "font-inter",
+    "heading": "font-inter",
+    "headingWeight": 900,
+    "bodyWeight": 500,
+    "buttonWeight": 800
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": false, "clay": false, "blur": 0 },
+  "components": {
+    "button": { "variant": "button-hard-shadow", "radius": "radius-none", "shadow": "shadow-hard", "borderWidth": 2 },
+    "card": { "variant": "card-outline", "radius": "radius-none", "shadow": "shadow-hard" },
+    "avatar": { "variant": "avatar-square", "size": 96 },
+    "social": { "variant": "social-minimal" }
+  },
+  "link": { "style": "button", "icon": "left", "arrow": false },
+  "visibility": { "avatar": true, "bio": true, "verified": false, "social": true, "footer": true, "shareButton": true },
+  "supports": { "imageBackground": false, "videoBackground": false, "animatedGradient": false, "particles": false },
+  "a11y": { "contrast": "AAA", "reducedMotion": true }
+}

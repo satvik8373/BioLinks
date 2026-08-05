@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "id": "sunset-vibes",
+  "name": "Sunset Vibes",
+  "namespace": "theme-sunset-vibes",
+  "extends": "base-dark",
+  "category": "dark",
+  "order": 4,
+  "license": "free",
+  "compatibility": { "minVersion": "2.0.0" },
+  "meta": {
+    "author": "BioLinks",
+    "description": "Deep purple sunset gradient background. Orange-amber accents with a warm, creative creator vibe.",
+    "tags": ["dark", "sunset", "creator", "purple", "warm"]
+  },
+  "background": "sunset-mesh",
+  "palette": "palette-sunset",
+  "typography": {
+    "font": "font-outfit",
+    "heading": "font-syne",
+    "headingWeight": 800,
+    "bodyWeight": 400,
+    "buttonWeight": 700
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": true, "clay": false, "blur": 18 },
+  "components": {
+    "button": { "variant": "button-soft", "radius": "radius-full", "shadow": "shadow-soft", "borderWidth": 1 },
+    "card": { "variant": "card-glass", "radius": "radius-lg", "shadow": "shadow-soft" },
+    "avatar": { "variant": "avatar-circle", "size": 96 },
+    "social": { "variant": "social-rounded" }
+  },
+  "link": { "style": "button", "icon": "left", "arrow": true },
+  "visibility": { "avatar": true, "bio": true, "verified": true, "social": true, "footer": true, "shareButton": true },
+  "supports": { "imageBackground": true, "videoBackground": false, "animatedGradient": true, "particles": false },
+  "a11y": { "contrast": "AA", "reducedMotion": true }
+}

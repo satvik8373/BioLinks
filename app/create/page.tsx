@@ -33,23 +33,44 @@ import {
 
 function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
   const c = theme.colors
+  
+  // PREMIUM GRADIENT RENDERING
+  if (c.backgroundGradient) {
+    const g = c.backgroundGradient
+    return { 
+      background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})`,
+      backgroundSize: '100% 100%',
+      position: 'relative' as const,
+    }
+  }
+  
+  // MESH GRADIENT - Maximum richness
+  if (c.backgroundMesh) {
+    return { 
+      background: c.backgroundMesh,
+      backgroundSize: '100% 100%',
+      position: 'relative' as const,
+    }
+  }
+  
+  // IMAGE BACKGROUND
   if (c.backgroundImage) {
     const driveObj = parseGoogleDriveUrl(c.backgroundImage)
     const imgUrl = driveObj.directUrl || c.backgroundImage
     return {
       backgroundImage: `url(${imgUrl})`,
       backgroundSize: 'cover',
-      backgroundPosition: 'center'
+      backgroundPosition: 'center',
+      position: 'relative' as const,
     }
   }
-  if (c.backgroundMesh) {
-    return { background: c.backgroundMesh }
+  
+  // SOLID COLOR - Add subtle grain for premium texture
+  return { 
+    backgroundColor: c.background || '#FFFFFF',
+    backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.025) 1px, transparent 0)',
+    backgroundSize: '20px 20px',
   }
-  if (c.backgroundGradient) {
-    const g = c.backgroundGradient
-    return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
-  }
-  return { backgroundColor: c.background || '#FFFFFF' }
 }
 
 // Sample links per theme category so every card has distinct, realistic content
@@ -93,27 +114,48 @@ function renderButtonStyle(theme: Theme): React.CSSProperties {
   let styleObj: React.CSSProperties = {
     color: c.buttonText,
     borderRadius: b.borderRadius > 20 ? '9999px' : `${b.borderRadius}px`,
+    fontWeight: 600,
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   }
 
   if (b.style === 'outline') {
     styleObj.backgroundColor = 'transparent'
-    styleObj.border = `${Math.max(b.borderWidth, 1.5)}px solid ${c.accent || c.buttonText}`
+    styleObj.border = `${Math.max(b.borderWidth, 2)}px solid ${c.accent || c.buttonText}`
+    styleObj.boxShadow = 'none'
   } else if (b.style === 'glass') {
-    styleObj.backgroundColor = 'rgba(255, 255, 255, 0.18)'
-    styleObj.backdropFilter = 'blur(8px)'
-    styleObj.border = '1px solid rgba(255, 255, 255, 0.3)'
-    styleObj.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+    // GLASSMORPHISM - Premium frosted glass effect with MAXIMUM blur
+    styleObj.backgroundColor = 'rgba(255, 255, 255, 0.12)'
+    styleObj.backdropFilter = 'blur(16px) saturate(200%)'
+    styleObj.WebkitBackdropFilter = 'blur(16px) saturate(200%)'
+    styleObj.border = '1.5px solid rgba(255, 255, 255, 0.3)'
+    styleObj.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.05)'
+  } else if (b.style === 'clay') {
+    // NEUMORPHISM - Soft clay-like depth
+    styleObj.background = c.buttonDefault
+    styleObj.border = 'none'
+    styleObj.boxShadow = '8px 8px 16px rgba(163, 177, 198, 0.5), -8px -8px 16px rgba(255, 255, 255, 0.8)'
+  } else if (b.style === 'soft') {
+    // SOFT STYLE - Deep elevation with premium layered shadow
+    styleObj.backgroundColor = c.buttonDefault
+    styleObj.border = 'none'
+    styleObj.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)'
   } else if (b.style === 'hard-shadow') {
     styleObj.backgroundColor = c.buttonDefault
-    styleObj.border = '2px solid #000000'
-    styleObj.boxShadow = '3px 3px 0px #000000'
+    styleObj.border = '2.5px solid #000000'
+    styleObj.boxShadow = '5px 5px 0px #000000'
   } else {
-    styleObj.backgroundColor = c.buttonDefault
+    // SOLID/FILLED - Rich color with dramatic depth (supports gradients)
+    if (c.buttonDefault.includes('gradient')) {
+      styleObj.background = c.buttonDefault
+    } else {
+      styleObj.backgroundColor = c.buttonDefault
+    }
     if (b.borderWidth > 0) {
-      styleObj.border = `${b.borderWidth}px solid ${c.accent || 'transparent'}`
+      styleObj.border = `${b.borderWidth}px solid ${b.borderColor || c.accent || 'transparent'}`
     }
     if (b.shadow) {
-      styleObj.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.12)'
+      // DRAMATIC shadow for premium feel
+      styleObj.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15), 0 3px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)'
     }
   }
 
@@ -290,12 +332,17 @@ export default function CreatePage() {
               <div
                 key={theme.id}
                 onClick={() => setSelectedTheme(theme)}
-                className={`w-full aspect-[9/16] rounded-[22px] p-3.5 flex flex-col justify-between items-center text-center relative shadow-md overflow-hidden border transition-all duration-200 group cursor-pointer ${
+                className={`w-full aspect-[9/16] rounded-[24px] p-4 flex flex-col justify-between items-center text-center relative overflow-hidden border-2 transition-all duration-300 group cursor-pointer ${
                   isSelected
-                    ? 'border-2 border-brand-600 ring-2 ring-brand-500/20 shadow-xl scale-[1.02]'
-                    : 'border-slate-200/80 hover:border-slate-400 hover:shadow-lg hover:-translate-y-1'
+                    ? 'border-brand-600 ring-4 ring-brand-500/30 shadow-2xl scale-[1.04]'
+                    : 'border-slate-200/60 hover:border-brand-400 hover:shadow-2xl hover:-translate-y-3 shadow-lg'
                 }`}
-                style={bgStyle}
+                style={{
+                  ...bgStyle,
+                  boxShadow: isSelected 
+                    ? '0 24px 60px rgba(0, 0, 0, 0.18), 0 12px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)'
+                    : '0 10px 30px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)'
+                }}
               >
                 {/* Background Overlay for Image Themes */}
                 {theme.colors.backgroundOverlay && (
@@ -307,15 +354,23 @@ export default function CreatePage() {
 
                 {/* Top Badge */}
                 <div className="w-full flex items-center justify-between relative z-10">
-                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-slate-900/60 text-white backdrop-blur-sm capitalize border border-white/20 truncate max-w-[95px]">
-                    {theme.name}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-extrabold px-2.5 py-1 rounded-full bg-slate-900/70 text-white backdrop-blur-sm capitalize border border-white/30 truncate max-w-[85px] shadow-lg">
+                      {theme.name}
+                    </span>
+                    {theme.isPremium && (
+                      <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white flex items-center gap-0.5 shadow-lg animate-pulse">
+                        <Star className="w-2 h-2 fill-current" />
+                        PRO
+                      </span>
+                    )}
+                  </div>
                   {isSelected ? (
-                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-brand-600 text-white flex items-center gap-0.5 shadow-sm">
+                    <span className="text-[9px] font-extrabold px-2 py-1 rounded-full bg-brand-600 text-white flex items-center gap-0.5 shadow-lg">
                       <Check className="w-2.5 h-2.5" />
                     </span>
                   ) : (
-                    <span className="text-[9px] font-bold text-white/80 backdrop-blur-sm px-2 py-0.5 rounded-full bg-black/30 capitalize">
+                    <span className="text-[9px] font-bold text-white/90 backdrop-blur-sm px-2 py-1 rounded-full bg-black/40 capitalize border border-white/20 shadow-md">
                       {theme.buttonStyle.style}
                     </span>
                   )}
@@ -326,7 +381,11 @@ export default function CreatePage() {
                   <Avatar 
                     src={userProfile?.avatar} 
                     size="md" 
-                    className="mx-auto mb-2 border-2 border-white/50 shadow-md"
+                    className="mx-auto mb-2.5 border-3 shadow-xl ring-2 ring-offset-2"
+                    style={{
+                      borderColor: theme.colors.accent,
+                      boxShadow: `0 8px 24px ${theme.colors.accent}30, 0 3px 8px rgba(0,0,0,0.1)`
+                    }}
                   />
                   <h3 
                     className="font-extrabold text-xs leading-snug mb-0.5 truncate max-w-[140px] mx-auto"

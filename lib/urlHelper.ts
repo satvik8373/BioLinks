@@ -53,5 +53,5 @@ export function getDisplayUrlSlug(_cardIdOrHandle?: string, usernameOrTitle?: st
     getCleanUsernameSlug(usernameOrTitle) ||
     getCleanUsernameSlug(_cardIdOrHandle) ||
     getAccountUsername()
-  return slug ? `biolink.ee/${slug}` : 'biolink.ee/username'
+  return slug || 'username'
 }

@@ -80,10 +80,20 @@ export interface LinkItem {
   bookingProvider?: 'calendly' | 'cal.com' | 'acuity' | 'custom'
   
   // Form
-  formType?: 'contact' | 'survey' | 'email-capture' | 'custom'
+  formType?: 'contact' | 'survey' | 'email-capture' | 'custom' | 'waitlist'
   formFields?: Array<{ name: string; type: string; required: boolean }>
   formAction?: string
+  formLayout?: 'inline' | 'modal' | 'embedded'
+  formSubmitText?: string
+  formSubmitColor?: string
+  formShowName?: boolean
+  formShowPhone?: boolean
+  formShowMessage?: boolean
+  formShowRating?: boolean
+  formSuccessMsg?: string
+  submissions?: Array<{ date?: string; name?: string; email?: string; phone?: string; rating?: number; message?: string }>
   
+
   // NFT
   nftContract?: string
   nftChain?: 'ethereum' | 'polygon' | 'solana' | 'base'
@@ -176,8 +186,10 @@ export const LINK_OPTIONS: Record<string, LinkOption[]> = {
   ],
 }
 
+import { detectPlatformFromUrl } from '@/lib/detectPlatform'
+
 /**
- * Smart URL Auto-Detector
+ * Smart Auto-Detector based on pasted URL
  * Given a URL input string, detects platform, type, title, and initial configuration.
  */
 export function detectLinkTypeFromUrl(inputUrl: string): Partial<LinkItem> | null {
@@ -185,129 +197,24 @@ export function detectLinkTypeFromUrl(inputUrl: string): Partial<LinkItem> | nul
   const url = inputUrl.trim()
   if (!url) return null
 
-  // YouTube
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+  const detected = detectPlatformFromUrl(url)
+  if (detected) {
     return {
-      type: 'video',
-      platform: 'youtube',
-      text: 'Watch on YouTube',
-      url: url,
-      icon: 'youtube',
-      layout: 'featured',
+      type: detected.category === 'video' ? 'video' : detected.category === 'music' ? 'music' : 'link',
+      platform: detected.id,
+      text: detected.defaultTitle || detected.name,
+      url: url.startsWith('http') || url.startsWith('mailto:') || url.startsWith('tel:') ? url : `https://${url}`,
+      icon: detected.icon,
+      layout: detected.category === 'video' || detected.category === 'music' ? 'featured' : 'classic',
     }
   }
 
-  // Spotify
-  if (url.includes('spotify.com')) {
-    return {
-      type: 'music',
-      platform: 'spotify',
-      text: 'Listen on Spotify',
-      url: url,
-      icon: 'spotify',
-      layout: 'featured',
-    }
-  }
-
-  // SoundCloud
-  if (url.includes('soundcloud.com')) {
-    return {
-      type: 'music',
-      platform: 'soundcloud',
-      text: 'Listen on SoundCloud',
-      url: url,
-      icon: 'soundcloud',
-      layout: 'featured',
-    }
-  }
-
-  // TikTok
-  if (url.includes('tiktok.com')) {
-    return {
-      type: 'social',
-      platform: 'tiktok',
-      text: 'Watch on TikTok',
-      url: url,
-      icon: 'tiktok',
-    }
-  }
-
-  // Instagram
-  if (url.includes('instagram.com')) {
-    return {
-      type: 'social',
-      platform: 'instagram',
-      text: 'Follow on Instagram',
-      url: url,
-      icon: 'instagram',
-    }
-  }
-
-  // Twitter / X
-  if (url.includes('twitter.com') || url.includes('x.com')) {
-    return {
-      type: 'social',
-      platform: 'twitter',
-      text: 'Follow on X',
-      url: url,
-      icon: 'twitter',
-    }
-  }
-
-  // GitHub
-  if (url.includes('github.com')) {
-    return {
-      type: 'social',
-      platform: 'github',
-      text: 'Check GitHub',
-      url: url,
-      icon: 'github',
-    }
-  }
-
-  // LinkedIn
-  if (url.includes('linkedin.com')) {
-    return {
-      type: 'social',
-      platform: 'linkedin',
-      text: 'Connect on LinkedIn',
-      url: url,
-      icon: 'linkedin',
-    }
-  }
-
-  // WhatsApp
-  if (url.includes('wa.me') || url.includes('whatsapp.com')) {
-    return {
-      type: 'contact',
-      platform: 'whatsapp',
-      contactType: 'whatsapp',
-      text: 'Chat on WhatsApp',
-      url: url,
-      icon: 'whatsapp',
-    }
-  }
-
-  // Calendly / Cal.com
-  if (url.includes('calendly.com') || url.includes('cal.com')) {
-    return {
-      type: 'booking',
-      platform: 'calendly',
-      bookingProvider: url.includes('cal.com') ? 'cal.com' : 'calendly',
-      bookingUrl: url,
-      text: 'Book an Appointment',
-      url: url,
-      icon: 'calendar',
-    }
-  }
-
-  // Standard Web Link fallback
   try {
     const domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname.replace('www.', '')
     const capitalized = domain.charAt(0).toUpperCase() + domain.slice(1)
     return {
       type: 'link',
-      text: capitalized,
+      text: capitalized || 'Custom Link',
       url: url.startsWith('http') ? url : `https://${url}`,
       icon: 'website',
     }

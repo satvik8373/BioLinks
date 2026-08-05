@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "id": "ariana-grande",
+  "name": "Ariana Grande",
+  "namespace": "theme-ariana-grande",
+  "extends": "base-dark",
+  "category": "dark",
+  "isCurated": false,
+  "order": 1,
+  "license": "free",
+  "compatibility": { "minVersion": "2.0.0" },
+  "meta": {
+    "author": "Ariana Grande",
+    "collaborator": "Ariana Grande",
+    "isCurated": false,
+    "description": "Curated theme in collaboration with Ariana Grande. Chalkboard dark aesthetic with black tape buttons and elegant serif typography.",
+    "tags": ["curated", "ariana grande", "chalkboard", "dark", "serif"]
+  },
+  "background": "bg-ariana-grande",
+  "palette": "palette-ariana-grande",
+  "typography": {
+    "font": "font-playfair",
+    "heading": "font-playfair",
+    "headingWeight": 700,
+    "bodyWeight": 400,
+    "buttonWeight": 600
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": false, "clay": false, "blur": 0 },
+  "components": {
+    "button": { "variant": "button-filled", "radius": "radius-sm", "shadow": "shadow-none", "borderWidth": 1 },
+    "card": { "variant": "card-flat", "radius": "radius-sm", "shadow": "shadow-none" },
+    "avatar": { "variant": "avatar-circle", "size": 96 },
+    "social": { "variant": "social-rounded" }
+  },
+  "link": { "style": "button", "icon": "left", "arrow": true },
+  "visibility": { "avatar": true, "bio": true, "verified": true, "social": true, "footer": true, "shareButton": true },
+  "supports": { "imageBackground": true, "videoBackground": false, "animatedGradient": false, "particles": false },
+  "a11y": { "contrast": "AAA", "reducedMotion": true }
+}

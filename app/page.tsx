@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Hero from '@/components/landing/Hero'
 import Footer from '@/components/layout/Footer'
 import Link from 'next/link'
 import {
@@ -43,8 +42,48 @@ export default function Home() {
 
   if (!userProfile) {
     return (
-      <main className="min-h-screen">
-        <Hero />
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        {/* ── Inline Landing Hero ── */}
+        <div className="max-w-5xl mx-auto px-5 py-20 text-center">
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-50 text-brand-700 text-xs font-bold mb-6 border border-brand-200/50">
+              <Sparkles className="w-4 h-4" />
+              Launch Your Bio Link in 60 Seconds
+            </div>
+            <h1 className="text-5xl sm:text-6xl font-extrabold text-slate-900 mb-4 tracking-tight">
+              One Link.<br />Infinite Possibilities.
+            </h1>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8 font-medium">
+              Create beautiful, customizable bio link pages that showcase your content,
+              products, and services—all in one place.
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <Link href="/signup" className="clay-btn clay-btn-primary px-8 py-3.5 text-sm font-bold">
+                <Rocket className="w-4 h-4 mr-2" /> Get Started Free
+              </Link>
+              <Link href="/login" className="clay-btn clay-btn-ghost px-8 py-3.5 text-sm font-bold">
+                Sign In
+              </Link>
+            </div>
+          </div>
+          
+          {/* ── Feature Grid ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16">
+            {[
+              { icon: Edit3, title: 'Easy Customization', desc: 'Choose from 20+ official themes' },
+              { icon: BarChart3, title: 'Track Analytics', desc: 'Monitor clicks and engagement' },
+              { icon: Users, title: 'Grow Your Audience', desc: 'Connect all your platforms' }
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="clay-card p-6 bg-white text-left">
+                <div className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center mb-4 shadow-md">
+                  <Icon className="w-6 h-6" />
+                </div>
+                <h3 className="font-extrabold text-slate-900 mb-2">{title}</h3>
+                <p className="text-sm text-slate-600 font-medium">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
         <Footer />
       </main>
     )

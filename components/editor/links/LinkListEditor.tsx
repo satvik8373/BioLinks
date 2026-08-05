@@ -28,10 +28,380 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Search, Sparkles, FolderPlus, Archive,
   ChevronRight, Layout, Pencil, MoreHorizontal,
-  Trash2, Ungroup, GripVertical,
+  Trash2, Ungroup, GripVertical, ArrowLeft, X, Check,
+  Share2, Globe, User, BarChart2,
 } from 'lucide-react'
-import { LinkItem } from '@/lib/types/link'
+import {
+  InstagramIcon, TikTokIcon, WhatsAppIcon, YouTubeIcon, TwitterIcon,
+  SpotifyIcon, GitHubIcon, LinkedInIcon, DiscordIcon, EmailIcon
+} from '@/components/icons/ServiceIcons'
+import { LinkItem, formatSocialUrl } from '@/lib/types/link'
 import LinkItemCard from './LinkItemCard'
+
+interface SocialPlatformSpec {
+  id: string
+  name: string
+  IconComponent: any
+  placeholder: string
+  example: string
+  prefixUrl: string
+}
+
+const QUICK_SOCIAL_PLATFORMS: SocialPlatformSpec[] = [
+  { id: 'instagram', name: 'Instagram', IconComponent: InstagramIcon, placeholder: 'Enter Instagram Username*', example: 'Example: @instagramusername', prefixUrl: 'https://instagram.com/' },
+  { id: 'tiktok', name: 'TikTok', IconComponent: TikTokIcon, placeholder: 'Enter TikTok Username*', example: 'Example: @tiktokusername', prefixUrl: 'https://tiktok.com/@' },
+  { id: 'whatsapp', name: 'WhatsApp', IconComponent: WhatsAppIcon, placeholder: 'Enter Phone Number*', example: 'Example: +1234567890', prefixUrl: 'https://wa.me/' },
+  { id: 'email', name: 'Email', IconComponent: EmailIcon, placeholder: 'Enter Email Address*', example: 'Example: name@email.com', prefixUrl: 'mailto:' },
+  { id: 'youtube', name: 'YouTube', IconComponent: YouTubeIcon, placeholder: 'Enter YouTube Handle*', example: 'Example: @youtubechannel', prefixUrl: 'https://youtube.com/' },
+  { id: 'twitter', name: 'Twitter / X', IconComponent: TwitterIcon, placeholder: 'Enter Twitter Username*', example: 'Example: @twitterhandle', prefixUrl: 'https://x.com/' },
+  { id: 'spotify', name: 'Spotify', IconComponent: SpotifyIcon, placeholder: 'Enter Artist or Playlist URL*', example: 'Example: https://open.spotify.com/...', prefixUrl: '' },
+  { id: 'github', name: 'GitHub', IconComponent: GitHubIcon, placeholder: 'Enter GitHub Username*', example: 'Example: username', prefixUrl: 'https://github.com/' },
+  { id: 'linkedin', name: 'LinkedIn', IconComponent: LinkedInIcon, placeholder: 'Enter LinkedIn Profile*', example: 'Example: in/username', prefixUrl: 'https://linkedin.com/' },
+]
+
+function AddSocialIconModal({
+  platform,
+  onClose,
+  onBack,
+  onAdd,
+}: {
+  platform: SocialPlatformSpec
+  onClose: () => void
+  onBack: () => void
+  onAdd: (url: string, platformId: string) => void
+}) {
+  const [usernameInput, setUsernameInput] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!usernameInput.trim()) return
+
+    const raw = usernameInput.trim().replace(/^@/, '')
+    const finalUrl = platform.prefixUrl ? (raw.startsWith('http') ? raw : `${platform.prefixUrl}${raw}`) : raw
+    onAdd(finalUrl, platform.id)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-5 animate-scale-up">
+        {/* Title Bar: ← Add [Platform] icon ✕ */}
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+          </button>
+          <h3 className="text-base font-extrabold text-slate-900">Add {platform.name} icon</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+          {/* Input field box */}
+          <div className="space-y-1.5">
+            <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 focus-within:border-slate-900 focus-within:bg-white transition-all">
+              <input
+                type="text"
+                autoFocus
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder={platform.placeholder}
+                className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+              />
+            </div>
+            <p className="text-[11px] font-medium text-slate-500 px-1">{platform.example}</p>
+          </div>
+
+          {/* Action button */}
+          <button
+            type="submit"
+            disabled={!usernameInput.trim()}
+            className="w-full py-3.5 rounded-full text-sm font-extrabold transition-all shadow-sm active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed bg-slate-900 hover:bg-black text-white cursor-pointer"
+          >
+            Add
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ── Add Social Icon Search Modal (Matching Linktree Screenshot 1) ── */
+function AddSocialIconSearchModal({
+  onClose,
+  onBack,
+  onSelectPlatform,
+}: {
+  onClose: () => void
+  onBack: () => void
+  onSelectPlatform: (platform: SocialPlatformSpec) => void
+}) {
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredPlatforms = searchQuery.trim()
+    ? QUICK_SOCIAL_PLATFORMS.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.includes(searchQuery.toLowerCase()))
+    : QUICK_SOCIAL_PLATFORMS
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white rounded-[28px] p-6 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-4 animate-scale-up max-h-[85vh] flex flex-col">
+        {/* Header: < Add social icon X */}
+        <div className="flex items-center justify-between flex-shrink-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+          </button>
+          <h3 className="text-base font-extrabold text-slate-900">Add social icon</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        </div>
+
+        {/* Search Bar (Rounded pill bg-slate-100) */}
+        <div className="bg-slate-100/90 rounded-2xl px-3.5 py-2.5 flex items-center gap-2.5 border border-slate-200/50 flex-shrink-0">
+          <Search size={16} className="text-slate-500 flex-shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search"
+            className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+            autoFocus
+          />
+        </div>
+
+        {/* Platform items list */}
+        <div className="overflow-y-auto space-y-1 flex-1 pr-1 scrollbar-none">
+          {filteredPlatforms.map((platform) => {
+            const IconComp = platform.IconComponent
+            return (
+              <button
+                key={platform.id}
+                type="button"
+                onClick={() => onSelectPlatform(platform)}
+                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-slate-100/80 transition-all cursor-pointer group text-left"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-800 group-hover:bg-white group-hover:shadow-2xs transition-all">
+                    <IconComp size={16} />
+                  </div>
+                  <span className="text-sm font-extrabold text-slate-900">{platform.name}</span>
+                </div>
+                <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-800 transition-colors" />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Social Icons Management Modal (Matching Linktree Screenshot 4) ── */
+function SocialIconsManagementModal({
+  onClose,
+  activeSocialList,
+  socialIconPosition = 'top',
+  onUpdateSocialLink,
+  onRemoveSocialLink,
+  onUpdateSocialPosition,
+  onOpenAddModal,
+  onRemoveLink,
+}: {
+  onClose: () => void
+  activeSocialList: { platform: string; url: string; linkId?: string }[]
+  socialIconPosition?: 'top' | 'bottom'
+  onUpdateSocialLink?: (platformId: string, url: string) => void
+  onRemoveSocialLink?: (platformId: string) => void
+  onUpdateSocialPosition?: (position: 'top' | 'bottom') => void
+  onOpenAddModal: () => void
+  onRemoveLink?: (id: string) => void
+}) {
+  const [editingPlatform, setEditingPlatform] = useState<string | null>(null)
+  const [editUrlInput, setEditUrlInput] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white rounded-[28px] p-6 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-5 animate-scale-up max-h-[88vh] flex flex-col">
+        {/* Header: Social icons X */}
+        <div className="flex items-center justify-between flex-shrink-0">
+          <div />
+          <h3 className="text-base font-extrabold text-slate-900">Social icons</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto space-y-5 flex-1 pr-1 scrollbar-none">
+          {/* Section: Show visitors where to find you */}
+          <div className="space-y-1">
+            <h4 className="text-sm font-extrabold text-slate-900">Show visitors where to find you</h4>
+            <p className="text-xs font-medium text-slate-500 leading-relaxed">
+              Add your social profiles, email and more as linked icons on your Linktree.
+            </p>
+          </div>
+
+          {/* Connected Social Items */}
+          {activeSocialList.length > 0 ? (
+            <div className="space-y-2.5">
+              {activeSocialList.map(({ platform, url, linkId }) => {
+                const spec = QUICK_SOCIAL_PLATFORMS.find(p => p.id === platform)
+                const IconComp = spec?.IconComponent || Globe
+                const isEditing = editingPlatform === platform
+
+                return (
+                  <div key={platform} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-900 shadow-2xs">
+                          <IconComp size={16} />
+                        </div>
+                        <span className="text-sm font-extrabold text-slate-900 capitalize">
+                          {spec?.name || platform}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingPlatform(isEditing ? null : platform)
+                            setEditUrlInput(url)
+                          }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                          title="Edit link"
+                        >
+                          <Pencil size={13} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onRemoveSocialLink?.(platform)}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Delete social icon"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {isEditing && (
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editUrlInput}
+                          onChange={(e) => setEditUrlInput(e.target.value)}
+                          onBlur={() => {
+                            if (editUrlInput.trim()) {
+                              const formatted = formatSocialUrl(platform, editUrlInput.trim())
+                              onUpdateSocialLink?.(platform, formatted)
+                            }
+                          }}
+                          placeholder={`Enter ${platform} handle or URL`}
+                          className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-slate-900"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editUrlInput.trim()) {
+                              const formatted = formatSocialUrl(platform, editUrlInput.trim())
+                              onUpdateSocialLink?.(platform, formatted)
+                            }
+                            setEditingPlatform(null)
+                          }}
+                          className="px-3 py-1.5 text-xs font-extrabold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all cursor-pointer"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-4 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <p className="text-xs font-medium text-slate-400">No social icons added yet</p>
+            </div>
+          )}
+
+          {/* Position Selector (Screenshot 4) */}
+          <div className="space-y-2.5 pt-2 border-t border-slate-100">
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-900">Social icon position</h4>
+              <p className="text-[11px] font-medium text-slate-400 mt-0.5">Display icons at the top or bottom of your profile</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="socialPos"
+                  checked={(socialIconPosition || 'top') === 'top'}
+                  onChange={() => onUpdateSocialPosition?.('top')}
+                  className="w-4 h-4 text-purple-600 accent-purple-600 focus:ring-purple-500 cursor-pointer"
+                />
+                <span className="text-xs font-extrabold text-slate-800">Top</span>
+              </label>
+
+              <label className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200/80 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input
+                  type="radio"
+                  name="socialPos"
+                  checked={socialIconPosition === 'bottom'}
+                  onChange={() => onUpdateSocialPosition?.('bottom')}
+                  className="w-4 h-4 text-purple-600 accent-purple-600 focus:ring-purple-500 cursor-pointer"
+                />
+                <span className="text-xs font-extrabold text-slate-800">Bottom</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Buttons (Screenshot 4) */}
+        <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 text-xs font-extrabold text-slate-700 bg-white border border-slate-200 rounded-full hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <BarChart2 size={13} className="text-slate-500" />
+            <span>See insights</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenAddModal}
+            className="px-5 py-2.5 text-xs font-extrabold text-white bg-purple-600 rounded-full hover:bg-purple-700 active:scale-95 transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+            style={{ backgroundColor: '#7C3AED' }}
+          >
+            <Plus size={14} className="stroke-[3]" />
+            <span>Add social icon</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const ROOT_ZONE_ID = '__root__'
 
@@ -462,6 +832,9 @@ function SortableCollectionContainer({
 ───────────────────────────────────────── */
 interface LinkListEditorProps {
   links: LinkItem[]
+  socialLinks?: Record<string, string>
+  socialIconPosition?: 'top' | 'bottom'
+  profile?: { avatar: string; title: string; bio: string; handle?: string }
   selectedLinkId: string | null
   setSelectedLinkId: (id: string | null) => void
   onOpenAddModal: (targetGroupId?: string) => void
@@ -471,10 +844,17 @@ interface LinkListEditorProps {
   onToggleVisibility: (id: string) => void
   onReorderLinks: (fromIndex: number, toIndex: number) => void
   onSetLinks?: (links: LinkItem[]) => void
+  onUpdateSocialLink?: (platformId: string, url: string) => void
+  onRemoveSocialLink?: (platformId: string) => void
+  onUpdateSocialPosition?: (position: 'top' | 'bottom') => void
+  onUpdateProfile?: (field: 'title' | 'bio' | 'avatar', value: string) => void
 }
 
 export default function LinkListEditor({
   links,
+  socialLinks,
+  socialIconPosition = 'top',
+  profile,
   selectedLinkId,
   setSelectedLinkId,
   onOpenAddModal,
@@ -484,9 +864,33 @@ export default function LinkListEditor({
   onToggleVisibility,
   onReorderLinks,
   onSetLinks,
+  onUpdateSocialLink,
+  onRemoveSocialLink,
+  onUpdateSocialPosition,
+  onUpdateProfile,
 }: LinkListEditorProps) {
   const [filterQuery, setFilterQuery] = useState('')
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
+  const [activeSocialModal, setActiveSocialModal] = useState<SocialPlatformSpec | null>(null)
+  const [isSocialManagementOpen, setIsSocialManagementOpen] = useState(false)
+  const [isAddSocialSearchOpen, setIsAddSocialSearchOpen] = useState(false)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [isEditingBio, setIsEditingBio] = useState(false)
+
+  const handleAddSocialLink = (url: string, platformId: string) => {
+    if (onUpdateSocialLink) {
+      onUpdateSocialLink(platformId, url)
+    }
+  }
+
+  const activeSocialList: { platform: string; url: string }[] = []
+  if (socialLinks) {
+    Object.entries(socialLinks).forEach(([platform, url]) => {
+      if (url && url.trim()) {
+        activeSocialList.push({ platform: platform.toLowerCase(), url: url.trim() })
+      }
+    })
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -496,13 +900,15 @@ export default function LinkListEditor({
   const activeItem = activeId ? (links.find(l => l.id === activeId) ?? null) : null
   const showRootZone = !!(activeItem && activeItem.groupId && !activeItem.isGroupHeader)
 
+  const standardLinks = links
+
   const filteredLinks = filterQuery.trim()
-    ? links.filter(l =>
+    ? standardLinks.filter(l =>
         l.text.toLowerCase().includes(filterQuery.toLowerCase()) ||
         l.type.toLowerCase().includes(filterQuery.toLowerCase()) ||
         (l.url && l.url.toLowerCase().includes(filterQuery.toLowerCase()))
       )
-    : links
+    : standardLinks
 
   const topLevelIds = filteredLinks
     .filter(l => l.isGroupHeader || !l.groupId)
@@ -602,22 +1008,130 @@ export default function LinkListEditor({
       onDragCancel={() => setActiveId(null)}
     >
       <div className="space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Links & Content</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Add, customize and arrange features on your bio page</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-extrabold px-2.5 py-1.5 rounded-xl"
-              style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.10), rgba(99,102,241,0.08))', color: '#7C3AED', border: '1.5px solid rgba(124,58,237,0.15)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 0 rgba(124,58,237,0.10)' }}>
-              {links.filter(l => l.isVisible).length} Active
-            </span>
-            {selectedLinkId && (
-              <button onClick={() => setSelectedLinkId(null)} className="text-[11px] font-bold text-slate-400 hover:text-slate-700 underline">
-                Collapse
-              </button>
+        {/* ── Linktree Top Profile Header & Social Icons (Exact Screenshot 2 & 3 Match) ── */}
+        <div className="flex items-center gap-4 py-3 px-1 border-b border-slate-100/80 mb-2">
+          {/* Avatar Circle (Click to upload avatar) */}
+          <div className="relative w-16 h-16 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-2xs group cursor-pointer">
+            {profile?.avatar ? (
+              <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User size={36} className="text-slate-400" />
             )}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+              <Pencil size={14} />
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              title="Click to upload profile picture"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file && onUpdateProfile) {
+                  const reader = new FileReader()
+                  reader.onload = (ev) => {
+                    if (ev.target?.result) onUpdateProfile('avatar', ev.target.result as string)
+                  }
+                  reader.readAsDataURL(file)
+                }
+              }}
+            />
+          </div>
+
+          <div className="space-y-0.5 flex-1 min-w-0">
+            {/* Title (Inline Edit) */}
+            {isEditingTitle ? (
+              <input
+                type="text"
+                autoFocus
+                defaultValue={profile?.title || 'satvikpatel8373'}
+                onBlur={(e) => {
+                  const val = e.target.value.trim()
+                  if (val && onUpdateProfile) onUpdateProfile('title', val)
+                  setIsEditingTitle(false)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = (e.target as HTMLInputElement).value.trim()
+                    if (val && onUpdateProfile) onUpdateProfile('title', val)
+                    setIsEditingTitle(false)
+                  }
+                }}
+                className="text-base font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg outline-none border border-slate-300 w-full"
+              />
+            ) : (
+              <div
+                onClick={() => setIsEditingTitle(true)}
+                className="group flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/80 px-1 py-0.5 rounded-lg -ml-1 transition-all"
+                title="Click to edit title"
+              >
+                <h3 className="text-base font-extrabold text-slate-900 leading-snug truncate">
+                  {profile?.title || profile?.handle || 'satvikpatel8373'}
+                </h3>
+                <Pencil size={12} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              </div>
+            )}
+
+            {/* Bio (Inline Edit) */}
+            {isEditingBio ? (
+              <input
+                type="text"
+                autoFocus
+                defaultValue={profile?.bio || ''}
+                placeholder="Add bio"
+                onBlur={(e) => {
+                  if (onUpdateProfile) onUpdateProfile('bio', e.target.value.trim())
+                  setIsEditingBio(false)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (onUpdateProfile) onUpdateProfile('bio', (e.target as HTMLInputElement).value.trim())
+                    setIsEditingBio(false)
+                  }
+                }}
+                className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg outline-none border border-slate-300 w-full"
+              />
+            ) : (
+              <div
+                onClick={() => setIsEditingBio(true)}
+                className="group flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/80 px-1 py-0.5 rounded-lg -ml-1 transition-all"
+                title="Click to edit bio"
+              >
+                <p className={`text-xs font-semibold ${profile?.bio ? 'text-slate-500' : 'text-slate-400 italic'}`}>
+                  {profile?.bio || 'Add bio'}
+                </p>
+                <Pencil size={11} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              </div>
+            )}
+
+            {/* Added Social Icons Row + Small Pencil Button (Screenshot 2 & 3) */}
+            <div className="flex items-center gap-2 pt-1.5 flex-wrap">
+              {activeSocialList.map(({ platform }) => {
+                const spec = QUICK_SOCIAL_PLATFORMS.find(p => p.id === platform)
+                const IconComp = spec?.IconComponent || Globe
+                return (
+                  <button
+                    key={platform}
+                    type="button"
+                    onClick={() => setIsSocialManagementOpen(true)}
+                    className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200/90 text-slate-800 flex items-center justify-center hover:bg-slate-200 transition-all cursor-pointer"
+                    title={platform}
+                  >
+                    <IconComp size={14} />
+                  </button>
+                )
+              })}
+
+              {/* Edit Pencil Button */}
+              <button
+                type="button"
+                onClick={() => setIsSocialManagementOpen(true)}
+                className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200/90 text-slate-600 flex items-center justify-center hover:bg-slate-200 hover:text-slate-900 transition-all cursor-pointer"
+                title="Manage social icons"
+              >
+                <Pencil size={13} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -761,6 +1275,55 @@ export default function LinkListEditor({
             </button>
           </div>
         </div>
+
+        {/* ── Social Icons Management Modal (Screenshot 4) ── */}
+        {isSocialManagementOpen && (
+          <SocialIconsManagementModal
+            onClose={() => setIsSocialManagementOpen(false)}
+            activeSocialList={activeSocialList}
+            socialIconPosition={socialIconPosition}
+            onUpdateSocialLink={onUpdateSocialLink}
+            onRemoveSocialLink={onRemoveSocialLink}
+            onRemoveLink={onRemoveLink}
+            onUpdateSocialPosition={onUpdateSocialPosition}
+            onOpenAddModal={() => {
+              setIsSocialManagementOpen(false)
+              setIsAddSocialSearchOpen(true)
+            }}
+          />
+        )}
+
+        {/* ── Add Social Icon Search Modal (Screenshot 1) ── */}
+        {isAddSocialSearchOpen && (
+          <AddSocialIconSearchModal
+            onClose={() => setIsAddSocialSearchOpen(false)}
+            onBack={() => {
+              setIsAddSocialSearchOpen(false)
+              setIsSocialManagementOpen(true)
+            }}
+            onSelectPlatform={(platform) => {
+              setIsAddSocialSearchOpen(false)
+              setActiveSocialModal(platform)
+            }}
+          />
+        )}
+
+        {/* ── Add Social Icon Modal (Handle Input) ── */}
+        {activeSocialModal && (
+          <AddSocialIconModal
+            platform={activeSocialModal}
+            onClose={() => setActiveSocialModal(null)}
+            onBack={() => {
+              setActiveSocialModal(null)
+              setIsAddSocialSearchOpen(true)
+            }}
+            onAdd={(url, platformId) => {
+              handleAddSocialLink(url, platformId)
+              setActiveSocialModal(null)
+              setIsSocialManagementOpen(true)
+            }}
+          />
+        )}
       </div>
     </DndContext>
   )

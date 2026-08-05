@@ -37,6 +37,7 @@ export interface BioCard {
     }>
     theme: any
     socialLinks: Record<string, string>
+    socialIconPosition?: 'top' | 'bottom'
   }
   analytics: {
     views: number
@@ -52,9 +53,10 @@ export interface BioCard {
 export async function saveCard(cardId: string, cardData: Omit<BioCard, 'id'>) {
   try {
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
+    const cleanCardData = JSON.parse(JSON.stringify(cardData))
     
     const dataToSave = {
-      ...cardData,
+      ...cleanCardData,
       id: cardId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -113,8 +115,10 @@ export async function updateCard(cardId: string, updates: Partial<BioCard>) {
       throw new Error('Card not found')
     }
     
+    const cleanUpdates = JSON.parse(JSON.stringify(updates))
+
     await updateDoc(cardRef, {
-      ...updates,
+      ...cleanUpdates,
       updatedAt: serverTimestamp(),
     })
     

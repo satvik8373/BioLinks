@@ -1,6 +1,22 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import ConditionalNavigation from '@/components/layout/ConditionalNavigation'
+import { ThemeProvider } from '@/contexts/ThemeContext'
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-jakarta',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'BioLink Creator - Create Beautiful Bio Links',
@@ -13,10 +29,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${jakarta.variable} ${inter.variable}`}>
       <body className="font-grotesk antialiased">
-        <ConditionalNavigation />
-        {children}
+        <ThemeProvider>
+          <ConditionalNavigation />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

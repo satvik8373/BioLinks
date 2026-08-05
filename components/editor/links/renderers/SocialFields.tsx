@@ -39,6 +39,7 @@ export default function SocialFields({ link, onUpdate }: SocialFieldsProps) {
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
             <option value="twitter">Twitter / X</option>
+            <option value="email">Email</option>
             <option value="github">GitHub</option>
             <option value="linkedin">LinkedIn</option>
             <option value="facebook">Facebook</option>
@@ -48,6 +49,10 @@ export default function SocialFields({ link, onUpdate }: SocialFieldsProps) {
             <option value="spotify">Spotify</option>
             <option value="soundcloud">SoundCloud</option>
             <option value="twitch">Twitch</option>
+            <option value="pinterest">Pinterest</option>
+            <option value="apple-music">Apple Music</option>
+            <option value="website">Website</option>
+            <option value="phone">Phone</option>
           </select>
         </div>
         <div>
@@ -58,15 +63,25 @@ export default function SocialFields({ link, onUpdate }: SocialFieldsProps) {
             type="text"
             value={link.url || ''}
             onChange={e => {
-              const val = e.target.value
-              const formatted = formatSocialUrl(currentPlatform, val)
               onUpdate({
                 ...link,
-                url: formatted,
+                url: e.target.value,
               })
             }}
+            onBlur={e => {
+              const val = e.target.value
+              if (val) {
+                const formatted = formatSocialUrl(currentPlatform, val)
+                if (formatted !== val) {
+                  onUpdate({
+                    ...link,
+                    url: formatted,
+                  })
+                }
+              }
+            }}
             placeholder="@username or https://platform.com/user"
-            className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
+            className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none focus:border-purple-500"
           />
         </div>
       </div>

@@ -326,26 +326,26 @@ export default function LinkItemCard({
               <ServiceIcon iconId={activeIconKey} size={18} />
             </button>
 
-            {/* Quick Action Icons: Thumbnail, Prioritize Star, Schedule Clock, Lock Gate, Analytics */}
+            {/* Quick Action Icons: Thumbnail (non-image only), Schedule Clock, Lock Gate, Analytics */}
             <div className="flex items-center gap-1.5 text-gray-400">
-              {/* 1. Thumbnail Icon */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeDrawer === 'thumbnail' && isExpanded) {
-                    onToggleExpand()
-                  } else {
-                    setActiveDrawer('thumbnail')
-                    if (!isExpanded) onToggleExpand()
-                  }
-                }}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isExpanded && activeDrawer === 'thumbnail' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-purple-600 hover:bg-gray-100'
-                }`}
-                title="Add Thumbnail"
-              >
-                <ImageIcon className="w-4 h-4" />
-              </button>
+              {/* Thumbnail Icon */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeDrawer === 'thumbnail' && isExpanded) {
+                      onToggleExpand()
+                    } else {
+                      setActiveDrawer('thumbnail')
+                      if (!isExpanded) onToggleExpand()
+                    }
+                  }}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isExpanded && activeDrawer === 'thumbnail' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-purple-600 hover:bg-gray-100'
+                  }`}
+                  title="Add Thumbnail"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </button>
 
               {/* 3. Schedule Clock Icon */}
               <button
@@ -408,7 +408,7 @@ export default function LinkItemCard({
               {activeDrawer === 'lock' ? 'Lock this link' :
                activeDrawer === 'schedule' ? 'Schedule' :
                activeDrawer === 'thumbnail' ? 'Add Thumbnail' :
-               ((link.url || '').toLowerCase().includes('youtube') || (link.url || '').toLowerCase().includes('youtu.be') || link.type === 'video' ? 'YouTube' : link.text || 'Instagram')}
+               ((link.url || '').toLowerCase().includes('youtube') || (link.url || '').toLowerCase().includes('youtu.be') || link.type === 'video' ? 'YouTube' : link.text || 'Link')}
             </span>
             <button
               onClick={onToggleExpand}
@@ -419,7 +419,7 @@ export default function LinkItemCard({
             </button>
           </div>
 
-          {/* Sub-Tabs: Link Settings vs Layout (Exact Matching Screenshot 1) */}
+          {/* Sub-Tabs: Link Settings | Layout */}
           {(activeDrawer === 'settings' || activeDrawer === 'layout') && (
             <div className="flex border-b border-gray-200 px-6 bg-white sticky top-0 z-20">
               <button
@@ -452,7 +452,7 @@ export default function LinkItemCard({
           {/* Drawer Body Container */}
           <div className="p-6 space-y-5 bg-white">
 
-            {/* ── 0. DEDICATED THUMBNAIL DRAWER (Exact Screenshot 2) ── */}
+            {/* ── 0. DEDICATED THUMBNAIL DRAWER ── */}
             {activeDrawer === 'thumbnail' && (
               <div className="space-y-4 animate-fadeIn py-2 text-center">
                 {/* Hidden File Input */}
@@ -729,7 +729,7 @@ export default function LinkItemCard({
             {/* ── TAB 1: LINK SETTINGS ── */}
             {activeDrawer === 'settings' && (
               <div className="space-y-4">
-                {/* Subtext / Description */}
+                {/* ── LINK SETTINGS ── */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     Subtext / Description (Optional)
@@ -757,7 +757,7 @@ export default function LinkItemCard({
                           { id: 'open_latest', label: "Open my channel's latest video" },
                           { id: 'display_latest', label: "Display my channel's latest video" },
                         ].map((opt) => {
-                          const selected = (link.videoClickOption || 'display_video') === opt.id
+                          const selected = (link.videoClickOption || 'open_youtube') === opt.id
                           return (
                             <label
                               key={opt.id}
@@ -985,13 +985,15 @@ export default function LinkItemCard({
             {/* ── TAB 2: LAYOUT (Exact Screenshot 1) ── */}
             {activeDrawer === 'layout' && (
               <div className="space-y-6 text-left animate-fadeIn">
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-gray-900">
-                    Choose a layout for your link
-                  </h4>
-                </div>
+                {(
+                  <>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-gray-900">
+                        Choose a layout for your link
+                      </h4>
+                    </div>
 
-                <div className="space-y-4">
+                    <div className="space-y-4">
                   {/* CLASSIC OPTION */}
                   <div
                     onClick={() => handleFieldChange('layout', 'classic')}
@@ -1017,12 +1019,16 @@ export default function LinkItemCard({
                           <p className="text-xs text-gray-500 mt-0.5">Efficient, direct and compact.</p>
                         </div>
                         
-                        {/* Linktree Classic Mini Pill Illustration (Matching Screenshot 1) */}
-                        <div className="w-44 h-10 rounded-full bg-[#27534c] flex items-center justify-between px-3 shadow-xs">
-                          <div className="w-7 h-7 rounded-full bg-amber-500 overflow-hidden border border-white/20">
-                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="" className="w-full h-full object-cover" />
+                        {/* Linktree Classic Mini Pill Illustration */}
+                        <div className="w-44 h-10 rounded-full bg-slate-900 flex items-center justify-between px-3 shadow-xs">
+                          <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden border border-white/20 flex items-center justify-center text-white text-[10px] font-bold">
+                            {link.thumbnail ? (
+                              <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span>★</span>
+                            )}
                           </div>
-                          <span className="text-xs text-white/80 font-mono tracking-widest">...</span>
+                          <span className="text-xs text-white/80 font-mono tracking-widest">&rarr;</span>
                         </div>
                       </div>
                     </div>
@@ -1053,18 +1059,21 @@ export default function LinkItemCard({
                           <p className="text-xs text-gray-500 mt-0.5">Make your link stand out with a larger, more attractive display.</p>
                         </div>
 
-                        {/* Linktree Featured Mini Card Illustration (Matching Screenshot 1) */}
-                        <div className="w-56 h-32 rounded-2xl bg-amber-500 overflow-hidden relative shadow-md">
+                        {/* Linktree Featured Mini Card Illustration */}
+                        <div className="w-56 h-32 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-purple-950 overflow-hidden relative shadow-md flex items-center justify-center">
                           {link.thumbnail ? (
                             <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80" alt="" className="w-full h-full object-cover" />
+                            <div className="text-center p-3">
+                              <Sparkles size={24} className="text-purple-400 mx-auto mb-1 opacity-75" />
+                              <span className="text-[10px] text-white/70 block">Featured Showcase Banner</span>
+                            </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-3">
                             <span className="text-[11px] font-bold text-white leading-tight truncate max-w-[150px]">
-                              {link.text || 'Now touring, get your tickets'}
+                              {link.text || 'Featured Showcase'}
                             </span>
-                            <span className="text-[10px] text-white/80 font-mono tracking-widest mb-0.5">...</span>
+                            <span className="text-[10px] text-white/80 font-mono tracking-widest mb-0.5">&rarr;</span>
                           </div>
                         </div>
 
@@ -1100,6 +1109,8 @@ export default function LinkItemCard({
                     </div>
                   </div>
                 </div>
+                </>
+                )}
               </div>
             )}
           </div>

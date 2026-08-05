@@ -15,6 +15,8 @@ import {
   WebsiteIcon, AppleMusicIcon, ServiceIcon
 } from '@/components/icons/ServiceIcons'
 import { saveCard, saveUserProfile, uploadWallpaperFile } from '@/lib/storage'
+import { detectPlatformFromUrl } from '@/lib/detectPlatform'
+import BlockEditorDispatcher from '@/components/editor/blocks/BlockEditorDispatcher'
 import { 
   ArrowLeft, 
   Save, 
@@ -58,8 +60,11 @@ import {
   Pencil,
   Upload,
   Calendar,
-  Video
+  Download,
+  Star,
+  Video,
 } from 'lucide-react'
+import WallpaperPanel from '@/components/editor/wallpaper/WallpaperPanel'
 
 interface LinkItem {
   id: string
@@ -135,6 +140,7 @@ interface BioLinkConfig {
   socialLinks: {
     [key: string]: string
   }
+  socialIconPosition?: 'top' | 'bottom'
 }
 
 export default function EditorPage() {
@@ -341,6 +347,7 @@ export default function EditorPage() {
     const profile = localStorage.getItem('userProfile')
     
     if (!savedConfig || !profile) {
+      setLoading(false)
       router.push('/create')
       return
     }
@@ -362,14 +369,14 @@ export default function EditorPage() {
       localStorage.setItem('activeBioCardId', handleSlug)
       setPreviewCardId(handleSlug)
       setConfig(parsedConfig)
+      setLoading(false)
 
       syncPreviewCard(parsedConfig, handleSlug).catch(err => {
         console.error('Error syncing initial preview:', err)
       })
-      
-      setLoading(false)
     } catch (error) {
       console.error('Error loading config:', error)
+      setLoading(false)
       router.push('/create')
     }
   }, [router])
@@ -405,11 +412,10 @@ export default function EditorPage() {
     })
   }
 
-  // Side effects moved to useEffect
+  // Auto-save to localStorage whenever config changes
   useEffect(() => {
     if (!config) return
-    
-    // Auto-save to localStorage with QuotaExceededError protection
+
     try {
       localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
     } catch (e: any) {
@@ -421,13 +427,11 @@ export default function EditorPage() {
         console.error('Could not save currentBioLinkConfig to localStorage:', err)
       }
     }
-    
-    // Sync preview card (async - fire and forget)
+
     syncPreviewCard(config, previewCardId).catch(err => {
       console.error('Error syncing preview:', err)
     })
-    
-    // Update timestamp
+
     setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
   }, [config, previewCardId])
 
@@ -813,6 +817,9 @@ export default function EditorPage() {
             {activeTab === 'links' && (
               <LinkListEditor
                 links={config.links}
+                socialLinks={config.socialLinks}
+                socialIconPosition={config.socialIconPosition}
+                profile={config.profile}
                 selectedLinkId={selectedLinkId}
                 setSelectedLinkId={setSelectedLinkId}
                 onOpenAddModal={handleOpenAddModal}
@@ -837,6 +844,22 @@ export default function EditorPage() {
                 onToggleVisibility={toggleLinkVisibility}
                 onReorderLinks={reorderLinks}
                 onSetLinks={(newLinks) => updateConfig('links', newLinks)}
+                onUpdateSocialLink={(platformId, url) => updateConfig(`socialLinks.${platformId}`, url)}
+                onRemoveSocialLink={(platformId) => {
+                  const updatedSocial = { ...(config.socialLinks || {}) }
+                  delete updatedSocial[platformId]
+                  delete updatedSocial[platformId.toLowerCase()]
+                  const updatedLinks = (config.links || []).filter(l => {
+                    const p = (l.platform || l.icon || '').toLowerCase()
+                    return p !== platformId.toLowerCase()
+                  })
+                  updateConfig([
+                    { path: 'socialLinks', value: updatedSocial },
+                    { path: 'links', value: updatedLinks },
+                  ])
+                }}
+                onUpdateSocialPosition={(pos) => updateConfig('socialIconPosition', pos)}
+                onUpdateProfile={(field, value) => updateConfig(`profile.${field}`, value)}
               />
             )}
 
@@ -857,7 +880,7 @@ export default function EditorPage() {
               <div className="space-y-5">
                 {activeTab === 'profile'    && <ProfilePanel    config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
                 {activeTab === 'themes'     && <ThemesPanel     config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
-                {activeTab === 'background' && <BackgroundPanel config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
+                {activeTab === 'background' && <WallpaperPanel config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
                 {activeTab === 'buttons'    && <ButtonsPanel    config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
                 {activeTab === 'fonts'      && <FontsPanel      config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
                 {activeTab === 'colors'     && <ColorsPanel     config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
@@ -1131,25 +1154,46 @@ export default function EditorPage() {
 // ── shared helper: compute CSS background for any theme type ──────────────
 function themeBackground(theme: Theme): React.CSSProperties {
   const c = theme.colors
-  // For video backgrounds, return transparent so the <video> element shows through
-  if (c.backgroundVideo || c.backgroundIframe) {
+  const type = c.backgroundType || (
+    c.backgroundVideo || c.backgroundIframe ? 'video' :
+    c.backgroundImage ? 'image' :
+    c.backgroundMesh ? (c.backgroundMesh.includes('radial-gradient(circle') ? 'pattern' : 'blur') :
+    c.backgroundGradient ? 'gradient' : 'fill'
+  )
+
+  if (type === 'video') {
     return { backgroundColor: 'transparent' }
   }
-  if (c.backgroundImage) {
+
+  if (type === 'image' && c.backgroundImage) {
     return {
       backgroundImage: `${c.backgroundOverlay ? `linear-gradient(${c.backgroundOverlay},${c.backgroundOverlay}),` : ''}url(${c.backgroundImage})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
     }
   }
-  if (c.backgroundMesh) {
+
+  if (type === 'pattern' && c.backgroundMesh) {
+    return {
+      backgroundColor: c.background || '#0f172a',
+      backgroundImage: c.backgroundMesh,
+      backgroundSize: (c as any).backgroundPatternSize || '20px 20px',
+    }
+  }
+
+  if (type === 'blur' && c.backgroundMesh) {
     return { background: c.backgroundMesh }
   }
-  if (c.backgroundGradient) {
+
+  if (type === 'gradient' && c.backgroundGradient) {
     const g = c.backgroundGradient
+    if (g.direction === 'radial') {
+      return { background: `radial-gradient(circle, ${g.from}, ${g.to})` }
+    }
     return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
   }
-  return { backgroundColor: c.background }
+
+  return { backgroundColor: c.background || '#7F2AEB' }
 }
 
 // ── DesignIndexPanel — exact Linktree Design page layout ───────────────────
@@ -2104,7 +2148,9 @@ function BackgroundPanel({ config, updateConfig, onBack }: any) {
             label: 'Image',
             preview: (
               <div className="w-[72px] h-[52px] rounded-xl border border-slate-200/60 overflow-hidden shadow-xs bg-cover bg-center relative" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1538370965046-79c0d6907d47?w=120&q=80)' }}>
-                <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-slate-800/80 text-[8px] text-white flex items-center justify-center font-bold">⚡</div>
+                <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-slate-900/80 text-white flex items-center justify-center">
+                  <ImageIcon size={10} />
+                </div>
               </div>
             )
           },
@@ -2113,8 +2159,7 @@ function BackgroundPanel({ config, updateConfig, onBack }: any) {
             label: 'Video',
             preview: (
               <div className="w-[72px] h-[52px] rounded-xl border border-slate-200/60 bg-slate-100 flex items-center justify-center shadow-xs relative">
-                <div className="w-5 h-5 rounded-md border border-slate-300 flex items-center justify-center text-slate-500 text-[8px]">▶</div>
-                <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-slate-800/80 text-[8px] text-white flex items-center justify-center font-bold">⚡</div>
+                <Video className="w-5 h-5 text-slate-500" />
               </div>
             )
           }
@@ -2917,7 +2962,6 @@ function LinkEditForm({ link, updateLink, removeLink, onDone, toggleLinkVisibili
           </p>
         </div>
       )}
-
       {/* ── PRIORITY / PIN ── */}
       <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
         <div className="flex items-center gap-2">
@@ -2932,220 +2976,8 @@ function LinkEditForm({ link, updateLink, removeLink, onDone, toggleLinkVisibili
         <span className="text-[10px] text-gray-500">Priority link</span>
       </div>
 
-      {/* ── LINK / SOCIAL — just URL ── */}
-      {(link.type === 'link' || link.type === 'social') && (
-        field('URL', 'url', 'url', 'https://example.com')
-      )}
-
-      {/* ── SHOP / PRODUCT — URL + price + description + stock ── */}
-      {link.type === 'shop' && (<>
-        {field('Product URL', 'url', 'url', 'https://yourstore.com/product')}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Price</label>
-            <div className="flex">
-              <select
-                value={link.currency || '$'}
-                onChange={e => updateLink(link.id, 'currency', e.target.value)}
-                className="px-2 py-2 text-sm border border-r-0 border-gray-200 rounded-l-lg bg-gray-50 focus:outline-none"
-              >
-                {['$','€','£','¥','₹','₩'].map(c => <option key={c}>{c}</option>)}
-              </select>
-              <input
-                type="number"
-                value={link.price || ''}
-                onChange={e => updateLink(link.id, 'price', e.target.value)}
-                placeholder="0.00"
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-r-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:bg-white"
-              />
-            </div>
-          </div>
-          {select('Stock', 'stockStatus', [
-            { value: 'in-stock', label: 'In Stock' },
-            { value: 'limited', label: 'Limited' },
-            { value: 'out-of-stock', label: 'Out of Stock' },
-          ])}
-        </div>
-        {textarea('Description', 'description', 'Describe your product…')}
-      </>)}
-
-      {/* ── CONTACT — contact type + value ── */}
-      {link.type === 'contact' && (<>
-        {select('Contact Type', 'contactType', [
-          { value: 'email',    label: 'Email' },
-          { value: 'phone',    label: 'Phone' },
-          { value: 'whatsapp', label: 'WhatsApp' },
-          { value: 'telegram', label: 'Telegram' },
-          { value: 'address',  label: 'Address' },
-        ])}
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
-            {link.contactType === 'email' ? 'Email Address' :
-             link.contactType === 'address' ? 'Address' : 'Number / Username'}
-          </label>
-          <input
-            type={link.contactType === 'email' ? 'email' : 'text'}
-            value={link.contactValue || ''}
-            onChange={e => updateLink(link.id, 'contactValue', e.target.value)}
-            placeholder={
-              link.contactType === 'email'    ? 'you@example.com' :
-              link.contactType === 'phone'    ? '+1 234 567 8900' :
-              link.contactType === 'whatsapp' ? '+1 234 567 8900' :
-              link.contactType === 'telegram' ? '@username' :
-              link.contactType === 'address'  ? '123 Main St, City' :
-              'Contact info'
-            }
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:bg-white transition-colors"
-          />
-        </div>
-      </>)}
-
-      {/* ── EVENT — date + time + location + URL ── */}
-      {link.type === 'event' && (<>
-        <div className="grid grid-cols-2 gap-3">
-          {field('Date', 'eventDate', 'date')}
-          {field('Time', 'eventTime', 'time')}
-        </div>
-        {field('Location', 'eventLocation', 'text', 'Venue or online link')}
-        {field('Event URL / Tickets', 'url', 'url', 'https://eventbrite.com/...')}
-        {textarea('Description', 'description', 'What is this event about?')}
-      </>)}
-
-      {/* ── MUSIC — embed URL + description ── */}
-      {link.type === 'music' && (<>
-        {field('Music URL', 'url', 'url', 'https://open.spotify.com/track/...')}
-        {field('Embed URL (optional)', 'embedUrl', 'url', 'Spotify / Apple Music embed link')}
-        {textarea('Description', 'description', 'Album, artist, or playlist info…')}
-      </>)}
-
-      {/* ── VIDEO — URL + description ── */}
-      {link.type === 'video' && (<>
-        {field('Video URL', 'url', 'url', 'https://youtube.com/watch?v=...')}
-        {textarea('Description', 'description', 'What is this video about?')}
-      </>)}
-
-      {/* ── PAYMENT — payment type + amount + URL ── */}
-      {link.type === 'payment' && (<>
-        <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200 mb-3">
-          <p className="text-xs font-semibold text-green-900 mb-1 flex items-center gap-1">
-            💳 Payment Integration
-          </p>
-          <p className="text-[10px] text-green-700">Connect Stripe, PayPal, or other payment providers</p>
-        </div>
-        {select('Payment Type', 'paymentType', [
-          { value: 'stripe',   label: 'Stripe Payment' },
-          { value: 'paypal',   label: 'PayPal' },
-          { value: 'venmo',    label: 'Venmo' },
-          { value: 'cashapp',  label: 'Cash App' },
-          { value: 'tip',      label: 'Tip Jar' },
-          { value: 'donation', label: 'Donation' },
-        ])}
-        {field('Payment URL', 'url', 'url', 'https://buy.stripe.com/... or paypal.me/...')}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
-              {link.paymentType === 'tip' || link.paymentType === 'donation' ? 'Suggested Amount' : 'Price'}
-            </label>
-            <div className="flex">
-              <select
-                value={link.paymentCurrency || '$'}
-                onChange={e => updateLink(link.id, 'paymentCurrency', e.target.value)}
-                className="px-2 py-2 text-sm border border-r-0 border-gray-200 rounded-l-lg bg-gray-50 focus:outline-none"
-              >
-                {['$','€','£','¥','₹','₩'].map(c => <option key={c}>{c}</option>)}
-              </select>
-              <input
-                type="number"
-                value={link.paymentAmount || ''}
-                onChange={e => updateLink(link.id, 'paymentAmount', e.target.value)}
-                placeholder={link.paymentType === 'tip' || link.paymentType === 'donation' ? '5.00' : '0.00'}
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-r-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:bg-white"
-              />
-            </div>
-          </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              className="w-full py-2 px-3 text-xs font-semibold bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
-            >
-              Test Payment
-            </button>
-          </div>
-        </div>
-        {textarea('Description', 'description', 'What are people paying for?')}
-      </>)}
-
-      {/* ── BOOKING / CALENDAR — booking provider + URL ── */}
-      {link.type === 'booking' && (<>
-        <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200 mb-3">
-          <p className="text-xs font-semibold text-blue-900 mb-1 flex items-center gap-1">
-            📅 Booking Integration
-          </p>
-          <p className="text-[10px] text-blue-700">Connect Calendly, Cal.com, or your booking system</p>
-        </div>
-        {select('Booking Provider', 'bookingProvider', [
-          { value: 'calendly', label: 'Calendly' },
-          { value: 'cal.com',  label: 'Cal.com' },
-          { value: 'acuity',   label: 'Acuity Scheduling' },
-          { value: 'custom',   label: 'Custom Link' },
-        ])}
-        {field('Booking URL', 'bookingUrl', 'url', 'https://calendly.com/yourname/...')}
-        {field('Meeting Duration', 'bookingDuration', 'text', 'e.g., 30 min, 1 hour')}
-        {textarea('Description', 'description', 'What will you discuss in this meeting?')}
-      </>)}
-
-      {/* ── FORM — form type + fields ── */}
-      {link.type === 'form' && (<>
-        <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 mb-3">
-          <p className="text-xs font-semibold text-purple-900 mb-1 flex items-center gap-1">
-            📝 Form Builder
-          </p>
-          <p className="text-[10px] text-purple-700">Collect emails, feedback, or custom responses</p>
-        </div>
-        {select('Form Type', 'formType', [
-          { value: 'email-capture', label: 'Email Capture' },
-          { value: 'contact',       label: 'Contact Form' },
-          { value: 'survey',        label: 'Survey' },
-          { value: 'custom',        label: 'Custom Form' },
-        ])}
-        {field('Form Action URL', 'formAction', 'url', 'https://formspree.io/... (optional)')}
-        {textarea('Success Message', 'description', 'Thank you for submitting!')}
-      </>)}
-
-      {/* ── NFT — contract + chain + price ── */}
-      {link.type === 'nft' && (<>
-        <div className="p-3 bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg border border-violet-200 mb-3">
-          <p className="text-xs font-semibold text-violet-900 mb-1 flex items-center gap-1">
-            🎨 NFT Showcase
-          </p>
-          <p className="text-[10px] text-violet-700">Display and sell your NFT collection</p>
-        </div>
-        {field('NFT Marketplace URL', 'url', 'url', 'https://opensea.io/assets/...')}
-        {field('Contract Address', 'nftContract', 'text', '0x...')}
-        {select('Blockchain', 'nftChain', [
-          { value: 'ethereum', label: 'Ethereum' },
-          { value: 'polygon',  label: 'Polygon' },
-          { value: 'solana',   label: 'Solana' },
-          { value: 'base',     label: 'Base' },
-        ])}
-        <div className="grid grid-cols-2 gap-3">
-          {field('Price (ETH/SOL)', 'nftPrice', 'text', '0.05')}
-          {field('NFT Image URL', 'nftImage', 'url', 'https://...')}
-        </div>
-        {textarea('Description', 'description', 'Describe your NFT collection...')}
-      </>)}
-
-      {/* ── HEADER — just a label, no URL ── */}
-      {link.type === 'header' && (
-        <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-          This is a section heading — it groups links below it. No URL needed.
-        </p>
-      )}
-
-      {/* ── TEXT — text content ── */}
-      {link.type === 'text' && (
-        textarea('Text Content', 'description', 'Write your text here…', 3)
-      )}
+      {/* ── MODULAR BLOCK EDITOR DISPATCHER ── */}
+      <BlockEditorDispatcher link={link as any} updateLink={updateLink} />
 
       {/* ── SCHEDULING OPTIONS ── */}
       <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
@@ -3495,31 +3327,37 @@ function SettingsPanel({ config, updateConfig }: any) {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Settings</h2>
-        <p className="text-gray-600">Manage your Linktree settings</p>
+        <h2 className="text-2xl font-bold text-gray-900 tracking-tight mb-1">Settings</h2>
+        <p className="text-xs text-gray-500">Manage your Linktree settings & social icons</p>
       </div>
 
+      {/* Social Icons / Channels Section */}
       <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Additional Info</h3>
+        <SocialMediaPanel config={config} updateConfig={updateConfig} />
+      </section>
+
+      {/* Additional Info Section */}
+      <section className="space-y-4 bg-white border border-gray-200 rounded-2xl p-5 shadow-2xs">
+        <h3 className="text-sm font-bold text-gray-900">Additional Profile Info</h3>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Location</label>
           <input
             type="text"
             value={config.profile.location || ''}
             onChange={(e) => updateConfig('profile.location', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="City, Country"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+          <label className="block text-xs font-semibold text-gray-700 mb-1">Website</label>
           <input
             type="url"
             value={config.profile.website || ''}
             onChange={(e) => updateConfig('profile.website', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="https://yourwebsite.com"
           />
         </div>
@@ -3548,8 +3386,16 @@ function SocialMediaPanel({ config, updateConfig }: any) {
   ]
 
   const handleInputChange = (platformId: string, val: string) => {
-    const formatted = formatSocialUrl(platformId, val)
-    updateConfig(`socialLinks.${platformId}`, formatted)
+    updateConfig(`socialLinks.${platformId}`, val)
+  }
+
+  const handleInputBlur = (platformId: string, val: string) => {
+    if (val) {
+      const formatted = formatSocialUrl(platformId, val)
+      if (formatted !== val) {
+        updateConfig(`socialLinks.${platformId}`, formatted)
+      }
+    }
   }
 
   const activeCount = Object.values(config.socialLinks || {}).filter(Boolean).length
@@ -3573,7 +3419,7 @@ function SocialMediaPanel({ config, updateConfig }: any) {
         <div>
           <h3 className="font-bold text-sm text-purple-950">Official Brand Icons</h3>
           <p className="text-xs text-purple-800 mt-0.5 leading-relaxed">
-            Enter your handle (e.g. <code className="bg-purple-100 px-1 py-0.5 rounded font-mono text-purple-900">@username</code>) or full URL. All connected accounts display crisp, official SVG brand icons on your bio page.
+            Enter your handle (e.g. <code className="bg-purple-100 px-1 py-0.5 rounded font-mono text-purple-900">@username</code>) or full URL. Icons display as small circular buttons below your profile.
           </p>
         </div>
       </div>
@@ -3608,7 +3454,7 @@ function SocialMediaPanel({ config, updateConfig }: any) {
                     {isConnected && (
                       <button
                         onClick={() => updateConfig(`socialLinks.${platform.id}`, '')}
-                        className="text-[11px] font-semibold text-gray-400 hover:text-red-600 transition-colors"
+                        className="text-[11px] font-semibold text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
                       >
                         Disconnect
                       </button>
@@ -3618,6 +3464,7 @@ function SocialMediaPanel({ config, updateConfig }: any) {
                     type="text"
                     value={rawVal}
                     onChange={(e) => handleInputChange(platform.id, e.target.value)}
+                    onBlur={(e) => handleInputBlur(platform.id, e.target.value)}
                     placeholder={platform.placeholder}
                     className="w-full bg-gray-50/50 border border-gray-200 focus:border-purple-500 focus:bg-white rounded-xl px-3 py-2 text-xs text-gray-900 outline-none transition-all"
                   />
@@ -4084,6 +3931,16 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
   
   const displayLinks = sortedLinks
 
+  // Active social icons come EXCLUSIVELY from config.socialLinks
+  const activeSocialIcons: { platform: string; url: string }[] = []
+  if (config.socialLinks) {
+    Object.entries(config.socialLinks).forEach(([platform, url]) => {
+      if (url && url.trim()) {
+        activeSocialIcons.push({ platform: platform.toLowerCase(), url: url.trim() })
+      }
+    })
+  }
+
   function extractYouTubeThumb(url?: string): string | null {
     if (!url) return null
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
@@ -4379,6 +4236,30 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
             </div>
           )
         })()}
+
+        {/* ── Social Icons Bar (Top Position) ── */}
+        {activeSocialIcons.length > 0 && (config.socialIconPosition || 'top') === 'top' && (
+          <div className="flex justify-center items-center gap-2 mb-3 px-2 flex-wrap flex-shrink-0">
+            {activeSocialIcons.map(({ platform, url }) => (
+              <a
+                key={platform}
+                href={url || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => { if (!url || url === '#') e.preventDefault() }}
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  color: c.profileText || '#ffffff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+                title={platform}
+              >
+                <ServiceIcon iconId={platform} size={14} />
+              </a>
+            ))}
+          </div>
+        )}
 
         {/* ── Stacked Linktree Link Buttons ── */}
         <div className="w-full flex flex-col gap-2 flex-shrink-0 mb-3">
@@ -4719,6 +4600,30 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
 
         <div className="flex-1" />
 
+        {/* ── Social Icons Bar (Bottom Position) ── */}
+        {activeSocialIcons.length > 0 && config.socialIconPosition === 'bottom' && (
+          <div className="flex justify-center items-center gap-2 mb-3 px-2 flex-wrap flex-shrink-0">
+            {activeSocialIcons.map(({ platform, url }) => (
+              <a
+                key={platform}
+                href={url || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => { if (!url || url === '#') e.preventDefault() }}
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  color: c.profileText || '#ffffff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+                title={platform}
+              >
+                <ServiceIcon iconId={platform} size={14} />
+              </a>
+            ))}
+          </div>
+        )}
+
         {/* ── Bottom Linktree Join Pill Button ── */}
         <div className="w-full flex-shrink-0 flex items-center justify-center py-2 px-3 rounded-full bg-white text-slate-900 shadow-md mb-2 cursor-pointer hover:bg-slate-50 active:scale-95 transition-all">
           <span className="text-[10px] font-extrabold text-center truncate">
@@ -4732,16 +4637,7 @@ function BioLinkPreview({ config }: { config: BioLinkConfig }) {
   )
 }
 
-const LINK_CATEGORIES = [
-  { id: 'suggested', label: 'Suggested' },
-  { id: 'commerce',  label: 'Commerce'  },
-  { id: 'social',    label: 'Social'    },
-  { id: 'media',     label: 'Media'     },
-  { id: 'contact',   label: 'Contact'   },
-  { id: 'events',    label: 'Events'    },
-  { id: 'forms',     label: 'Forms'     },
-  { id: 'text',      label: 'Text'      },
-]
+
 
 interface LinkOption {
   id: string; label: string; description: string
@@ -4766,231 +4662,126 @@ const SnapchatSvg = ({ size = 20, className = '' }: { size?: number; className?:
 const PinterestSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
 )
-const TwitchSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/></svg>
-)
 
-const ZoomSvg = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M4 3C2.346 3 1 4.346 1 6v12c0 1.654 1.346 3 3 3h11c1.654 0 3-1.346 3-3v-2.738l4.553 2.276c.285.143.625-.036.625-.357V7.819c0-.321-.34-.5-.625-.357L18 9.738V6c0-1.654-1.346-3-3-3H4Z"/></svg>
-)
-
-const LINK_OPTIONS: Record<string, LinkOption[]> = {
-  suggested: [
-    { id: 'instagram', label: 'Instagram',   description: 'Display your posts and reels',        bg: 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400', SvgIcon: InstagramIcon,  type: 'social',  platform: 'instagram'  },
-    { id: 'tiktok',    label: 'TikTok',      description: 'Share your TikToks on your page',     bg: 'bg-black',       SvgIcon: TikTokIcon,    type: 'social',  platform: 'tiktok'     },
-    { id: 'youtube',   label: 'YouTube',     description: 'Embed videos with auto-play',         bg: 'bg-red-600',     SvgIcon: YouTubeIcon,   type: 'video',   platform: 'youtube'    },
-    { id: 'spotify',   label: 'Spotify',     description: 'Embed music player on page',          bg: 'bg-green-500',   SvgIcon: SpotifyIcon,   type: 'music',   platform: 'spotify'    },
-    { id: 'link',      label: 'Link',        description: 'Add any URL to your page',            bg: 'bg-gray-600',    SvgIcon: WebsiteIcon,   type: 'link'                            },
-    { id: 'product',   label: 'Product',     description: 'Sell products with pricing',          bg: 'bg-purple-600',  SvgIcon: ShopifyIcon,   type: 'shop'                            },
-    { id: 'payment',   label: 'Payment',     description: 'Accept payments & tips',              bg: 'bg-blue-600',    SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment'  },
-  ],
-  commerce: [
-    { id: 'product',      label: 'Product',        description: 'Sell products with pricing',         bg: 'bg-purple-600',  SvgIcon: ShopifyIcon,  type: 'shop'                         },
-    { id: 'shopify',      label: 'Shopify',        description: 'Connect your Shopify store',         bg: 'bg-green-600',   SvgIcon: ShopifyIcon,  type: 'shop',    platform: 'shopify' },
-    { id: 'digital',      label: 'Digital Product', description: 'Sell downloads & digital goods',    bg: 'bg-indigo-600',  SvgIcon: ({ size, className }: any) => <Upload size={size} className={className} />, type: 'shop', platform: 'digital' },
-    { id: 'payment-link', label: 'Payment Link',   description: 'Accept one-time payments',           bg: 'bg-blue-600',    SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment', platform: 'stripe' },
-    { id: 'tip-jar',      label: 'Tip Jar',        description: 'Accept tips from supporters',        bg: 'bg-yellow-500',  SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment', platform: 'tip' },
-    { id: 'donation',     label: 'Donation',       description: 'Accept charitable donations',        bg: 'bg-pink-500',    SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment', platform: 'donation' },
-    { id: 'nft',          label: 'NFT',            description: 'Showcase & sell NFTs',               bg: 'bg-purple-700',  SvgIcon: ({ size, className }: any) => <Sticker size={size} className={className} />, type: 'nft' },
-    { id: 'etsy',         label: 'Etsy',           description: 'Link to your Etsy shop',             bg: 'bg-orange-500',  SvgIcon: EtsySvg,      type: 'shop',    platform: 'etsy'    },
-    { id: 'gumroad',      label: 'Gumroad',        description: 'Sell digital products',              bg: 'bg-pink-600',    SvgIcon: GumroadSvg,   type: 'shop',    platform: 'gumroad' },
-    { id: 'patreon',      label: 'Patreon',        description: 'Get support from fans',              bg: 'bg-orange-600',  SvgIcon: PatreonSvg,   type: 'payment', platform: 'patreon' },
-    { id: 'ko-fi',        label: 'Ko-fi',          description: 'Accept tips and donations',          bg: 'bg-blue-400',    SvgIcon: KoFiSvg,      type: 'payment', platform: 'ko-fi'   },
-  ],
-  social: [
-    { id: 'instagram', label: 'Instagram',   description: 'Display your posts and reels',     bg: 'bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400', SvgIcon: InstagramIcon,  type: 'social', platform: 'instagram'  },
-    { id: 'tiktok',    label: 'TikTok',      description: 'Share your TikToks',               bg: 'bg-black',       SvgIcon: TikTokIcon,    type: 'social', platform: 'tiktok'     },
-    { id: 'twitter',   label: 'Twitter / X', description: 'Share your tweets',                bg: 'bg-black',       SvgIcon: TwitterIcon,   type: 'social', platform: 'twitter'    },
-    { id: 'facebook',  label: 'Facebook',    description: 'Link to your Facebook page',       bg: 'bg-blue-600',    SvgIcon: FacebookIcon,  type: 'social', platform: 'facebook'   },
-    { id: 'linkedin',  label: 'LinkedIn',    description: 'Share your professional profile',  bg: 'bg-blue-700',    SvgIcon: LinkedInIcon,  type: 'social', platform: 'linkedin'   },
-    { id: 'snapchat',  label: 'Snapchat',    description: 'Share your Snapchat',              bg: 'bg-yellow-400',  SvgIcon: SnapchatSvg,   type: 'social', platform: 'snapchat'   },
-    { id: 'pinterest', label: 'Pinterest',   description: 'Share your boards',                bg: 'bg-red-600',     SvgIcon: PinterestSvg,  type: 'social', platform: 'pinterest'  },
-    { id: 'discord',   label: 'Discord',     description: 'Invite to your server',            bg: 'bg-indigo-600',  SvgIcon: DiscordIcon,   type: 'social', platform: 'discord'    },
-    { id: 'twitch',    label: 'Twitch',      description: 'Share your stream',                bg: 'bg-purple-600',  SvgIcon: TwitchSvg,     type: 'social', platform: 'twitch'     },
-    { id: 'github',    label: 'GitHub',      description: 'Share your repositories',          bg: 'bg-gray-900',    SvgIcon: GitHubIcon,    type: 'social', platform: 'github'     },
-  ],
-  media: [
-    { id: 'youtube',     label: 'YouTube Video',  description: 'Embed video with preview',    bg: 'bg-red-600',    SvgIcon: YouTubeIcon,    type: 'video',  platform: 'youtube'     },
-    { id: 'spotify',     label: 'Spotify',        description: 'Embed music player',          bg: 'bg-green-500',  SvgIcon: SpotifyIcon,    type: 'music',  platform: 'spotify'     },
-    { id: 'soundcloud',  label: 'SoundCloud',     description: 'Embed SoundCloud tracks',     bg: 'bg-orange-500', SvgIcon: SoundCloudIcon, type: 'music',  platform: 'soundcloud'  },
-    { id: 'apple-music', label: 'Apple Music',    description: 'Link Apple Music content',    bg: 'bg-red-500',    SvgIcon: AppleMusicIcon, type: 'music',  platform: 'apple-music' },
-    { id: 'tiktok-embed',label: 'TikTok Video',   description: 'Embed TikTok with preview',   bg: 'bg-black',      SvgIcon: TikTokIcon,     type: 'video',  platform: 'tiktok'      },
-    { id: 'vimeo',       label: 'Vimeo',          description: 'Embed Vimeo videos',          bg: 'bg-blue-500',   SvgIcon: ({ size, className }: any) => <Video size={size} className={className} />, type: 'video', platform: 'vimeo' },
-    { id: 'podcast',     label: 'Podcast',        description: 'Embed podcast episodes',      bg: 'bg-purple-600', SvgIcon: ({ size, className }: any) => <Video size={size} className={className} />, type: 'music', platform: 'podcast' },
-  ],
-  contact: [
-    { id: 'email',    label: 'Email',    description: 'Let people email you',     bg: 'bg-blue-500',  SvgIcon: EmailIcon,    type: 'contact', platform: 'email'    },
-    { id: 'phone',    label: 'Phone',    description: 'Add your phone number',    bg: 'bg-green-600', SvgIcon: PhoneIcon,    type: 'contact', platform: 'phone'    },
-    { id: 'whatsapp', label: 'WhatsApp', description: 'Chat on WhatsApp',         bg: 'bg-green-500', SvgIcon: WhatsAppIcon, type: 'contact', platform: 'whatsapp' },
-    { id: 'telegram', label: 'Telegram', description: 'Chat on Telegram',         bg: 'bg-blue-400',  SvgIcon: TelegramIcon, type: 'contact', platform: 'telegram' },
-    { id: 'website',  label: 'Website',  description: 'Link to your website',     bg: 'bg-gray-600',  SvgIcon: WebsiteIcon,  type: 'link',    platform: 'website'  },
-  ],
-  events: [
-    { id: 'event',    label: 'Event',          description: 'Promote an upcoming event',       bg: 'bg-purple-500', SvgIcon: ({ size, className }: any) => <Globe size={size} className={className} />,    type: 'event'                       },
-    { id: 'calendar', label: 'Book a Meeting', description: 'Let people schedule with you',    bg: 'bg-blue-500',   SvgIcon: ({ size, className }: any) => <Calendar size={size} className={className} />, type: 'booking', platform: 'calendly' },
-    { id: 'zoom',     label: 'Zoom Meeting',   description: 'Share Zoom meeting link',         bg: 'bg-blue-600',   SvgIcon: ZoomSvg,     type: 'event',   platform: 'zoom'     },
-    { id: 'webinar',  label: 'Webinar',        description: 'Promote online webinar',          bg: 'bg-indigo-600', SvgIcon: ({ size, className }: any) => <Video size={size} className={className} />,    type: 'event',   platform: 'webinar'  },
-    { id: 'meetup',   label: 'Meetup',         description: 'Share meetup event',              bg: 'bg-red-500',    SvgIcon: ({ size, className }: any) => <MapPin size={size} className={className} />,   type: 'event',   platform: 'meetup'   },
-    { id: 'ticket',   label: 'Ticket Sales',   description: 'Sell event tickets',              bg: 'bg-orange-600', SvgIcon: ({ size, className }: any) => <ShoppingBag size={size} className={className} />, type: 'shop', platform: 'eventbrite' },
-  ],
-  forms: [
-    { id: 'email-capture', label: 'Email Capture',  description: 'Collect email addresses',         bg: 'bg-green-500',   SvgIcon: ({ size, className }: any) => <User size={size} className={className} />,   type: 'form', platform: 'email-capture' },
-    { id: 'contact-form',  label: 'Contact Form',   description: 'Let people reach out',            bg: 'bg-purple-500',  SvgIcon: ({ size, className }: any) => <User size={size} className={className} />,   type: 'form', platform: 'contact' },
-    { id: 'survey',        label: 'Survey',         description: 'Gather feedback',                 bg: 'bg-blue-500',    SvgIcon: ({ size, className }: any) => <BarChart3 size={size} className={className} />, type: 'form', platform: 'survey' },
-    { id: 'newsletter',    label: 'Newsletter',     description: 'Newsletter signup',               bg: 'bg-indigo-500',  SvgIcon: ({ size, className }: any) => <Type size={size} className={className} />,   type: 'form', platform: 'newsletter' },
-    { id: 'waitlist',      label: 'Waitlist',       description: 'Collect waitlist signups',        bg: 'bg-yellow-600',  SvgIcon: ({ size, className }: any) => <User size={size} className={className} />,   type: 'form', platform: 'waitlist' },
-  ],
-  text: [
-    { id: 'header', label: 'Header',   description: 'Add a section heading',    bg: 'bg-gray-600', SvgIcon: ({ size, className }: any) => <Layout size={size} className={className} />, type: 'header' },
-    { id: 'text',   label: 'Text',     description: 'Add a block of text',      bg: 'bg-gray-500', SvgIcon: ({ size, className }: any) => <Type size={size} className={className} />,   type: 'text'   },
-    { id: 'divider',label: 'Divider',  description: 'Add a visual separator',   bg: 'bg-gray-400', SvgIcon: ({ size, className }: any) => <Asterisk size={size} className={className} />, type: 'text'   },
-  ],
-}
-
-
-// Category sidebar icons using Lucide
-function CatIcon({ id }: { id: string }) {
-  const cls = 'w-4 h-4'
-  if (id === 'suggested') return <Sparkles className={cls} />
-  if (id === 'commerce')  return <ShoppingBag className={cls} />
-  if (id === 'social')    return <Share2 className={cls} />
-  if (id === 'media')     return <Smartphone className={cls} />
-  if (id === 'contact')   return <User className={cls} />
-  if (id === 'events')    return <Calendar className={cls} />
-  if (id === 'forms')     return <Type className={cls} />
-  if (id === 'text')      return <Layout className={cls} />
-  return <LinkIcon className={cls} />
-}
-
-// Quick-add tiles (top of Suggested) — Lucide icons, no emojis
-const QUICK_TILES = [
-  { id: 'link',       label: 'Link',       Icon: LinkIcon,    type: 'link'    as LinkItem['type'], text: 'New Link'       },
-  { id: 'video',      label: 'Video',      Icon: Video,       type: 'video'   as LinkItem['type'], text: 'Video Embed'    },
-  { id: 'music',      label: 'Music',      Icon: Sparkles,    type: 'music'   as LinkItem['type'], text: 'Music Link'     },
-  { id: 'product',    label: 'Product',    Icon: ShoppingBag, type: 'shop'    as LinkItem['type'], text: 'New Product'    },
-  { id: 'payment',    label: 'Payment',    Icon: User,        type: 'payment' as LinkItem['type'], text: 'Payment Link'   },
-  { id: 'booking',    label: 'Booking',    Icon: Calendar,    type: 'booking' as LinkItem['type'], text: 'Book Meeting'   },
-  { id: 'form',       label: 'Form',       Icon: Type,        type: 'form'    as LinkItem['type'], text: 'Email Capture'  },
-  { id: 'header',     label: 'Header',     Icon: Layout,      type: 'header'  as LinkItem['type'], text: 'Section Header' },
+const CORE_BLOCKS = [
+  { id: 'link',      label: 'Link',       description: 'Add any URL button with smart platform auto-detection', bg: 'bg-indigo-600', SvgIcon: WebsiteIcon,   type: 'link' as LinkItem['type'] },
+  { id: 'header',    label: 'Header',     description: 'Section heading to organize your page',                 bg: 'bg-slate-700',  SvgIcon: ({ size, className }: any) => <Layout size={size} className={className} />, type: 'header' as LinkItem['type'] },
+  { id: 'text',      label: 'Text',       description: 'Add body text, announcements, or bio notes',            bg: 'bg-slate-500',  SvgIcon: ({ size, className }: any) => <Type size={size} className={className} />, type: 'text' as LinkItem['type'] },
+  { id: 'video',     label: 'Video',      description: 'Embed playable YouTube, TikTok, or Vimeo video',         bg: 'bg-red-600',    SvgIcon: YouTubeIcon,  type: 'video' as LinkItem['type'], platform: 'youtube' },
+  { id: 'form',      label: 'Form',       description: 'Collect emails, feedback, survey & waitlist signups',    bg: 'bg-purple-600', SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'form' as LinkItem['type'] },
+  { id: 'contact',   label: 'Contact',    description: 'Email, phone, WhatsApp, or Telegram chat link',          bg: 'bg-sky-500',    SvgIcon: PhoneIcon,  type: 'contact' as LinkItem['type'] },
+  { id: 'file',      label: 'File',       description: 'Share Google Drive docs, PDFs, & file downloads',       bg: 'bg-blue-600',   SvgIcon: ({ size, className }: any) => <Upload size={size} className={className} />, type: 'link' as LinkItem['type'], platform: 'google-drive' },
+  { id: 'embed',     label: 'Embed',      description: 'Embed Spotify, SoundCloud, or custom web iFrames',       bg: 'bg-pink-600',   SvgIcon: SpotifyIcon,  type: 'music' as LinkItem['type'], platform: 'spotify' },
+  { id: 'gallery',   label: 'Gallery',    description: 'Showcase photos in grid, stack, or carousel',           bg: 'bg-amber-600',  SvgIcon: ({ size, className }: any) => <ImageIcon size={size} className={className} />, type: 'link' as LinkItem['type'] },
+  { id: 'divider',   label: 'Divider',    description: 'Add a subtle visual separator line',                    bg: 'bg-slate-400',  SvgIcon: ({ size, className }: any) => <Asterisk size={size} className={className} />, type: 'text' as LinkItem['type'] },
+  { id: 'store',     label: 'Store',      description: 'Sell products & digital downloads with pricing', bg: 'bg-purple-700', SvgIcon: ShopifyIcon, type: 'shop' as LinkItem['type'] },
+  { id: 'donation',  label: 'Donation',   description: 'Accept tips, coffee donations & one-time payments',     bg: 'bg-emerald-500',SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment' as LinkItem['type'] },
+  { id: 'countdown', label: 'Countdown',  description: 'Display countdown timer for launches & events',         bg: 'bg-blue-700',   SvgIcon: ({ size, className }: any) => <Calendar size={size} className={className} />, type: 'event' as LinkItem['type'] },
+  { id: 'rss',       label: 'RSS Feed',   description: 'Stream latest blog posts, news & RSS updates',           bg: 'bg-orange-500', SvgIcon: ({ size, className }: any) => <Globe size={size} className={className} />, type: 'link' as LinkItem['type'] },
 ]
 
 function LegacyAddLinkModal({ onClose, onAdd }: { onClose: () => void; onAdd: (preset: Partial<LinkItem>) => void }) {
-  const [activeCategory, setActiveCategory] = useState('suggested')
   const [search, setSearch] = useState('')
 
-  const allOptions: LinkOption[] = Object.values(LINK_OPTIONS).flat()
-  const options: LinkOption[] = search.trim()
-    ? allOptions.filter(o =>
-        o.label.toLowerCase().includes(search.toLowerCase()) ||
-        o.description.toLowerCase().includes(search.toLowerCase())
+  const detected = search.trim() ? detectPlatformFromUrl(search.trim()) : null
+
+  const filteredBlocks = search.trim()
+    ? CORE_BLOCKS.filter(b =>
+        b.label.toLowerCase().includes(search.toLowerCase()) ||
+        b.description.toLowerCase().includes(search.toLowerCase())
       )
-    : (LINK_OPTIONS[activeCategory] || [])
+    : CORE_BLOCKS
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '88vh' }}>
+      <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '88vh' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900">Add</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0 border-b border-gray-100">
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">Add Block</h2>
+            <p className="text-xs text-gray-500">Choose a core block or paste a URL for instant auto-detection</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {/* Search */}
-        <div className="px-6 pb-3 flex-shrink-0">
-          <div className="flex items-center bg-gray-100 rounded-xl px-4 py-2.5 space-x-3">
+        {/* Search & URL Input */}
+        <div className="px-6 py-3 flex-shrink-0">
+          <div className="flex items-center bg-gray-100 rounded-2xl px-4 py-3 space-x-3 border border-gray-200/80">
             <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Paste or search a link"
-              className="bg-transparent flex-1 text-sm text-gray-700 placeholder-gray-400 outline-none"
+              placeholder="Paste URL (e.g. instagram.com/john) or search block..."
+              className="bg-transparent flex-1 text-sm font-semibold text-gray-800 placeholder-gray-400 outline-none"
             />
             {search && (
-              <button onClick={() => setSearch('')}>
-                <X className="w-3.5 h-3.5 text-gray-400 hover:text-gray-600" />
+              <button onClick={() => setSearch('')} className="cursor-pointer">
+                <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-2 min-h-0 space-y-3">
 
-          {/* Left: categories */}
-          {!search && (
-            <div className="w-40 flex-shrink-0 border-r border-gray-100 overflow-y-auto py-1">
-              {LINK_CATEGORIES.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`w-full flex items-center space-x-2.5 px-4 py-2.5 text-sm font-medium transition-colors ${
-                    activeCategory === cat.id
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-                  }`}
-                >
-                  <CatIcon id={cat.id} />
-                  <span>{cat.label}</span>
-                </button>
-              ))}
+          {/* Auto Detection Card if URL pasted */}
+          {detected && (
+            <div className="p-4 bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-200 rounded-2xl flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${detected.bgGradient || 'bg-purple-600'}`}>
+                  <ServiceIcon iconId={detected.icon} size={18} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-extrabold text-purple-700 uppercase tracking-wide">Auto-Detected Platform</p>
+                  <p className="text-sm font-extrabold text-slate-900">{detected.name} ({detected.category})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  onAdd({
+                    type: detected.category === 'video' ? 'video' : detected.category === 'music' ? 'music' : 'link',
+                    text: detected.defaultTitle || detected.name,
+                    url: search,
+                    icon: detected.icon,
+                    platform: detected.id
+                  })
+                }}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer shadow-sm"
+              >
+                + Add {detected.name}
+              </button>
             </div>
           )}
 
-          {/* Right: content */}
-          <div className="flex-1 overflow-y-auto px-4 py-3">
+          <p className="text-xs font-extrabold text-gray-400 uppercase tracking-wider px-1">
+            {search ? 'Matching Blocks' : 'Core Block Library (15)'}
+          </p>
 
-            {/* Quick tiles — Suggested only, no search */}
-            {activeCategory === 'suggested' && !search && (
-              <div className="grid grid-cols-4 gap-2 mb-5">
-                {QUICK_TILES.map(tile => (
-                  <button
-                    key={tile.id}
-                    onClick={() => onAdd({ type: tile.type, text: tile.text, icon: tile.id, url: '' })}
-                    className="flex flex-col items-center justify-center py-4 px-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center mb-2">
-                      <tile.Icon className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <span className="text-xs font-semibold text-gray-700">{tile.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Section label */}
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-1">
-              {search ? 'Search Results' : LINK_CATEGORIES.find(c => c.id === activeCategory)?.label}
-            </p>
-
-            {/* Uniform list rows — every row identical height & layout */}
-            <div className="space-y-0.5">
-              {options.length === 0 && (
-                <p className="text-sm text-gray-400 py-8 text-center">No results found</p>
-              )}
-              {options.map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => onAdd({ type: opt.type, text: opt.label, icon: opt.id, platform: opt.platform, url: '' })}
-                  className="w-full flex items-center space-x-3 px-3 py-3 rounded-xl hover:bg-gray-50 transition-colors group"
-                >
-                  {/* Icon — fixed 40×40 circle, same for every row */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white ${opt.bg}`}>
-                    <opt.SvgIcon size={18} />
-                  </div>
-                  {/* Label + description */}
-                  <div className="flex-1 text-left min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 leading-tight">{opt.label}</p>
-                    <p className="text-xs text-gray-500 leading-tight truncate">{opt.description}</p>
-                  </div>
-                  {/* Chevron */}
-                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0 transition-colors" />
-                </button>
-              ))}
-            </div>
+          <div className="space-y-1.5 pb-4">
+            {filteredBlocks.map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => {
+                  const urlValue = search.trim().startsWith('http') ? search.trim() : ''
+                  onAdd({ type: opt.type, text: opt.label, icon: opt.id, platform: opt.platform, url: urlValue })
+                }}
+                className="w-full flex items-center space-x-3.5 px-3.5 py-3 rounded-2xl border border-gray-100 hover:border-purple-200 hover:bg-purple-50/40 transition-all group text-left cursor-pointer"
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-2xs ${opt.bg}`}>
+                  <opt.SvgIcon size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-extrabold text-gray-900 leading-tight">{opt.label}</p>
+                  <p className="text-xs text-gray-500 leading-tight truncate">{opt.description}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-purple-600 flex-shrink-0 transition-colors" />
+              </button>
+            ))}
           </div>
         </div>
       </div>

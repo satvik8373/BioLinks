@@ -10,7 +10,7 @@ A modern, production-ready bio link creator built with **Next.js 14**, **Firebas
 
 ## ✨ Features
 
-- 🎨 **Professional Themes** - 50+ pre-designed themes (minimal, vibrant, gradient, mesh, etc.)
+- 🎨 **JSON-Based Theme System** - Production-grade design token architecture (Linktree/Notion pattern)
 - 🔗 **Multiple Link Types** - Regular links, social media, shop products, contact buttons, events
 - 📱 **Mobile-First** - Responsive design that looks perfect on all devices
 - 🎯 **Clean Visitor View** - No navigation bars or website elements on shared links
@@ -20,6 +20,31 @@ A modern, production-ready bio link creator built with **Next.js 14**, **Firebas
 - 🎭 **Customizable** - Colors, fonts, button styles, backgrounds, and more
 - 🔒 **Secure** - Validated Firebase security rules for production
 - 🚀 **Fast** - Optimized build, lazy loading, and edge deployment ready
+
+## 🎨 Official Theme System
+
+This project uses the **JSON + CSS Variables** architecture—the same system used by Linktree, Notion, and modern SaaS platforms:
+
+```
+JSON Theme Files → Theme Engine → CSS Variables → Components
+```
+
+**Benefits:**
+- ✅ Add unlimited themes without changing React code
+- ✅ Store themes in database (MongoDB, PostgreSQL)
+- ✅ Build theme marketplace
+- ✅ User-created custom themes
+- ✅ Instant theme switching (no re-renders)
+
+**Built-in Themes:**
+- Minimal Light / Dark
+- Glass Dark (glassmorphism)
+- Clay Soft (neomorphism)
+- Luxury Gold
+- Gradient Sunset
+
+→ **Full documentation:** [THEME_SYSTEM.md](./THEME_SYSTEM.md)  
+→ **Architecture guide:** [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ## 🚀 Quick Start
 
@@ -70,24 +95,44 @@ See [FIREBASE_SETUP_GUIDE.md](./FIREBASE_SETUP_GUIDE.md) for detailed instructio
 ## 🏗️ Project Structure
 
 ```
-BioLinks/
+LinkTree/
 ├── app/                    # Next.js app directory
-│   ├── api/               # API routes (cards CRUD)
+│   ├── api/               # API routes (cards, proxy)
 │   ├── card/              # Card viewer (clean public view)
 │   ├── editor/            # Bio link editor
-│   ├── dashboard/         # User dashboard
-│   └── ...
+│   ├── create/            # Theme selector & card creator
+│   ├── my-cards/          # User dashboard
+│   └── [username]/        # Public profile pages
 ├── components/            # React components
-│   ├── card/             # Bio card display
+│   ├── card/             # BioCard display component
+│   ├── editor/           # Editor tools & link management
 │   ├── layout/           # Navigation, footer
-│   └── ui/               # Reusable UI components
-├── lib/                   # Utilities
+│   └── ui/               # Reusable UI primitives
+├── contexts/             # React context providers
+│   └── ThemeContext.tsx  # Global theme state
+├── lib/                   # Utilities & business logic
 │   ├── firebase.ts       # Firebase initialization
-│   ├── firestore.ts      # Database functions
-│   └── themes.ts         # Theme definitions
+│   ├── firestore.ts      # Database CRUD operations
+│   ├── themes.ts         # Legacy theme definitions
+│   ├── themeEngine.ts    # 🆕 JSON theme loader & CSS var applier
+│   └── storage.ts        # Card storage interface
+├── themes/                # 🆕 JSON theme definitions
+│   ├── minimal-light/
+│   │   └── config.json
+│   ├── glass-dark/
+│   ├── clay-soft/
+│   └── ...
 ├── public/               # Static assets
+├── .data/                # Local data cache
 └── firestore.rules       # Firebase security rules
 ```
+
+### Key Architecture Files
+
+- **`lib/themeEngine.ts`** - Theme loader, validator, and CSS variable applier
+- **`themes/*/config.json`** - Design token definitions (colors, typography, layout)
+- **`app/globals.css`** - CSS variable defaults and global styles
+- **`components/card/BioCard.tsx`** - Pure CSS variable consumption (no theme props)
 
 ## 🎨 Features Overview
 
