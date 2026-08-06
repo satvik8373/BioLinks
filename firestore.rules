@@ -6,6 +6,12 @@ service cloud.firestore {
     match /bioCards/{cardId} {
       allow read, write: if true;
     }
+
+    // Profile drafts & published documents
+    match /profiles/{userId}/{docType}/{document} {
+      allow read: if true;
+      allow write: if true;
+    }
     
     // User Documents & Cards Subcollection
     match /users/{userId} {

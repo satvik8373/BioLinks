@@ -1,0 +1,8 @@
+{
+  "hover": "lift",
+  "button": "scale",
+  "page": "fade",
+  "card": "static",
+  "duration": "180ms",
+  "easing": "ease-out"
+}

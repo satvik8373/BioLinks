@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BioLinkDesignTokensSchema",
+  "type": "object",
+  "required": ["colors", "radius", "shadows", "spacing", "typography"],
+  "properties": {
+    "colors": {
+      "type": "object",
+      "required": ["primary", "ink", "sub", "background", "card", "pill"],
+      "properties": {
+        "primary": { "type": "string" },
+        "secondary": { "type": "string" },
+        "accent": { "type": "string" },
+        "ink": { "type": "string" },
+        "sub": { "type": "string" },
+        "background": { "type": "string" },
+        "surface": { "type": "string" },
+        "card": { "type": "string" },
+        "pill": { "type": "string" },
+        "pillShadowLight": { "type": "string" },
+        "pillShadowDark": { "type": "string" },
+        "border": { "type": "string" }
+      }
+    },
+    "radius": {
+      "type": "object",
+      "properties": {
+        "card": { "type": "string" },
+        "pill": { "type": "string" },
+        "badge": { "type": "string" },
+        "social": { "type": "string" },
+        "avatar": { "type": "string" },
+        "icon": { "type": "string" },
+        "button": { "type": "string" }
+      }
+    },
+    "shadows": {
+      "type": "object",
+      "properties": {
+        "card": { "type": "string" },
+        "pill": { "type": "string" },
+        "badge": { "type": "string" },
+        "avatar": { "type": "string" },
+        "linkIcon": { "type": "string" }
+      }
+    },
+    "spacing": {
+      "type": "object",
+      "properties": {
+        "stagePadding": { "type": "string" },
+        "cardPadding": { "type": "string" },
+        "avatarMargin": { "type": "string" },
+        "socialsMargin": { "type": "string" },
+        "linksGap": { "type": "string" },
+        "socialsGap": { "type": "string" }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "required": ["fontFamily"],
+      "properties": {
+        "fontFamily": { "type": "string" },
+        "headingFont": { "type": "string" },
+        "bodyFont": { "type": "string" },
+        "nameSize": { "type": "string" },
+        "nameWeight": { "type": "string" },
+        "taglineSize": { "type": "string" },
+        "taglineWeight": { "type": "string" },
+        "linkTitleSize": { "type": "string" },
+        "linkTitleWeight": { "type": "string" },
+        "linkSubSize": { "type": "string" }
+      }
+    }
+  }
+}

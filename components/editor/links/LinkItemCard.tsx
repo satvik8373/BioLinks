@@ -1,17 +1,20 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
+import { gsap } from 'gsap'
 import { 
   GripVertical, Eye, EyeOff, Trash2, Pin, ChevronDown, ChevronUp, 
   Globe, Layout, DollarSign, Phone, Calendar, Video, Music, Image as ImageIcon,
   Tag, MessageCircle, Clock, MapPin, Check, Sparkles, ExternalLink,
   UploadCloud, X, FileText, Upload, Pencil, BarChart2, Star, Lock,
-  ShieldAlert, Key, AlertTriangle, Search, Zap, CheckSquare
+  ShieldAlert, Key, AlertTriangle, Search, Zap, CheckSquare, Sliders, Grid, Layers
 } from 'lucide-react'
 import { LinkItem, LinkType, formatSocialUrl } from '@/lib/types/link'
 import { ServiceIcon } from '@/components/icons/ServiceIcons'
 import SocialFields from './renderers/SocialFields'
 import ShopFields from './renderers/ShopFields'
+import GalleryBlockEditor from '@/components/editor/blocks/GalleryBlockEditor'
+import { uploadImageToFirebase } from '@/lib/firebaseStorage'
 
 interface LinkItemCardProps {
   link: LinkItem
@@ -129,7 +132,58 @@ export default function LinkItemCard({
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isEditingUrl, setIsEditingUrl] = useState(false)
 
-  const handleFileUpload = (file: File) => {
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const drawerContentRef = useRef<HTMLDivElement>(null)
+
+  // GSAP Smooth Expand & Collapse Drawer Animation
+  useEffect(() => {
+    if (!drawerRef.current) return
+
+    if (isExpanded) {
+      gsap.killTweensOf(drawerRef.current)
+      gsap.fromTo(
+        drawerRef.current,
+        { height: 0, opacity: 0 },
+        { height: 'auto', opacity: 1, duration: 0.42, ease: 'power2.out' }
+      )
+      if (drawerContentRef.current) {
+        gsap.fromTo(
+          drawerContentRef.current,
+          { y: 12, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.35, delay: 0.08, ease: 'power2.out' }
+        )
+      }
+    } else {
+      gsap.killTweensOf(drawerRef.current)
+      if (drawerContentRef.current) {
+        gsap.to(drawerContentRef.current, {
+          y: 8,
+          opacity: 0,
+          duration: 0.2,
+          ease: 'power2.in',
+        })
+      }
+      gsap.to(drawerRef.current, {
+        height: 0,
+        opacity: 0,
+        duration: 0.35,
+        ease: 'power2.inOut',
+      })
+    }
+  }, [isExpanded])
+
+  // GSAP Sub-Drawer Tab Transition
+  useEffect(() => {
+    if (isExpanded && drawerContentRef.current) {
+      gsap.fromTo(
+        drawerContentRef.current,
+        { opacity: 0.3, y: 8 },
+        { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+      )
+    }
+  }, [activeDrawer])
+
+  const handleFileUpload = async (file: File) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
       alert('Please select a valid image file (PNG, JPG, WebP, GIF)')
@@ -141,19 +195,17 @@ export default function LinkItemCard({
     }
 
     setIsUploading(true)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string
-      if (dataUrl) {
-        handleFieldChange('thumbnail', dataUrl)
+    try {
+      const firebaseUrl = await uploadImageToFirebase(file, 'thumbnails')
+      if (firebaseUrl) {
+        handleFieldChange('thumbnail', firebaseUrl)
       }
+    } catch (err) {
+      console.error('Failed to upload thumbnail to Firebase Storage:', err)
+      alert('Failed to upload thumbnail file')
+    } finally {
       setIsUploading(false)
     }
-    reader.onerror = () => {
-      alert('Failed to read media file')
-      setIsUploading(false)
-    }
-    reader.readAsDataURL(file)
   }
 
   const handleFieldChange = (field: keyof LinkItem, value: any) => {
@@ -191,6 +243,7 @@ export default function LinkItemCard({
       case 'music': return { bg: 'bg-green-100 text-green-800 border-green-200', label: 'Music Embed' }
       case 'video': return { bg: 'bg-red-100 text-red-800 border-red-200', label: 'Video Embed' }
       case 'contact': return { bg: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Contact Button' }
+      case 'gallery': return { bg: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Photo Gallery' }
       case 'event': return { bg: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Event' }
       case 'payment': return { bg: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Payment / Tip' }
       case 'booking': return { bg: 'bg-indigo-100 text-indigo-800 border-indigo-200', label: 'Booking' }
@@ -259,7 +312,7 @@ export default function LinkItemCard({
               </div>
 
               {/* URL Inline */}
-              {link.type !== 'header' && (
+              {link.type !== 'header' && link.type !== 'gallery' && (
                 <div className="flex items-center gap-1.5 group/url text-xs text-gray-500 mt-0.5">
                   <span className="font-semibold text-gray-400">URL</span>
                   {isEditingUrl ? (
@@ -394,63 +447,55 @@ export default function LinkItemCard({
         </div>
       </div>
 
-      {/* ── Expanded Dedicated Type Editor Drawer (Smooth Linktree Animation) ── */}
+      {/* ── Expanded Type Editor Drawer (Seamless Editor Container) ── */}
       <div 
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[85vh] opacity-100 border-t border-gray-200 overflow-y-auto rounded-b-3xl bg-white' : 'max-h-0 opacity-0 pointer-events-none'
+        ref={drawerRef}
+        className={`overflow-hidden border-t border-slate-200/80 rounded-b-[24px] bg-slate-50/40 ${
+          isExpanded ? 'max-h-[85vh] overflow-y-auto' : 'max-h-0 pointer-events-none'
         }`}
       >
-        <div>
-          {/* Drawer Header Banner (Official Linktree Neutral Warm Banner) */}
-          <div className="bg-[#e9e9e1] px-6 py-3 flex items-center justify-between font-bold text-sm text-gray-900 border-b border-gray-200">
-            <span className="w-6" /> {/* Spacer for perfect centering */}
-            <span className="text-center font-bold text-sm md:text-base text-gray-900 flex-1">
-              {activeDrawer === 'lock' ? 'Lock this link' :
-               activeDrawer === 'schedule' ? 'Schedule' :
-               activeDrawer === 'thumbnail' ? 'Add Thumbnail' :
-               ((link.url || '').toLowerCase().includes('youtube') || (link.url || '').toLowerCase().includes('youtu.be') || link.type === 'video' ? 'YouTube' : link.text || 'Link')}
-            </span>
-            <button
-              onClick={onToggleExpand}
-              className="p-1 text-gray-700 hover:text-black rounded-full transition-colors"
-              title="Close drawer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Sub-Tabs: Link Settings | Layout */}
+        <div ref={drawerContentRef} className="p-5 space-y-4">
+          {/* Integrated Sub-Tabs Pill Selector */}
           {(activeDrawer === 'settings' || activeDrawer === 'layout') && (
-            <div className="flex border-b border-gray-200 px-6 bg-white sticky top-0 z-20">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={() => setActiveDrawer('settings')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    activeDrawer === 'settings'
+                      ? 'bg-white text-purple-700 shadow-2xs font-extrabold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Link Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDrawer('layout')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    activeDrawer === 'layout'
+                      ? 'bg-white text-purple-700 shadow-2xs font-extrabold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Layout
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setActiveDrawer('settings')}
-                className={`py-3.5 px-8 text-sm font-bold transition-all relative cursor-pointer ${
-                  activeDrawer === 'settings' ? 'text-gray-900 font-extrabold' : 'text-gray-400 hover:text-gray-700'
-                }`}
+                onClick={onToggleExpand}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close drawer"
               >
-                <span>Link Settings</span>
-                {activeDrawer === 'settings' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveDrawer('layout')}
-                className={`py-3.5 px-8 text-sm font-bold transition-all relative cursor-pointer ${
-                  activeDrawer === 'layout' ? 'text-gray-900 font-extrabold' : 'text-gray-400 hover:text-gray-700'
-                }`}
-              >
-                <span>Layout</span>
-                {activeDrawer === 'layout' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black rounded-full" />
-                )}
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
 
           {/* Drawer Body Container */}
-          <div className="p-6 space-y-5 bg-white">
+          <div className="space-y-4">
 
             {/* ── 0. DEDICATED THUMBNAIL DRAWER ── */}
             {activeDrawer === 'thumbnail' && (
@@ -729,19 +774,26 @@ export default function LinkItemCard({
             {/* ── TAB 1: LINK SETTINGS ── */}
             {activeDrawer === 'settings' && (
               <div className="space-y-4">
-                {/* ── LINK SETTINGS ── */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Subtext / Description (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={link.description || ''}
-                    onChange={e => handleFieldChange('description', e.target.value)}
-                    placeholder="Short subtitle or note displayed under the title"
-                    className="w-full bg-white border border-gray-200 focus:border-purple-500 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none transition-all"
+                {/* ── LINK SETTINGS / GALLERY BLOCK EDITOR ── */}
+                {link.type === 'gallery' ? (
+                  <GalleryBlockEditor
+                    link={link}
+                    onUpdate={onUpdate}
                   />
-                </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      Subtext / Description (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={link.description || ''}
+                      onChange={e => handleFieldChange('description', e.target.value)}
+                      placeholder="Short subtitle or note displayed under the title"
+                      className="w-full bg-white border border-gray-200 focus:border-purple-500 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none transition-all"
+                    />
+                  </div>
+                )}
 
                 {/* ── YOUTUBE / VIDEO LINK SETTINGS (Exact Match to Linktree Screenshot) ── */}
                 {(link.type === 'video' || (link.url || '').toLowerCase().includes('youtube') || (link.url || '').toLowerCase().includes('youtu.be')) && (
@@ -792,18 +844,6 @@ export default function LinkItemCard({
                         />
                         <span className="text-sm font-semibold text-gray-900">Mute video</span>
                       </label>
-                    </div>
-
-                    {/* Section 3: Footer Feedback Link (Matching Screenshots 2, 3, 4) */}
-                    <div className="pt-6 border-t border-gray-100 text-xs text-gray-500 font-medium flex items-center gap-1.5">
-                      <span>Got ideas? We're listening!</span>
-                      <button
-                        type="button"
-                        onClick={() => alert('Thanks for your feedback!')}
-                        className="underline font-bold text-gray-900 hover:text-purple-600 cursor-pointer"
-                      >
-                        Share feedback
-                      </button>
                     </div>
                   </div>
                 )}
@@ -985,131 +1025,230 @@ export default function LinkItemCard({
             {/* ── TAB 2: LAYOUT (Exact Screenshot 1) ── */}
             {activeDrawer === 'layout' && (
               <div className="space-y-6 text-left animate-fadeIn">
-                {(
-                  <>
+                {link.type === 'gallery' ? (
+                  <div className="space-y-4">
                     <div className="space-y-1">
                       <h4 className="text-sm font-bold text-gray-900">
+                        Choose a display layout for your gallery
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        Select how your photo gallery is rendered to your page visitors.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        {
+                          id: 'slider',
+                          name: 'Slider / Carousel',
+                          desc: 'Interactive slideshow with navigation arrows, dots, & counter.',
+                          mockup: (
+                            <div className="w-full h-24 rounded-xl bg-slate-900 relative overflow-hidden flex items-center justify-center border border-slate-700/80 shadow-xs">
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                              <Sliders className="w-6 h-6 text-purple-400 opacity-80" />
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-white text-[9px]">&larr;</div>
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-white text-[9px]">&rarr;</div>
+                              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">
+                                <div className="w-3.5 h-1 rounded-full bg-white" />
+                                <div className="w-1 h-1 rounded-full bg-white/40" />
+                                <div className="w-1 h-1 rounded-full bg-white/40" />
+                              </div>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 'grid',
+                          name: 'Photo Grid',
+                          desc: 'Clean 2x2 or 3x3 photo grid displaying all images together.',
+                          mockup: (
+                            <div className="w-full h-24 rounded-xl bg-slate-900 p-1.5 grid grid-cols-2 gap-1 border border-slate-700/80 shadow-xs">
+                              <div className="bg-slate-800/90 rounded-lg flex items-center justify-center text-purple-300 text-[10px] font-bold border border-slate-700">1</div>
+                              <div className="bg-slate-800/90 rounded-lg flex items-center justify-center text-purple-300 text-[10px] font-bold border border-slate-700">2</div>
+                              <div className="bg-slate-800/90 rounded-lg flex items-center justify-center text-purple-300 text-[10px] font-bold border border-slate-700">3</div>
+                              <div className="bg-slate-800/90 rounded-lg flex items-center justify-center text-purple-300 text-[10px] font-bold border border-slate-700">4</div>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 'stack',
+                          name: 'Card Stack',
+                          desc: 'Overlapping photo deck. Tap top card to cycle through photos.',
+                          mockup: (
+                            <div className="w-full h-24 relative flex items-center justify-center">
+                              <div className="absolute w-[80%] h-18 rounded-xl bg-slate-800 border border-slate-700 top-0 opacity-40 scale-90" />
+                              <div className="absolute w-[85%] h-18 rounded-xl bg-slate-800 border border-slate-700 top-1 opacity-70 scale-95" />
+                              <div className="absolute w-[90%] h-18 rounded-xl bg-[#0d1322] border border-slate-700 top-2 p-2 flex flex-col justify-between shadow-md">
+                                <div className="flex items-center gap-1 text-[10px] text-purple-300 font-bold">
+                                  <Layers className="w-3.5 h-3.5" /> Stack Deck
+                                </div>
+                                <span className="text-[9px] text-white/60">Tap to cycle &rarr;</span>
+                              </div>
+                            </div>
+                          ),
+                        },
+                        {
+                          id: 'hero',
+                          name: 'Hero Showcase',
+                          desc: 'Featured main photo on top with clickable thumbnail strip below.',
+                          mockup: (
+                            <div className="w-full h-24 flex flex-col gap-1">
+                              <div className="w-full h-16 rounded-xl bg-gradient-to-r from-purple-900/90 to-indigo-900/90 border border-slate-700 flex items-center justify-center text-white text-[10px] font-bold gap-1 shadow-xs">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-300" /> Featured Hero
+                              </div>
+                              <div className="flex gap-1">
+                                <div className="flex-1 h-6 rounded-md bg-slate-800 border border-purple-500/60" />
+                                <div className="flex-1 h-6 rounded-md bg-slate-800/60 border border-slate-700" />
+                                <div className="flex-1 h-6 rounded-md bg-slate-800/60 border border-slate-700" />
+                              </div>
+                            </div>
+                          ),
+                        },
+                      ].map((opt) => {
+                        const isSelected = (link.galleryLayout || 'slider') === opt.id
+                        return (
+                          <div
+                            key={opt.id}
+                            onClick={() => handleFieldChange('galleryLayout', opt.id)}
+                            className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer ${
+                              isSelected
+                                ? 'border-slate-900 bg-white shadow-2xs'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3.5">
+                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 transition-colors ${
+                                isSelected ? 'border-slate-900 bg-slate-900' : 'border-slate-300 bg-white'
+                              }`}>
+                                {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
+                              </div>
+
+                              <div className="flex-1 space-y-3">
+                                <div>
+                                  <h5 className="text-base font-extrabold text-slate-900 leading-tight">{opt.name}</h5>
+                                </div>
+
+                                {/* Graphic Mockup Illustration */}
+                                <div>
+                                  {opt.mockup}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-5 text-left animate-fadeIn">
+                    <div className="space-y-1">
+                      <h4 className="text-base font-extrabold text-slate-900">
                         Choose a layout for your link
                       </h4>
                     </div>
 
                     <div className="space-y-4">
-                  {/* CLASSIC OPTION */}
-                  <div
-                    onClick={() => handleFieldChange('layout', 'classic')}
-                    className={`p-5 rounded-2xl border-2 transition-all cursor-pointer ${
-                      (link.layout || 'classic') === 'classic'
-                        ? 'border-black bg-white shadow-sm ring-1 ring-black/5'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 transition-colors ${
-                        (link.layout || 'classic') === 'classic'
-                          ? 'border-black bg-black text-white'
-                          : 'border-gray-300 bg-white'
-                      }`}>
-                        {(link.layout || 'classic') === 'classic' && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <div>
-                          <h5 className="text-sm font-bold text-gray-900">Classic</h5>
-                          <p className="text-xs text-gray-500 mt-0.5">Efficient, direct and compact.</p>
-                        </div>
-                        
-                        {/* Linktree Classic Mini Pill Illustration */}
-                        <div className="w-44 h-10 rounded-full bg-slate-900 flex items-center justify-between px-3 shadow-xs">
-                          <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden border border-white/20 flex items-center justify-center text-white text-[10px] font-bold">
-                            {link.thumbnail ? (
-                              <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <span>★</span>
+                      {/* CLASSIC OPTION */}
+                      <div
+                        onClick={() => handleFieldChange('layout', 'classic')}
+                        className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer ${
+                          (link.layout || 'classic') === 'classic'
+                            ? 'border-slate-900 bg-white shadow-2xs'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 transition-colors ${
+                            (link.layout || 'classic') === 'classic'
+                              ? 'border-slate-900 bg-slate-900'
+                              : 'border-slate-300 bg-white'
+                          }`}>
+                            {(link.layout || 'classic') === 'classic' && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-white" />
                             )}
                           </div>
-                          <span className="text-xs text-white/80 font-mono tracking-widest">&rarr;</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* FEATURED OPTION */}
-                  <div
-                    onClick={() => handleFieldChange('layout', 'featured')}
-                    className={`p-5 rounded-2xl border-2 transition-all cursor-pointer ${
-                      link.layout === 'featured'
-                        ? 'border-black bg-white shadow-sm ring-1 ring-black/5'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 transition-colors ${
-                        link.layout === 'featured'
-                          ? 'border-black bg-black text-white'
-                          : 'border-gray-300 bg-white'
-                      }`}>
-                        {link.layout === 'featured' && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-3">
-                        <div>
-                          <h5 className="text-sm font-bold text-gray-900">Featured</h5>
-                          <p className="text-xs text-gray-500 mt-0.5">Make your link stand out with a larger, more attractive display.</p>
-                        </div>
-
-                        {/* Linktree Featured Mini Card Illustration */}
-                        <div className="w-56 h-32 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-purple-950 overflow-hidden relative shadow-md flex items-center justify-center">
-                          {link.thumbnail ? (
-                            <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="text-center p-3">
-                              <Sparkles size={24} className="text-purple-400 mx-auto mb-1 opacity-75" />
-                              <span className="text-[10px] text-white/70 block">Featured Showcase Banner</span>
+                          <div className="flex-1 space-y-3">
+                            <div>
+                              <h5 className="text-base font-extrabold text-slate-900 leading-tight">Classic</h5>
                             </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-3">
-                            <span className="text-[11px] font-bold text-white leading-tight truncate max-w-[150px]">
-                              {link.text || 'Featured Showcase'}
-                            </span>
-                            <span className="text-[10px] text-white/80 font-mono tracking-widest mb-0.5">&rarr;</span>
+
+                            {/* Linktree Classic Mini Pill Mockup */}
+                            <div className="w-52 h-10 rounded-full bg-[#0d1322] flex items-center justify-between px-3 shadow-xs">
+                              <div className="w-7 h-7 rounded-full bg-slate-800 border border-white/20 flex items-center justify-center text-white text-[11px] font-bold">
+                                {link.thumbnail ? (
+                                  <img src={link.thumbnail} alt="" className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <Star className="w-3.5 h-3.5 text-white fill-white" />
+                                )}
+                              </div>
+                              <span className="text-xs text-white/80 font-bold">&rarr;</span>
+                            </div>
                           </div>
                         </div>
+                      </div>
 
-                        {/* Media Upload Dropzone */}
-                        <div className="pt-2">
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            accept="image/*"
-                            className="hidden"
-                            onChange={e => {
-                              if (e.target.files?.[0]) handleFileUpload(e.target.files[0])
-                            }}
-                          />
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              fileInputRef.current?.click()
-                            }}
-                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
-                            onDrop={(e) => {
-                              e.preventDefault(); e.stopPropagation()
-                              if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0])
-                            }}
-                            className="w-full border-2 border-dashed border-gray-300 hover:border-purple-500 rounded-xl p-3 text-center cursor-pointer transition-all bg-gray-50/50 hover:bg-purple-50/30"
-                          >
-                            <span className="text-xs font-bold text-gray-800 block">
-                              {link.thumbnail ? 'Change Featured Thumbnail Image' : 'Upload Featured Thumbnail Image'}
-                            </span>
+                      {/* FEATURED OPTION */}
+                      <div
+                        onClick={() => handleFieldChange('layout', 'featured')}
+                        className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer ${
+                          link.layout === 'featured'
+                            ? 'border-slate-900 bg-white shadow-2xs'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0 transition-colors ${
+                            link.layout === 'featured'
+                              ? 'border-slate-900 bg-slate-900'
+                              : 'border-slate-300 bg-white'
+                          }`}>
+                            {link.layout === 'featured' && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 space-y-3">
+                            <div>
+                              <h5 className="text-base font-extrabold text-slate-900 leading-tight">Featured</h5>
+                            </div>
+
+                            {/* Linktree Featured Card Banner Mockup */}
+                            <div className="w-full sm:w-72 h-36 rounded-2xl bg-gradient-to-br from-[#0d1322] via-[#151c2e] to-[#1e1435] p-3.5 flex flex-col justify-between text-white border border-slate-700/80 shadow-sm relative overflow-hidden">
+                              <div className="flex flex-col items-center justify-center h-full gap-1 my-auto">
+                                <Sparkles className="w-5 h-5 text-purple-400" />
+                                <span className="text-[11px] font-semibold text-slate-400">Featured Showcase Banner</span>
+                              </div>
+                              <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs font-bold text-white">
+                                <span className="truncate">{link.text || 'Follow on Instagram'}</span>
+                                <span>&rarr;</span>
+                              </div>
+                            </div>
+
+                            {/* Upload Featured Thumbnail Dashed Button */}
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              accept="image/*"
+                              className="hidden"
+                              onChange={e => {
+                                if (e.target.files?.[0]) handleFileUpload(e.target.files[0])
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                fileInputRef.current?.click()
+                              }}
+                              className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-2xl text-xs font-extrabold text-slate-800 flex items-center justify-center transition-colors cursor-pointer bg-slate-50/50 hover:bg-purple-50/30"
+                            >
+                              Upload Featured Thumbnail Image
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                </>
                 )}
               </div>
             )}

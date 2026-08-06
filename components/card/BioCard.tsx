@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { gsap } from 'gsap'
 import {
   Eye, ExternalLink, ShoppingBag, Phone, Mail,
   MessageCircle, Send, MapPin, Calendar, Music, Video,
   CheckCircle, AlertTriangle, XCircle, Globe, Share2, Sparkles,
-  Copy, Check, X, QrCode, Image as ImageIcon, Link2, Lock, Play, ArrowLeft, ChevronRight
+  Copy, Check, X, QrCode, Image as ImageIcon, Link2, Lock, Play, ArrowLeft, ChevronRight,
+  MoreVertical, Briefcase
 } from 'lucide-react'
 import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
@@ -14,12 +16,18 @@ import {
   WebsiteIcon, AppleMusicIcon
 } from '@/components/icons/ServiceIcons'
 import { getEmbedIframeUrl, parseGoogleDriveUrl, formatAndNormalizeTheme } from '@/lib/themes'
-import { detectPlatformFromUrl } from '@/lib/detectPlatform'
+import GallerySlider from '@/components/card/GallerySlider'
+import LinkRenderer from '@/components/card/renderers/LinkRenderer'
+import ShopRenderer from '@/components/card/renderers/ShopRenderer'
+import ContactRenderer from '@/components/card/renderers/ContactRenderer'
+import DecorationLayer from '@/components/ui/DecorationLayer'
+
+
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface LinkItem {
   id: string
-  type: 'link' | 'header' | 'text' | 'image' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
+  type: 'link' | 'header' | 'text' | 'gallery' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
   text: string
   url: string
   icon?: string
@@ -58,6 +66,10 @@ interface LinkItem {
   isScheduled?: boolean
   scheduleNotify?: boolean
   scheduleTimezone?: string
+  galleryPhotos?: Array<{ id: string; url: string; title?: string; description?: string }>
+  galleryLayout?: 'slider' | 'grid' | 'stack' | 'hero'
+  galleryCtaUrl?: string
+  galleryCtaLabel?: string
   isLocked?: boolean
   lockType?: 'subscribe' | 'code' | 'password' | 'dob' | 'sensitive'
   lockValue?: string
@@ -90,6 +102,7 @@ interface BioLinkConfig {
       borderColor?: string
       shadow: boolean
       shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
+      boxShadow?: string
       style?: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill'
       animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide' | string
       enableAnimations?: boolean
@@ -132,18 +145,11 @@ function ensureAbsoluteUrl(url?: string): string {
 
 // ─── Background helper ────────────────────────────────────────────────────
 function getBg(c: ThemeColors): React.CSSProperties {
-  const type = c.backgroundType || (
-    c.backgroundVideo || c.backgroundIframe ? 'video' :
-    c.backgroundImage ? 'image' :
-    c.backgroundMesh ? (c.backgroundMesh.includes('radial-gradient(circle') ? 'pattern' : 'blur') :
-    c.backgroundGradient ? 'gradient' : 'fill'
-  )
-
-  if (type === 'video') {
+  if (c.backgroundType === 'video' || c.backgroundVideo || c.backgroundIframe) {
     return { backgroundColor: 'transparent' }
   }
 
-  if (type === 'image' && c.backgroundImage) {
+  if (c.backgroundImage) {
     const driveObj = parseGoogleDriveUrl(c.backgroundImage)
     const imgUrl = driveObj.directUrl || c.backgroundImage
     return {
@@ -153,19 +159,15 @@ function getBg(c: ThemeColors): React.CSSProperties {
     }
   }
 
-  if (type === 'pattern' && c.backgroundMesh) {
+  if (c.backgroundMesh) {
     return {
-      backgroundColor: c.background || '#0f172a',
-      backgroundImage: c.backgroundMesh,
-      backgroundSize: (c as any).backgroundPatternSize || '20px 20px',
+      background: c.backgroundMesh,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
     }
   }
 
-  if (type === 'blur' && c.backgroundMesh) {
-    return { background: c.backgroundMesh }
-  }
-
-  if (type === 'gradient' && c.backgroundGradient) {
+  if (c.backgroundGradient) {
     const g = c.backgroundGradient
     if (g.direction === 'radial') {
       return { background: `radial-gradient(circle, ${g.from}, ${g.to})` }
@@ -173,7 +175,7 @@ function getBg(c: ThemeColors): React.CSSProperties {
     return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
   }
 
-  return { backgroundColor: c.background || '#7F2AEB' }
+  return { background: c.background || '#e9eaee' }
 }
 
 function getSmartContrastTextColor(bgHex?: string, fallbackText?: string, profileText?: string): string {
@@ -200,14 +202,18 @@ function buildBtnStyle(
   const style = bs?.style ?? 'solid'
   const shStyle = bs?.shadowStyle ?? (bs?.shadow ? 'soft' : 'none')
 
-  let boxShadow = 'none'
-  if (shStyle === 'soft') boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
-  else if (shStyle === 'strong') boxShadow = '0 12px 30px rgba(0, 0, 0, 0.22)'
-  else if (shStyle === 'hard') boxShadow = `4px 4px 0px 0px ${c.buttonText || '#000000'}`
+  // bs.boxShadow can hold the full resolved CSS string from the theme config
+  // (e.g. shadow-pill-clay). Falls back to the shStyle shorthand.
+  let boxShadow = (bs as any)?.boxShadow || 'none'
+  if (!boxShadow || boxShadow === 'none') {
+    if (shStyle === 'soft') boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+    else if (shStyle === 'strong') boxShadow = '0 12px 30px rgba(0, 0, 0, 0.22)'
+    else if (shStyle === 'hard') boxShadow = `4px 4px 0px 0px ${c.buttonText || '#000000'}`
+  }
 
   const base: React.CSSProperties = {
     fontFamily: fonts?.body || 'Inter, sans-serif',
-    borderRadius: r > 20 ? '9999px' : `${r}px`,
+    borderRadius: (style === 'clay') ? '26px' : (r > 20 ? '9999px' : `${r}px`),
     transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     cursor: 'pointer',
     display: 'block',
@@ -222,13 +228,15 @@ function buildBtnStyle(
   switch (style) {
     case 'clay':
       const isClayWhite = !c.buttonDefault || c.buttonDefault === '#ffffff' || c.buttonDefault === '#FFFFFF'
-      const clayBg = isClayWhite ? 'rgba(255, 255, 255, 0.92)' : c.buttonDefault
+      const clayBg = isClayWhite ? '#eef0f3' : c.buttonDefault
+      // Always use the exact neumorphic pill shadow from sofy-clay.html
+      const clayShadow = '6px 6px 12px rgba(163,168,178,0.45), -6px -6px 12px rgba(255,255,255,0.9)'
       return {
         ...base,
         backgroundColor: clayBg,
-        color: getSmartContrastTextColor(isClayWhite ? '#ffffff' : c.buttonDefault, c.buttonText, c.profileText),
-        border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : '1px solid rgba(255, 255, 255, 0.65)',
-        boxShadow: 'inset 0 3px 6px rgba(255, 255, 255, 0.8), inset 0 -3px 6px rgba(0, 0, 0, 0.12), 0 14px 30px -4px rgba(0, 0, 0, 0.28)',
+        color: getSmartContrastTextColor(clayBg, c.buttonText, c.profileText),
+        border: 'none',
+        boxShadow: clayShadow,
       }
     case 'glass':
       const isOpaqueWhite = !c.buttonDefault || c.buttonDefault === '#ffffff' || c.buttonDefault === '#FFFFFF'
@@ -321,8 +329,23 @@ export default function BioCard({
   isPreview = false,
   hideQRCode = false
 }: BioCardProps) {
-  const [cardData, setCardData] = useState<CardData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+  const [cardData, setCardData] = useState<CardData | null>(() => {
+    if (overrideConfig) {
+      return {
+        id: cardId || 'preview',
+        config: overrideConfig,
+        analytics: { views: 0, clicks: 0 },
+        createdAt: new Date().toISOString(),
+      }
+    }
+    return null
+  })
+  const [loading, setLoading] = useState<boolean>(() => !overrideConfig)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   const [showShareModal, setShowShareModal] = useState(false)
   const [copied, setCopied] = useState(false)
   const [lockedModalLink, setLockedModalLink] = useState<LinkItem | null>(null)
@@ -338,6 +361,20 @@ export default function BioCard({
     ctaLabel?: string
     ctaUrl?: string
   } | null>(null)
+
+  const linksContainerRef = useRef<HTMLDivElement>(null)
+
+  // GSAP Entrance Animation for all link containers & layout blocks
+  useEffect(() => {
+    if (linksContainerRef.current?.children) {
+      gsap.fromTo(
+        Array.from(linksContainerRef.current.children),
+        { opacity: 0, y: 22, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.06, ease: 'power2.out' }
+      )
+    }
+  }, [cardData?.config?.links?.length])
+
   useEffect(() => {
     if (!cardData?.config?.links) return
     const targetLinks = cardData.config.links.filter(l => (l.videoClickOption === 'open_latest' || l.videoClickOption === 'display_latest') && l.url)
@@ -413,6 +450,37 @@ export default function BioCard({
   }
 
   useEffect(() => {
+    // 0. Listen for live postMessage updates from parent editor window (iframe preview)
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'UPDATE_CONFIG' && event.data.config) {
+        setCardData({
+          id: cardId || 'preview',
+          config: event.data.config,
+          analytics: { views: 0, clicks: 0 },
+          createdAt: new Date().toISOString(),
+        })
+        setLoading(false)
+      }
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'currentBioLinkConfig' && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue)
+          setCardData({
+            id: cardId || 'preview',
+            config: parsed,
+            analytics: { views: 0, clicks: 0 },
+            createdAt: new Date().toISOString(),
+          })
+          setLoading(false)
+        } catch (_) {}
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    window.addEventListener('storage', handleStorage)
+
     // If overrideConfig is provided (editor preview), use it directly
     if (overrideConfig) {
       setCardData({
@@ -422,7 +490,10 @@ export default function BioCard({
         createdAt: new Date().toISOString(),
       })
       setLoading(false)
-      return
+      return () => {
+        window.removeEventListener('message', handleMessage)
+        window.removeEventListener('storage', handleStorage)
+      }
     }
 
     // Otherwise load from API/localStorage (public page)
@@ -489,6 +560,11 @@ export default function BioCard({
     }
 
     fetchCard()
+
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [cardId, overrideConfig])
 
   const trackClick = async (linkId: string) => {
@@ -511,11 +587,11 @@ export default function BioCard({
     }
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900">
-      <div className="animate-spin w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full" />
-    </div>
-  )
+  if (!mounted && !overrideConfig) {
+    return <div className="bl-profile-theme min-h-screen relative flex flex-col items-center justify-center bg-slate-950" />
+  }
+
+  if (loading && !cardData) return null
 
   if (!cardData) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-gray-900 text-white">
@@ -625,108 +701,45 @@ export default function BioCard({
     const isFeatured = link.layout === 'featured'
     const isCompact = link.layout === 'compact'
 
+    if (link.type === 'gallery') {
+      return (
+        <GallerySlider
+          key={key}
+          title={link.text}
+          photos={link.galleryPhotos || []}
+          animClasses={animClasses}
+          compact={isCompact}
+          layout={link.galleryLayout || 'slider'}
+          ctaUrl={link.galleryCtaUrl}
+          ctaLabel={link.galleryCtaLabel}
+          btnStyle={btnStyle}
+        />
+      )
+    }
 
     if (link.type === 'shop') {
-      if (isFeatured) {
-        return (
-          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', display: 'flex', flexDirection: 'column', padding: 0 }}
-            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl ${animClasses}`}>
-            <div className="w-full aspect-video bg-black/10 overflow-hidden relative flex items-center justify-center">
-              {link.thumbnail ? (
-                <img src={link.thumbnail} alt={link.text} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-              ) : (
-                <ShoppingBag size={44} style={{ color: c.buttonText, opacity: 0.35 }} />
-              )}
-              {link.price && (
-                <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md text-white font-extrabold text-xs px-3 py-1 rounded-full shadow-md">
-                  {link.currency || '$'}{link.price}
-                </div>
-              )}
-            </div>
-            <div className="p-4 flex flex-col gap-1 text-left w-full">
-              <h3 className="font-extrabold text-base leading-snug" style={{ color: c.buttonText }}>{link.text}</h3>
-              {link.description && <p className="text-xs opacity-75 leading-relaxed line-clamp-2" style={{ color: c.buttonText }}>{link.description}</p>}
-              <div className="mt-2 w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
-                Buy Now &rarr;
-              </div>
-            </div>
-          </a>
-        )
-      }
-      
       return (
-        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-          onClick={() => trackClick(key)} style={btnStyle}
-          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-          <div className="flex items-center justify-between px-4 py-3.5 gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                <ShoppingBag size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="font-extrabold text-sm leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
-                {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
-                <StockBadge status={link.stockStatus} textColor={c.buttonText} />
-              </div>
-            </div>
-            {link.price && (
-              <div className="text-right flex-shrink-0">
-                {link.originalPrice && <p className="text-xs line-through" style={{ color: c.buttonText, opacity: 0.45 }}>{link.currency || '$'}{link.originalPrice}</p>}
-                <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.currency || '$'}{link.price}</p>
-              </div>
-            )}
-          </div>
-        </a>
+        <ShopRenderer
+          key={key}
+          link={link}
+          btnStyle={btnStyle}
+          textColor={c.buttonText}
+          trackClick={trackClick}
+          animClasses={animClasses}
+        />
       )
     }
 
     if (link.type === 'contact') {
-      if (isFeatured) {
-        return (
-          <a key={key} href={contactHref(link)} target="_blank" rel="noopener noreferrer"
-            onClick={() => trackClick(key)} style={{ ...btnStyle, height: 'auto', padding: '16px' }}
-            className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}>
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                {link.contactType === 'email'    && <Mail size={22} />}
-                {link.contactType === 'phone'    && <Phone size={22} />}
-                {link.contactType === 'whatsapp' && <MessageCircle size={22} />}
-                {link.contactType === 'telegram' && <Send size={22} />}
-                {link.contactType === 'address'  && <MapPin size={22} />}
-                {!link.contactType               && <Phone size={22} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-extrabold text-base leading-tight" style={{ color: c.buttonText }}>{link.text}</p>
-                {link.contactValue && <p className="text-xs opacity-75 mt-0.5 truncate" style={{ color: c.buttonText }}>{link.contactValue}</p>}
-              </div>
-            </div>
-            <div className="w-full py-2 px-3 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
-              Get in Touch &rarr;
-            </div>
-          </a>
-        )
-      }
-
       return (
-        <a key={key} href={contactHref(link)} target="_blank" rel="noopener noreferrer"
-          onClick={() => trackClick(key)} style={btnStyle}
-          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-          <div className="flex items-center justify-center gap-3 px-4 py-3.5">
-            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-              {link.contactType === 'email'    && <Mail size={18} />}
-              {link.contactType === 'phone'    && <Phone size={18} />}
-              {link.contactType === 'whatsapp' && <MessageCircle size={18} />}
-              {link.contactType === 'telegram' && <Send size={18} />}
-              {link.contactType === 'address'  && <MapPin size={18} />}
-              {!link.contactType               && <Phone size={18} />}
-            </div>
-            <div className="text-left">
-              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-              {link.contactValue && <p className="text-xs mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.contactValue}</p>}
-            </div>
-          </div>
-        </a>
+        <ContactRenderer
+          key={key}
+          link={link}
+          btnStyle={btnStyle}
+          textColor={c.buttonText}
+          trackClick={trackClick}
+          animClasses={animClasses}
+        />
       )
     }
 
@@ -1228,122 +1241,13 @@ export default function BioCard({
       )
     }
 
-    const iconKey = (link.platform || link.icon || '').toLowerCase()
-    const Icon = PLATFORM_ICONS[iconKey] || null
 
-    // ── 1. FEATURED CARD LAYOUT (Linktree Full-Bleed Image Showcase) ──
-    if (isFeatured) {
-      const embedSrc = getEmbedIframeUrl(link.embedUrl || link.url || '')
-      const isEmbed = Boolean(embedSrc && (embedSrc.includes('youtube') || embedSrc.includes('spotify') || embedSrc.includes('soundcloud') || embedSrc.includes('vimeo')))
-
-      if (isEmbed) {
-        return (
-          <div key={key} className="w-full rounded-2xl overflow-hidden shadow-lg border border-white/20 mb-2">
-            <iframe
-              src={embedSrc}
-              className={`w-full ${embedSrc.includes('spotify') ? 'h-[152px]' : 'aspect-video'} rounded-2xl border-0`}
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-            />
-          </div>
-        )
-      }
-
-      if (link.thumbnail) {
-        return (
-          <a 
-            key={key} 
-            href={ensureAbsoluteUrl(link.url)} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            onClick={(e) => handleLinkClick(e, link)} 
-            className={`group relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl transform-gpu border-2 border-white/20 block text-decoration-none ${animClasses}`}
-          >
-            <img
-              src={link.thumbnail}
-              alt={link.text}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent flex items-end justify-between p-4 z-10">
-              <div className="flex-1 min-w-0 pr-3">
-                <h3 className="font-extrabold text-white text-base leading-snug drop-shadow-md truncate">
-                  {link.text}
-                </h3>
-                {link.description && (
-                  <p className="text-xs text-white/80 line-clamp-1 font-medium mt-0.5">
-                    {link.description}
-                  </p>
-                )}
-              </div>
-              <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white font-mono text-sm tracking-widest flex-shrink-0 group-hover:bg-white/30 transition-colors">
-                &rarr;
-              </div>
-            </div>
-          </a>
-        )
-      }
-
-      // Featured card without image - rendered with theme button styles
-      return (
-        <a 
-          key={key} 
-          href={ensureAbsoluteUrl(link.url)} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          onClick={(e) => handleLinkClick(e, link)} 
-          style={{ ...btnStyle, height: 'auto', padding: '18px' }}
-          className={`group relative overflow-hidden transform-gpu border-2 shadow-xl flex flex-col gap-3 text-left ${animClasses}`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                {Icon ? <Icon size={22} /> : <Globe size={22} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-extrabold text-base md:text-lg leading-tight" style={{ color: c.buttonText }}>
-                  {link.text}
-                </h3>
-                {link.description && (
-                  <p className="text-xs opacity-75 mt-0.5 leading-relaxed line-clamp-2" style={{ color: c.buttonText }}>
-                    {link.description}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center bg-black/10 group-hover:bg-black/20 transition-colors">
-            Visit Link &rarr;
-          </div>
-        </a>
-      )
-    }
-
-    // ── 2. COMPACT ROW LAYOUT (Slim Chip Bar) ──
-    if (isCompact) {
-      return (
-        <a 
-          key={key} 
-          href={ensureAbsoluteUrl(link.url)} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          onClick={(e) => handleLinkClick(e, link)} 
-          style={{ ...btnStyle, height: '48px', minHeight: '48px', padding: '0 16px' }}
-          className={`group relative overflow-hidden transform-gpu transition-all ${animClasses}`}
-        >
-          <div className="flex items-center gap-2.5 w-full">
-            <div className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0">
-              {Icon ? <Icon size={12} /> : <Globe size={12} />}
-            </div>
-            <span className="font-bold text-xs truncate flex-1 text-left" style={{ color: c.buttonText }}>
-              {link.text}
-            </span>
-            <ExternalLink size={11} style={{ color: c.buttonText, opacity: 0.4 }} />
-          </div>
-        </a>
-      )
-    }
 
     // Classic Button Layout (Default)
+    const iconKey = (link.platform || link.icon || '').toLowerCase()
+    const Icon = PLATFORM_ICONS[iconKey] || null
+    const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
+
     return (
       <a 
         key={key} 
@@ -1354,71 +1258,76 @@ export default function BioCard({
         style={btnStyle}
         className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}
       >
-        <div className="flex items-center px-4 py-3.5 gap-3.5">
-          <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
-            {Icon ? (
-              <Icon size={18} />
-            ) : (
-              <Globe size={18} />
-            )}
+        <div className={`flex items-center ${isClay ? 'px-[18px] py-[14px]' : 'px-4 py-3.5'} gap-3.5`}>
+          <div className={isClay ? "w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0" : "w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200"}
+            style={isClay ? (() => {
+              const p = (link.platform || link.icon || '').toLowerCase()
+              const isYT = p === 'youtube' || (link.url || '').includes('youtube')
+              const isWork = p === 'briefcase' || p === 'work'
+              const isMail = p === 'mail' || p === 'email'
+              if (isYT)   return { background: '#ff1f1f', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+              if (isWork) return { background: '#f2f3f5', color: '#c7791f',  boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+              if (isMail) return { background: '#3f5cf0', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+              return { background: '#ffffff', color: '#2f6fed', boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+            })() : undefined}
+          >
+            {Icon ? <Icon size={isClay ? 22 : 18} /> : <Globe size={isClay ? 22 : 18} />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-extrabold text-sm md:text-base leading-tight truncate" style={{ color: c.buttonText }}>
+            <p className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : c.buttonText, fontFamily: theme.fonts?.body }}>
               {link.text}
             </p>
             {link.description && (
-              <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>
+              <p className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : c.buttonText, fontFamily: theme.fonts?.body, opacity: isClay ? 1 : 0.8 }}>
                 {link.description}
               </p>
             )}
           </div>
-          <div className="w-5 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
-            <ExternalLink size={14} />
+          <div className="w-5 flex items-center justify-end transition-opacity">
+            <ChevronRight size={18} style={{ color: isClay ? '#9aa0ab' : c.buttonText, opacity: isClay ? 1 : 0.4 }} />
           </div>
         </div>
       </a>
     )
   }
 
+  const hasCustomBackground = Boolean(
+    c.backgroundImage ||
+    c.backgroundVideo ||
+    c.backgroundIframe ||
+    c.backgroundMesh ||
+    c.backgroundGradient ||
+    c.backgroundType ||
+    (c.background && c.background !== '#e9eaee' && c.background !== '#ffffff' && c.background !== 'rgb(233, 234, 238)')
+  )
+
+  const widthToken = (config as any)?.cardWidth || (theme as any)?.layout?.width || (theme.specialty?.cardMaxWidth === '390px' ? 'compact' : 'normal')
+  const widthClass =
+    widthToken === 'compact' ? 'max-w-[390px]' :
+    widthToken === 'wide' ? 'max-w-[640px]' :
+    widthToken === 'full' ? 'max-w-4xl w-full' :
+    'max-w-[480px]'
+
+  const cardStyle: React.CSSProperties = theme.specialty?.cardBackground ? {
+    background:    hasCustomBackground ? 'transparent' : theme.specialty.cardBackground,
+    borderRadius:  theme.specialty.cardBorderRadius,
+    boxShadow:     hasCustomBackground ? 'none' : theme.specialty.cardBoxShadow,
+    maxWidth:      theme.specialty.cardMaxWidth || (widthToken === 'compact' ? '390px' : widthToken === 'wide' ? '640px' : '480px'),
+    padding:       theme.specialty.cardPadding || (isPreview ? '20px 18px 24px' : '28px 26px 34px'),
+  } : {}
+
+  const activeDecorations = (theme.specialty as any)?.decorations || ((theme.specialty as any)?.blobs ? ['blobs', 'noise'] : [])
+
   return (
-    <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden" style={bg}>
-
-      {/* ── Mobile Header (Linktree Style) ── */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => window.history.back()}
-          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-700" />
-        </button>
-        
-        <div className="flex-1 text-center">
-          <p className="text-sm font-bold text-slate-900 truncate">
-            biolink.ee/{config.profile.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const cardUrl = window.location.href
-              if (navigator.share) {
-                navigator.share({ title: config.profile.title, url: cardUrl })
-              } else {
-                navigator.clipboard.writeText(cardUrl)
-                alert('Link copied!')
-              }
-            }}
-            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all"
-          >
-            <Share2 className="w-4 h-4 text-slate-700" />
-          </button>
-        </div>
-      </div>
-
+    <div
+      suppressHydrationWarning
+      data-theme={theme.id}
+      className={`bl-profile-theme ${isPreview ? 'w-full h-full relative overflow-hidden p-3 sm:p-4 flex items-center justify-center' : 'min-h-screen relative flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden'}`}
+      style={bg}
+    >
       {c.backgroundImage && (
         <div
-          className="fixed inset-0 z-0 pointer-events-none"
+          className="absolute inset-0 z-0 pointer-events-none"
           style={{
             backgroundImage: `url(${parseGoogleDriveUrl(c.backgroundImage).directUrl || c.backgroundImage})`,
             backgroundSize: 'cover',
@@ -1436,7 +1345,7 @@ export default function BioCard({
           loop
           muted
           playsInline
-          className="fixed inset-0 w-full h-full object-cover z-0 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
           src={ensureAbsoluteUrl(c.backgroundVideo)}
         />
       )}
@@ -1445,7 +1354,7 @@ export default function BioCard({
       {c.backgroundIframe && (
         <iframe
           src={getEmbedIframeUrl(c.backgroundIframe)}
-          className="fixed inset-0 w-full h-full object-cover z-0 pointer-events-none border-0 scale-125"
+          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none border-0 scale-125"
           allow="autoplay; encrypted-media; picture-in-picture"
           tabIndex={-1}
         />
@@ -1453,12 +1362,12 @@ export default function BioCard({
 
       {/* Background Overlay */}
       {c.backgroundOverlay && (
-        <div className="fixed inset-0 z-0 pointer-events-none" style={{ backgroundColor: c.backgroundOverlay }} />
+        <div className="absolute inset-0 z-0 pointer-events-none" style={{ background: c.backgroundOverlay }} />
       )}
 
       {/* Noise overlay */}
       {theme.noiseOpacity && (
-        <div className="fixed inset-0 pointer-events-none z-0" style={{
+        <div className="absolute inset-0 pointer-events-none z-0" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
           opacity: theme.noiseOpacity,
           mixBlendMode: 'overlay',
@@ -1466,7 +1375,55 @@ export default function BioCard({
       )}
 
       {/* ── Floating Mobile-First Card Frame ── */}
-      <div className="relative z-10 w-full min-h-screen flex flex-col justify-between pt-16 px-4 pb-4 sm:pt-20 sm:px-5 sm:pb-5 md:pt-8 md:my-10 md:max-w-[480px] md:min-h-0 md:rounded-[36px] md:border md:border-white/20 md:shadow-2xl md:backdrop-blur-xl md:bg-black/20 md:px-8 md:pb-8 overflow-hidden">
+      <div
+        className={`relative z-10 flex flex-col justify-between card-frame w-full ${widthClass} ${
+          theme.specialty?.cardBackground
+            ? 'my-auto overflow-hidden'
+            : (isPreview
+                ? 'h-full p-5 overflow-y-auto no-scrollbar'
+                : 'min-h-screen pt-16 px-4 pb-4 sm:pt-20 sm:px-5 sm:pb-5 md:pt-8 md:my-10 md:min-h-0 md:px-6 md:pb-8')
+        }`}
+        style={cardStyle}
+      >
+        <DecorationLayer decorations={activeDecorations} blobColorLeft="#ffffff" blobColorRight="#ffffff" />
+
+        {/* ── Clay Top Row (Creator badge + share/menu icons) ── */}
+        {(theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay') && (
+          <div className="relative z-[3] flex justify-between items-center mb-2">
+            <div style={{
+              background: '#ffffff',
+              color: '#2f6fed',
+              fontWeight: 700,
+              fontSize: '15px',
+              padding: '9px 20px',
+              borderRadius: '20px',
+              boxShadow: '0 4px 10px rgba(120,124,134,0.18)',
+            }}>
+              Creator
+            </div>
+            <div className="flex gap-[10px]">
+              <div style={{
+                width: 38, height: 38, background: '#ffffff', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 10px rgba(120,124,134,0.18)', color: '#20242e',
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/>
+                </svg>
+              </div>
+              <div style={{
+                width: 38, height: 38, background: '#ffffff', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 10px rgba(120,124,134,0.18)', color: '#20242e',
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div>
           {/* ── Profile Section ── */}
@@ -1477,11 +1434,12 @@ export default function BioCard({
 
             const avatarSrc = config.profile.avatar && config.profile.avatar !== 'user' ? config.profile.avatar : ''
             const hasImg = (src?: string) => Boolean(src && (src.startsWith('http') || src.startsWith('data:') || src.length > 10))
+            const hasCardBg = Boolean(theme.specialty?.cardBackground)
 
             // 1. HERO LAYOUT (Mobile Optimized)
             if (headerLayout === 'hero') {
               return (
-                <div className="mb-6 sm:mb-8 -mx-4 sm:-mx-5 md:-mx-8 -mt-16 sm:-mt-20 md:-mt-8 relative h-[320px] sm:h-[360px] md:h-[380px] overflow-hidden flex flex-col justify-end p-4 sm:p-6 text-center rounded-t-[28px] sm:rounded-t-[36px]">
+                <div className="mb-6 sm:mb-8 relative h-[280px] sm:h-[340px] rounded-3xl overflow-hidden flex flex-col justify-end p-4 sm:p-6 text-center shadow-md">
                   {hasImg(avatarSrc) ? (
                     <img
                       src={avatarSrc}
@@ -1507,20 +1465,20 @@ export default function BioCard({
                     </div>
                   )}
 
-                  {/* Overlaid Title & Bio (Mobile Responsive) */}
+                  {/* Overlaid Title & Bio */}
                   <div className="relative z-10 text-center pb-2">
-                    <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight text-white drop-shadow-md px-4"
-                      style={{ fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
+                    <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight text-white drop-shadow-md px-4"
+                      style={{ fontFamily: theme.fonts?.heading || 'sans-serif' }}>
                       {config.profile.title || 'Your Name'}
                     </h1>
                     {config.profile.bio && (
                       <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto text-white/95 drop-shadow-sm px-4"
-                        style={{ fontFamily: theme.fonts?.body || 'Inter, sans-serif' }}>
+                        style={{ fontFamily: theme.fonts?.body || 'sans-serif' }}>
                         {config.profile.bio}
                       </p>
                     )}
                     {config.profile.location && (
-                      <p className="text-xs mt-1.5 sm:mt-2 flex items-center justify-center gap-1 text-white/90 drop-shadow-sm">
+                      <p className="text-xs mt-1.5 flex items-center justify-center gap-1 text-white/90 drop-shadow-sm">
                         <MapPin size={11} />{config.profile.location}
                       </p>
                     )}
@@ -1534,7 +1492,7 @@ export default function BioCard({
               return (
                 <div className="text-center mb-6 sm:mb-8">
                   {/* Banner strip */}
-                  <div className="w-[calc(100%+32px)] sm:w-[calc(100%+40px)] md:w-[calc(100%+64px)] h-36 sm:h-44 -mx-4 sm:-mx-5 md:-mx-8 -mt-16 sm:-mt-20 md:-mt-8 relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center rounded-t-[28px] sm:rounded-t-[36px]">
+                  <div className="h-32 sm:h-40 relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center rounded-t-3xl">
                     {hasImg(bannerImage) ? (
                       <img src={bannerImage} alt="banner" className="w-full h-full object-cover" />
                     ) : (
@@ -1551,13 +1509,13 @@ export default function BioCard({
                     )}
                   </div>
 
-                  {/* Overlapping Avatar (Mobile Responsive) */}
+                  {/* Overlapping Avatar */}
                   <div className="mb-3 sm:mb-4 flex justify-center relative z-10 -mt-10 sm:-mt-12">
                     {hasImg(avatarSrc) ? (
-                      <img src={avatarSrc} alt="avatar" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg" />
+                      <img src={avatarSrc} alt="avatar" className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg border-2 border-white" />
                     ) : (
                       <div
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-lg"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-lg border-2 border-white"
                         style={{
                           backgroundColor: c.buttonDefault || '#1e293b',
                           color: c.buttonText || c.profileText || '#ffffff'
@@ -1570,14 +1528,14 @@ export default function BioCard({
                     )}
                   </div>
 
-                  <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight px-4"
-                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
+                  <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight px-4"
+                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'sans-serif' }}>
                     {config.profile.title || 'Your Name'}
                   </h1>
 
                   {config.profile.bio && (
                     <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
-                      style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif', opacity: 0.9 }}>
+                      style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'sans-serif', opacity: 0.9 }}>
                       {config.profile.bio}
                     </p>
                   )}
@@ -1587,7 +1545,6 @@ export default function BioCard({
 
             // 4. SHAPE LAYOUT (Mobile Responsive)
             if (headerLayout === 'shape') {
-              // Shapes: loop, flower, oval, rounded, burst
               const shapeBorderRadius =
                 headerShape === 'flower' ? '38% 62% 63% 37% / 41% 44% 56% 59%' :
                 headerShape === 'loop' ? '60% 40% 30% 70% / 60% 30% 70% 40%' :
@@ -1598,7 +1555,7 @@ export default function BioCard({
                 <div className="text-center mb-6 sm:mb-8">
                   <div className="mb-3 sm:mb-4 flex justify-center">
                     <div
-                      className="w-40 h-32 sm:w-48 sm:h-40 overflow-hidden shadow-2xl flex items-center justify-center relative transition-all duration-300 border-4 border-white/40"
+                      className="w-36 h-28 sm:w-44 sm:h-36 overflow-hidden shadow-xl flex items-center justify-center relative transition-all duration-300 border-4 border-white/40"
                       style={{
                         borderRadius: shapeBorderRadius,
                         backgroundColor: c.buttonDefault || c.accent || '#4F46E5'
@@ -1614,14 +1571,14 @@ export default function BioCard({
                     </div>
                   </div>
 
-                  <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight px-4"
-                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
+                  <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight px-4"
+                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'sans-serif' }}>
                     {config.profile.title || 'Your Name'}
                   </h1>
 
                   {config.profile.bio && (
                     <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
-                      style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif', opacity: 0.9 }}>
+                      style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'sans-serif', opacity: 0.9 }}>
                       {config.profile.bio}
                     </p>
                   )}
@@ -1630,37 +1587,69 @@ export default function BioCard({
             }
 
             // 5. CLASSIC LAYOUT (DEFAULT - Mobile Optimized)
+            const isClay = theme.buttonStyle?.style === 'clay'
+
             return (
-              <div className="text-center mb-6 sm:mb-8">
-                <div className="mb-3 sm:mb-4 flex justify-center">
+              <div className={`text-center relative z-10 ${isClay ? 'mb-0' : 'mb-4 sm:mb-6'}`}>
+
+                {/* Avatar */}
+                <div className={`${isClay ? 'w-[150px] h-[150px] p-[6px] bg-white shadow-[0_10px_24px_rgba(120,124,134,0.25)] mt-[18px] mb-[18px]' : 'w-24 h-24 sm:w-28 sm:h-28 my-4'} rounded-full mx-auto transition-all`}>
                   {hasImg(avatarSrc) ? (
-                    <img src={avatarSrc} alt="avatar"
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover shadow-lg" />
+                    <img src={avatarSrc} alt="avatar" className="w-full h-full rounded-full object-cover" />
                   ) : (
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-lg bg-white/15">
-                      <span className="text-2xl sm:text-3xl font-bold" style={{ color: c.profileText }}>
-                        {(config.profile.title || '?')[0].toUpperCase()}
-                      </span>
+                    <div className="w-full h-full rounded-full flex items-center justify-center overflow-hidden"
+                      style={{ background: isClay ? 'linear-gradient(145deg,#2b2f3a,#454b5c)' : `linear-gradient(135deg, ${c.accent || c.buttonDefault || '#2f6fed'}, ${c.buttonDefault || '#161821'})` }}>
+                      {isClay ? (
+                        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '72%', height: '72%', color: '#c9cdd6' }}>
+                          <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.5h19.6v-2.5c0-3.3-6.5-4.9-9.8-4.9z"/>
+                        </svg>
+                      ) : (
+                        <span className="text-3xl sm:text-4xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
+                          {(config.profile.title || '?')[0].toUpperCase()}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-1.5 leading-tight px-4"
-                  style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
-                  {config.profile.title || 'Your Name'}
-                </h1>
+                {/* Name & Verified Badge */}
+                <div className={`flex items-center justify-center ${isClay ? 'gap-[8px]' : 'gap-1.5'} px-4 mt-1`}>
+                  <h1
+                    className={`${isClay ? 'text-[30px] font-[800] tracking-[-0.3px]' : 'text-xl sm:text-2xl font-bold'} leading-tight`}
+                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'sans-serif' }}
+                  >
+                    {config.profile.title || 'Your Name'}
+                  </h1>
+                  {(isClay || Boolean((config.profile as any)?.isVerified)) && (
+                    <div className={`${isClay ? 'w-6 h-6' : 'w-5 h-5'} bg-[#2f6fed] rounded-full flex items-center justify-center text-white flex-shrink-0 ml-[2px]`} title="Verified">
+                      <Check size={isClay ? 14 : 12} strokeWidth={3} />
+                    </div>
+                  )}
+                </div>
 
+                {/* Bio */}
                 {config.profile.bio && (
-                  <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
-                    style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif', opacity: 0.9 }}>
+                  <p
+                    className="max-w-xs mx-auto px-4"
+                    style={{
+                      color: isClay ? '#6b7280' : c.profileBio,
+                      fontFamily: theme.fonts?.body || 'sans-serif',
+                      fontSize: isClay ? '16.5px' : undefined,
+                      fontWeight: isClay ? 500 : undefined,
+                      lineHeight: isClay ? 1.45 : undefined,
+                      marginTop: isClay ? '10px' : '8px',
+                      textAlign: 'center',
+                      opacity: isClay ? 1 : 0.9,
+                    }}
+                  >
                     {config.profile.bio}
                   </p>
                 )}
 
                 {config.profile.location && (
-                  <p className="text-xs mt-1.5 sm:mt-2 flex items-center justify-center gap-1"
-                    style={{ color: c.profileBio, opacity: 0.7 }}>
-                    <MapPin size={11} />{config.profile.location}
+                  <p className="text-xs mt-1.5 flex items-center justify-center gap-1"
+                    style={{ color: c.profileBio, fontFamily: theme.fonts?.body }}>
+                    <MapPin size={12} />{config.profile.location}
                   </p>
                 )}
               </div>
@@ -1669,25 +1658,38 @@ export default function BioCard({
 
           {/* ── Social Icons (Top Position) ── */}
           {hasSocials && (config.socialIconPosition || 'top') === 'top' && (
-            <div className="flex justify-center items-center gap-2.5 mb-6 px-4 flex-wrap">
+            <div className={`flex justify-center items-center flex-wrap relative z-10 ${(theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay') ? 'gap-[14px] mt-[24px] mb-[26px] px-4' : 'gap-3.5 mb-6 px-4'}`}>
               {allSocialItems.map(({ platform, url }) => {
                 if (!url) return null
                 const Icon = PLATFORM_ICONS[platform]
                 if (!Icon) return null
+                const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
+                const claySocialColor =
+                  isClay && platform === 'linkedin' ? '#2f6fed' :
+                  isClay && (platform === 'twitter' || platform === 'x') ? '#3aa0f3' :
+                  isClay ? '#1a1d24' : undefined
                 return (
-                  <a 
-                    key={platform} 
-                    href={ensureAbsoluteUrl(url)} 
-                    target="_blank" 
+                  <a
+                    key={platform}
+                    href={ensureAbsoluteUrl(url)}
+                    target="_blank"
                     rel="noopener noreferrer"
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
-                    style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.15)',
-                      color: c.profileText
-                    }}
+                    className={
+                      isClay
+                        ? "w-12 h-12 rounded-[16px] flex items-center justify-center transition-all hover:-translate-y-0.5"
+                        : "w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
+                    }
+                    style={isClay
+                      ? {
+                          backgroundColor: '#eef0f3',
+                          color: claySocialColor,
+                          boxShadow: '5px 5px 10px rgba(163,168,178,0.45), -5px -5px 10px rgba(255,255,255,0.9)',
+                        }
+                      : { backgroundColor: 'rgba(255,255,255,0.15)', color: c.profileText }
+                    }
                     title={platform}
                   >
-                    <Icon size={16} />
+                    <Icon size={isClay ? 22 : 16} />
                   </a>
                 )
               })}
@@ -1696,7 +1698,7 @@ export default function BioCard({
 
           {/* ── Links (Mobile Optimized) ── */}
           {visibleLinks.length > 0 && (
-            <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8 w-full">
+            <div ref={linksContainerRef} className={`${(theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay') ? 'space-y-[14px]' : 'space-y-2.5 sm:space-y-3'} mb-6 sm:mb-8 w-full`}>
               {visibleLinks.map((link) => {
                 if (link.groupId && !link.isGroupHeader) return null // Handled inside parent collection
 
@@ -1786,36 +1788,32 @@ export default function BioCard({
           </div>
         )}
 
-        {/* ── Join BioLink CTA Pill Button ── */}
-        <div className="w-full my-6 flex justify-center">
+        {/* ── Official Linktree Footer Section ── */}
+        <div className="w-full flex flex-col items-center gap-5 mt-8 mb-4 px-2 flex-shrink-0 z-20">
+          {/* Join CTA Pill Button */}
           <a
-            href="/create"
-            className="w-full py-3 px-4 rounded-full bg-white text-slate-900 font-extrabold text-xs text-center shadow-lg hover:bg-slate-50 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer block"
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full max-w-[340px] py-3.5 px-6 rounded-full bg-white text-slate-950 font-extrabold text-sm text-center shadow-lg hover:bg-slate-50 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer block border border-slate-200/60"
           >
-            Join {config.profile.title || 'Satvikpatel'} on BioLink
+            Join {(config.profile as any)?.handle || config.profile.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'satvikpatel8373'} on BioLink
           </a>
-        </div>
 
-        {/* ── Footer ── */}
-        <div className="w-full text-center pt-4 border-t border-white/10">
-          <div className="flex items-center justify-center gap-5 mb-2">
-            <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: c.profileBio, opacity: 0.5 }}>
-              <Eye size={12} />{cardData.analytics.views} views
-            </span>
-            <span className="text-xs flex items-center gap-1 font-semibold" style={{ color: c.profileBio, opacity: 0.5 }}>
-              <ExternalLink size={12} />{cardData.analytics.clicks} clicks
-            </span>
+          {/* Official Footer Sub-Links */}
+          <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] font-semibold text-white/80 drop-shadow-sm text-center leading-relaxed">
+            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Cookie Preferences</button>
+            <span className="opacity-60">•</span>
+            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Report</button>
+            <span className="opacity-60">•</span>
+            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Privacy</button>
+            <span className="opacity-60">•</span>
+            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Explore</button>
+            <span className="opacity-60">•</span>
+            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">About this account</button>
+            <span className="opacity-60">•</span>
+            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">More from BioLink</button>
           </div>
-          <p className="text-xs font-medium" style={{ color: c.profileBio, opacity: 0.4 }}>Powered by BioLink</p>
-        </div>
-
-      </div>
-
-      {/* ── Desktop "View on mobile" QR Code Widget ── */}
-      <div className="fixed bottom-6 right-6 hidden md:flex flex-col items-center gap-2 p-3 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/20 shadow-2xl z-30 group hover:scale-105 transition-transform">
-        <span className="text-[11px] font-bold text-white tracking-wide uppercase">View on mobile</span>
-        <div className="p-1.5 bg-white rounded-xl shadow-md">
-          <img src={qrCodeUrl} alt="Mobile QR Code" className="w-24 h-24 rounded-lg object-contain" />
         </div>
       </div>
 

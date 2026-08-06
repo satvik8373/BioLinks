@@ -406,6 +406,19 @@ export const PALETTE_REGISTRY: Record<string, SemanticPalette> = {
     success: '#10B981',
     warning: '#F59E0B',
     danger: '#EF4444'
+  },
+  'palette-clay': {
+    id: 'palette-clay',
+    name: 'Soft Clay Neumorphic',
+    brand: '#2f6fed',
+    surface: '#f4f5f7',
+    surfaceAlt: '#eef0f3',
+    text: '#161821',
+    textMuted: '#6b7280',
+    border: 'rgba(163,168,178,0.3)',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444'
   }
 }
 

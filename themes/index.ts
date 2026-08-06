@@ -13,6 +13,7 @@ import arianaGrandeConfig from './ariana-grande/config.json'
 import sunsetVibesConfig from './sunset-vibes/config.json'
 import pastelDreamConfig from './pastel-dream/config.json'
 import warmCoffeeConfig from './warm-coffee/config.json'
+import softClayConfig from './soft-clay/config.json'
 
 export const ALL_JSON_CONFIGS: ThemeConfig[] = [
   popBrutalistConfig as unknown as ThemeConfig,
@@ -20,6 +21,7 @@ export const ALL_JSON_CONFIGS: ThemeConfig[] = [
   sunsetVibesConfig as unknown as ThemeConfig,
   pastelDreamConfig as unknown as ThemeConfig,
   warmCoffeeConfig as unknown as ThemeConfig,
+  softClayConfig as unknown as ThemeConfig,
 ]
 
 export function jsonToLegacyTheme(config: any): Theme {
@@ -45,12 +47,14 @@ export function jsonToLegacyTheme(config: any): Theme {
       backgroundMesh: bgObj.type === 'mesh' ? bgObj.value : undefined,
       backgroundImage: bgObj.image,
       backgroundOverlay: bgObj.overlay,
-      buttonDefault: palette.brand,
-      buttonHover: palette.brand,
-      buttonText: palette.text,
+      buttonDefault: config.buttonColor || palette.brand,
+      buttonHover: config.buttonColor || palette.brand,
+      // config.buttonText lets a theme override the auto-computed text colour
+      buttonText: config.buttonText || palette.text,
       profileText: palette.text,
       profileBio: palette.textMuted,
-      accent: palette.brand,
+      // config.accent lets a theme set a distinct accent colour that differs from buttonDefault
+      accent: config.accent || palette.brand,
     },
     buttonStyle: {
       borderRadius: btnRadiusPx,
@@ -58,12 +62,41 @@ export function jsonToLegacyTheme(config: any): Theme {
       borderColor: palette.border,
       shadow: btnShadowCss !== 'none',
       shadowStyle: btnShadowCss.includes('4px') ? 'hard' : 'soft',
+      // Store the full resolved CSS string so buildBtnStyle can use it directly
+      boxShadow: btnShadowCss !== 'none' ? btnShadowCss : undefined,
       style: btnSpec.variant as any,
     },
     fonts: {
       heading: resolveFontFamily(fontObj?.heading || fontObj?.headingFont, 'Inter').split(',')[0].trim(),
       body: resolveFontFamily(fontObj?.font || fontObj?.bodyFont, 'Inter').split(',')[0].trim(),
     },
+    specialty: config.specialty
+      ? { ...config.specialty }
+      : undefined,
+    // ── Card panel specialty tokens ────────────────────────────────────────
+    // Populated from config.components.card so each theme controls its own
+    // card surface appearance without any hardcoded values in BioCard.
+    ...(config.components?.card && (() => {
+      const card = config.components.card
+      const cardBg = card.background
+        ? (resolveBackground(card.background)?.value || card.background)
+        : undefined
+      const cardRadius = card.radius != null
+        ? (typeof card.radius === 'number' ? `${card.radius}px` : resolveRadius(card.radius, 8) + 'px')
+        : undefined
+      const cardShadow = card.shadow ? resolveShadow(card.shadow) : undefined
+      if (!cardBg && !cardRadius && !cardShadow) return {}
+      return {
+        specialty: {
+          ...(config.specialty || {}),
+          ...(cardBg     && { cardBackground:   cardBg }),
+          ...(cardRadius && { cardBorderRadius: cardRadius }),
+          ...(cardShadow && { cardBoxShadow:    cardShadow }),
+          ...(card.maxWidth  && { cardMaxWidth:  card.maxWidth }),
+          ...(card.padding   && { cardPadding:   card.padding }),
+        }
+      }
+    })()),
     preview: bgObj.value,
     isPremium: config.license?.type === 'pro' || config.isPro || false,
     isCurated: false,

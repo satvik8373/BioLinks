@@ -77,22 +77,45 @@ function getLocalBioCards(): Record<string, any> {
   }
 }
 
+/** Strip any base64 data: URLs from gallery photos so they never bloat localStorage.
+ *  Real cloud images (https://) are kept as-is. */
+function stripBase64FromCard(cardData: any): any {
+  if (!cardData?.config?.links) return cardData
+  return {
+    ...cardData,
+    config: {
+      ...cardData.config,
+      links: cardData.config.links.map((link: any) => {
+        if (link.type !== 'gallery' || !Array.isArray(link.galleryPhotos)) return link
+        return {
+          ...link,
+          galleryPhotos: link.galleryPhotos.map((p: any) => ({
+            ...p,
+            // keep https:// URLs, wipe any base64 fallbacks
+            url: typeof p.url === 'string' && p.url.startsWith('data:') ? '' : (p.url ?? ''),
+          })),
+          thumbnail: typeof link.thumbnail === 'string' && link.thumbnail.startsWith('data:')
+            ? ''
+            : link.thumbnail,
+        }
+      }),
+    },
+  }
+}
+
 function saveLocalBioCard(cardId: string, cardData: any) {
   if (typeof window === 'undefined') return
+  const safe = stripBase64FromCard({ ...cardData, id: cardId, updatedAt: new Date().toISOString() })
   try {
     const cards = getLocalBioCards()
-    cards[cardId] = {
-      ...cardData,
-      id: cardId,
-      updatedAt: new Date().toISOString()
-    }
+    cards[cardId] = safe
     localStorage.setItem('bioCards', JSON.stringify(cards))
   } catch (e: any) {
     console.warn('⚠️ QuotaExceededError saving card to localStorage, cleaning up storage cache...', e)
     try {
       localStorage.removeItem('ally-supports-cache')
       const cards = getLocalBioCards()
-      cards[cardId] = { ...cardData, id: cardId, updatedAt: new Date().toISOString() }
+      cards[cardId] = safe
       localStorage.setItem('bioCards', JSON.stringify(cards))
     } catch (err) {
       console.error('Could not save card to localStorage:', err)
@@ -398,39 +421,40 @@ export async function updateAnalytics(cardId: string, analytics: { views?: numbe
  * @param cardId     Used to scope the storage path per card
  * @param onProgress Optional callback receiving 0–100 progress
  */
+import { uploadImageToFirebase } from './firebaseStorage'
+
+/**
+ * Upload a wallpaper or media file to Firebase Cloud Storage.
+ * Falls back to base64 data URL if storage is unconfigured.
+ */
 export async function uploadWallpaperFile(
   file: File,
-  cardId: string,
+  _cardId: string,
   onProgress?: (pct: number) => void
 ): Promise<string> {
-
-  // ── Base64 fallback (immediate, no Firebase Storage needed) ─────────────
-  // We skip Firebase Storage and use base64 directly. This works without
-  // Storage being activated and without any rules. Cap at 20 MB.
   if (file.size > 20 * 1024 * 1024) {
-    throw new Error('File is too large for local storage. Please use a video under 20 MB.')
+    throw new Error('File is too large. Please use a file under 20 MB.')
   }
 
-  onProgress?.(10)
-
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onprogress = (e) => {
-      if (e.lengthComputable) {
-        const pct = Math.round((e.loaded / e.total) * 80) + 10 // 10→90
-        onProgress?.(pct)
+  onProgress?.(30)
+  try {
+    const firebaseUrl = await uploadImageToFirebase(file, 'wallpapers')
+    onProgress?.(100)
+    return firebaseUrl
+  } catch (error) {
+    console.warn('⚠️ Falling back to data URL for wallpaper:', error)
+    onProgress?.(90)
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        onProgress?.(100)
+        resolve(reader.result as string)
       }
-    }
-    reader.onload = () => {
-      onProgress?.(100)
-      resolve(reader.result as string)
-    }
-    reader.onerror = () => reject(new Error('Failed to read file'))
-    reader.readAsDataURL(file)
-  })
-
-  console.log('✅ Wallpaper stored as base64 data URL')
-  return dataUrl
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+    return dataUrl
+  }
 }
 
 /**

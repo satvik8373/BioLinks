@@ -191,7 +191,7 @@ export const BACKGROUND_PRESETS: Record<string, BackgroundPreset> = {
     id: 'neumorphic-clay',
     name: 'Neumorphic Soft Clay',
     type: 'mesh',
-    value: 'radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.7) 0%, transparent 40%), linear-gradient(135deg, #E0E5EC 0%, #D1D9E6 100%)',
+    value: '#e9eaee',
     blur: 0,
     opacity: 1
   },

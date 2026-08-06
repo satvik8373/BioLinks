@@ -31,7 +31,7 @@ export interface Theme {
     backgroundImage?: string
     backgroundVideo?: string
     backgroundIframe?: string
-    backgroundType?: 'color' | 'gradient' | 'mesh' | 'image' | 'video' | 'iframe'
+    backgroundType?: 'color' | 'gradient' | 'mesh' | 'image' | 'video' | 'iframe' | 'fill'
     backgroundOverlay?: string
     buttonDefault: string
     buttonHover: string
@@ -46,6 +46,7 @@ export interface Theme {
     borderColor?: string
     shadow: boolean
     shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
+    boxShadow?: string
     style: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill'
     animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide'
     enableAnimations?: boolean
@@ -58,6 +59,18 @@ export interface Theme {
   isCurated?: boolean
   author?: string
   headerLayout?: 'classic' | 'hero' | 'banner' | 'shape'
+  specialty?: {
+    cardGlow?: string
+    cardFx?: string
+    borderGradient?: string
+    // Card panel surface — background, shape, shadow applied to the inner
+    // floating card frame so each theme can have its own card appearance.
+    cardBackground?: string
+    cardBorderRadius?: string
+    cardBoxShadow?: string
+    cardMaxWidth?: string
+    cardPadding?: string
+  }
 }
 
 // ─── Convert JSON ThemeConfig to Legacy Theme format ───────────────────────
@@ -228,16 +241,82 @@ export function getThemeById(id: string): Theme {
 export function formatAndNormalizeTheme(rawTheme?: any): Theme {
   if (!rawTheme) return getDefaultTheme()
   
-  // If it's already a valid theme, return as-is
-  if (rawTheme.id && rawTheme.colors && rawTheme.buttonStyle && rawTheme.fonts) {
-    return rawTheme as Theme
+  if (typeof rawTheme === 'string') {
+    return getThemeById(rawTheme)
   }
-  
-  // Try to find by ID
+
+  // Always re-merge from the current preset when an id is present.
+  // This ensures structural properties (buttonStyle.style, specialty, fonts)
+  // always reflect the latest theme definition, while user-customized
+  // color/background fields stored in rawTheme.colors are preserved on top.
   if (rawTheme.id) {
-    return getThemeById(rawTheme.id)
+    const base = getThemeById(rawTheme.id)
+
+    // User-customizable color overrides — only background/wallpaper fields
+    // and explicit color picks should survive a re-merge.
+    // Structural palette tokens (buttonDefault, profileText etc.) always reset
+    // to the current preset so old stale saves can't break the theme.
+    const userColorOverrides = rawTheme.colors ? {
+      // Wallpaper / background customizations set by the editor panels
+      ...(rawTheme.colors.backgroundType     !== undefined && { backgroundType:     rawTheme.colors.backgroundType }),
+      ...(rawTheme.colors.backgroundImage    !== undefined && rawTheme.colors.backgroundImage    && { backgroundImage:    rawTheme.colors.backgroundImage }),
+      ...(rawTheme.colors.backgroundVideo    !== undefined && rawTheme.colors.backgroundVideo    && { backgroundVideo:    rawTheme.colors.backgroundVideo }),
+      ...(rawTheme.colors.backgroundIframe   !== undefined && rawTheme.colors.backgroundIframe   && { backgroundIframe:   rawTheme.colors.backgroundIframe }),
+      ...(rawTheme.colors.backgroundMesh     !== undefined && rawTheme.colors.backgroundMesh     && { backgroundMesh:     rawTheme.colors.backgroundMesh }),
+      ...(rawTheme.colors.backgroundGradient !== undefined && rawTheme.colors.backgroundGradient && { backgroundGradient: rawTheme.colors.backgroundGradient }),
+      ...(rawTheme.colors.backgroundOverlay  !== undefined && rawTheme.colors.backgroundOverlay  && { backgroundOverlay:  rawTheme.colors.backgroundOverlay }),
+      // Explicit solid background pick (non-default)
+      ...(rawTheme.colors.background && rawTheme.colors.background !== base.colors.background && { background: rawTheme.colors.background }),
+      // User-overridden palette tokens (from Colors panel)
+      ...(rawTheme.colors.buttonDefault && rawTheme.colors.buttonDefault !== base.colors.buttonDefault && { buttonDefault: rawTheme.colors.buttonDefault, buttonHover: rawTheme.colors.buttonDefault }),
+      ...(rawTheme.colors.buttonText    && rawTheme.colors.buttonText    !== base.colors.buttonText    && { buttonText:    rawTheme.colors.buttonText }),
+      ...(rawTheme.colors.profileText   && rawTheme.colors.profileText   !== base.colors.profileText   && { profileText:   rawTheme.colors.profileText }),
+      ...(rawTheme.colors.profileBio    && rawTheme.colors.profileBio    !== base.colors.profileBio    && { profileBio:    rawTheme.colors.profileBio }),
+      ...(rawTheme.colors.accent        && rawTheme.colors.accent        !== base.colors.accent        && { accent:        rawTheme.colors.accent }),
+    } : {}
+
+    // User-customizable buttonStyle overrides — only radius/border/shadow/animation
+    // are user-editable. The variant style is always locked to the preset.
+    const userButtonOverrides = rawTheme.buttonStyle ? {
+      ...(rawTheme.buttonStyle.borderRadius !== undefined && { borderRadius: rawTheme.buttonStyle.borderRadius }),
+      ...(rawTheme.buttonStyle.borderWidth  !== undefined && { borderWidth:  rawTheme.buttonStyle.borderWidth }),
+      ...(rawTheme.buttonStyle.borderColor  !== undefined && { borderColor:  rawTheme.buttonStyle.borderColor }),
+      ...(rawTheme.buttonStyle.shadow       !== undefined && { shadow:       rawTheme.buttonStyle.shadow }),
+      ...(rawTheme.buttonStyle.shadowStyle  !== undefined && { shadowStyle:  rawTheme.buttonStyle.shadowStyle }),
+      ...(rawTheme.buttonStyle.style        !== undefined && { style:        rawTheme.buttonStyle.style }),
+      ...(rawTheme.buttonStyle.animation    !== undefined && { animation:    rawTheme.buttonStyle.animation }),
+      ...(rawTheme.buttonStyle.enableAnimations !== undefined && { enableAnimations: rawTheme.buttonStyle.enableAnimations }),
+    } : {}
+
+    return {
+      ...base,
+      // specialty always from preset — contains cardBackground, cardBorderRadius etc.
+      specialty: base.specialty,
+      colors: {
+        ...base.colors,
+        ...userColorOverrides,
+      },
+      buttonStyle: {
+        ...base.buttonStyle,
+        ...userButtonOverrides,
+        style: rawTheme.buttonStyle?.style || base.buttonStyle.style,
+      },
+      // fonts can be user-overridden but fall back to preset
+      fonts: rawTheme.fonts || base.fonts,
+    }
   }
   
+  // No ID at all — legacy config with only colors directly.
+  if (rawTheme.colors) {
+    const base = getDefaultTheme()
+    return {
+      ...base,
+      colors: { ...base.colors, ...rawTheme.colors },
+      buttonStyle: rawTheme.buttonStyle || base.buttonStyle,
+      fonts: rawTheme.fonts || base.fonts,
+    }
+  }
+
   return getDefaultTheme()
 }
 

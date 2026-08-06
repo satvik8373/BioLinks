@@ -1,10 +1,11 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "themes": [
     { "id": "pop-brutalist",    "name": "Pop Brutalist",    "category": "minimal", "license": "free", "isCurated": false },
     { "id": "ariana-grande",    "name": "Ariana Grande",    "category": "dark",    "license": "free", "isCurated": false },
     { "id": "sunset-vibes",     "name": "Sunset Vibes",     "category": "dark",    "license": "free", "isCurated": false },
     { "id": "pastel-dream",     "name": "Pastel Dream",     "category": "minimal", "license": "free", "isCurated": false },
-    { "id": "warm-coffee",      "name": "Warm Coffee",      "category": "minimal", "license": "free", "isCurated": false }
+    { "id": "warm-coffee",      "name": "Warm Coffee",      "category": "minimal", "license": "free", "isCurated": false },
+    { "id": "soft-clay",        "name": "Soft Clay",        "category": "clay",    "license": "free", "isCurated": false }
   ]
 }

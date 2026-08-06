@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { gsap } from 'gsap'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemeById, formatAndNormalizeTheme, Theme, getEmbedIframeUrl } from '@/lib/themes'
 import { getCardPublicUrl, getCleanUsernameSlug, getDisplayUrlSlug, getAccountUsername, resolveCardKey } from '@/lib/urlHelper'
@@ -16,7 +17,12 @@ import {
 } from '@/components/icons/ServiceIcons'
 import { saveCard, saveUserProfile, uploadWallpaperFile } from '@/lib/storage'
 import { detectPlatformFromUrl } from '@/lib/detectPlatform'
+import GallerySlider from '@/components/card/GallerySlider'
+import BioCard from '@/components/card/BioCard'
 import BlockEditorDispatcher from '@/components/editor/blocks/BlockEditorDispatcher'
+import { useDraftStore, useCanUndo, useCanRedo } from '@/lib/stores/useDraftStore'
+import { auth } from '@/lib/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 import { 
   ArrowLeft, 
   Save, 
@@ -65,10 +71,13 @@ import {
   Video,
 } from 'lucide-react'
 import WallpaperPanel from '@/components/editor/wallpaper/WallpaperPanel'
+import DesignIndexPanel from '@/components/editor/panels/DesignIndexPanel'
+import ThemesPanel from '@/components/editor/panels/ThemesPanel'
+import ProfilePanel from '@/components/editor/panels/ProfilePanel'
 
 interface LinkItem {
   id: string
-  type: 'link' | 'header' | 'text' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
+  type: 'link' | 'header' | 'text' | 'gallery' | 'social' | 'shop' | 'music' | 'video' | 'contact' | 'event' | 'payment' | 'booking' | 'form' | 'nft'
   text: string
   url: string
   icon: string
@@ -95,6 +104,9 @@ interface LinkItem {
   currency?: string
   originalPrice?: string
   stockStatus?: 'in-stock' | 'out-of-stock' | 'limited'
+  // Gallery
+  galleryPhotos?: Array<{ id: string; url: string; title?: string; description?: string }>
+  galleryLayout?: 'slider' | 'grid' | 'stack' | 'hero'
   // contact
   contactType?: 'email' | 'phone' | 'whatsapp' | 'telegram' | 'address'
   contactValue?: string
@@ -145,14 +157,37 @@ interface BioLinkConfig {
 
 export default function EditorPage() {
   const router = useRouter()
-  const [config, setConfig] = useState<BioLinkConfig | null>(null)
+
+  // ── Zustand Draft Store ──
+  const config = useDraftStore(s => s.config)
+  const loading = useDraftStore(s => s.isLoading)
+  const isDirty = useDraftStore(s => s.isDirty)
+  const lastSavedAt = useDraftStore(s => s.lastSavedAt)
+  const storeUpdate = useDraftStore(s => s.update)
+  const storeBatchUpdate = useDraftStore(s => s.batchUpdate)
+  const storeUndo = useDraftStore(s => s.undo)
+  const storeRedo = useDraftStore(s => s.redo)
+  const storePublish = useDraftStore(s => s.publishProfile)
+  const storeSaveDraftNow = useDraftStore(s => s.saveDraftNow)
+  const canUndo = useCanUndo()
+  const canRedo = useCanRedo()
+
+  // ── Local UI state (not persisted) ──
   const [activeTab, setActiveTab] = useState<'links' | 'appearance' | 'profile' | 'background' | 'fonts' | 'buttons' | 'colors' | 'settings' | 'social' | 'shop' | 'seo' | 'analytics' | 'themes'>('links')
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showAddLinkModal, setShowAddLinkModal] = useState(false)
   const [targetGroupId, setTargetGroupId] = useState<string | undefined>(undefined)
   const [playingVideos, setPlayingVideos] = useState<Record<string, boolean | string>>({})
+
+  const previewIframeRef = useRef<HTMLIFrameElement>(null)
+
+  // Send live config updates to iframe via postMessage (Linktree architecture)
+  useEffect(() => {
+    if (previewIframeRef.current?.contentWindow && config) {
+      previewIframeRef.current.contentWindow.postMessage({ type: 'UPDATE_CONFIG', config }, '*')
+    }
+  }, [config])
 
   const handleOpenAddModal = (groupId?: string) => {
     setTargetGroupId(groupId)
@@ -161,7 +196,6 @@ export default function EditorPage() {
   const [isEditingHandle, setIsEditingHandle] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [savedAt, setSavedAt] = useState<string>('')
   const [handleDraft, setHandleDraft] = useState('')
   const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
   const [handleError, setHandleError] = useState('')
@@ -169,53 +203,6 @@ export default function EditorPage() {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ myLinktree: true, tools: false })
   // Stable preview card ID — created once per editor session, reused for live preview
   const [previewCardId, setPreviewCardId] = useState<string>('')
-
-  // Undo & Redo History Stacks
-  const [pastConfigs, setPastConfigs] = useState<BioLinkConfig[]>([])
-  const [futureConfigs, setFutureConfigs] = useState<BioLinkConfig[]>([])
-  const isUndoRedoRef = useRef(false)
-  const handleUndo = () => {
-    if (pastConfigs.length === 0 || !config) return
-    const previous = pastConfigs[pastConfigs.length - 1]
-    const newPast = pastConfigs.slice(0, pastConfigs.length - 1)
-    
-    isUndoRedoRef.current = true
-    setPastConfigs(newPast)
-    setFutureConfigs(prev => [config, ...prev])
-    setConfig(previous)
-    
-    // Immediately update localStorage
-    try {
-      localStorage.setItem('currentBioLinkConfig', JSON.stringify(previous))
-    } catch (e) {
-      console.error('Failed to save undo state to localStorage', e)
-    }
-    
-    // Reset flag after state update
-    setTimeout(() => { isUndoRedoRef.current = false }, 0)
-  }
-
-  const handleRedo = () => {
-    if (futureConfigs.length === 0 || !config) return
-    const next = futureConfigs[0]
-    const newFuture = futureConfigs.slice(1)
-    
-    isUndoRedoRef.current = true
-    setPastConfigs(prev => [...prev, config])
-    setFutureConfigs(newFuture)
-    setConfig(next)
-    
-    // Immediately update localStorage
-    try {
-      localStorage.setItem('currentBioLinkConfig', JSON.stringify(next))
-    } catch (e) {
-      console.error('Failed to save redo state to localStorage', e)
-    }
-    
-    // Reset flag after state update
-    setTimeout(() => { isUndoRedoRef.current = false }, 0)
-  }
-
   // Keyboard shortcut listener for Ctrl+Z / Ctrl+Y
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -227,20 +214,20 @@ export default function EditorPage() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         if (e.shiftKey) {
           e.preventDefault()
-          handleRedo()
+          storeRedo()
         } else {
           e.preventDefault()
-          handleUndo()
+          storeUndo()
         }
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault()
-        handleRedo()
+        storeRedo()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [pastConfigs, futureConfigs, config])
+  }, [storeUndo, storeRedo])
 
   const toggleGroup = (key: string) => setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
 
@@ -253,6 +240,8 @@ export default function EditorPage() {
     }
   }
 
+  // syncPreviewCard is now only called on explicit publish — not on every edit.
+  // The live preview renders directly from the in-memory Zustand store.
   const syncPreviewCard = async (cfg: BioLinkConfig, pid: string, previousHandle?: string) => {
     if (!pid || !cfg) return
     try {
@@ -333,107 +322,78 @@ export default function EditorPage() {
       profile: { ...config.profile, handle: newHandle },
     }
     await syncPreviewCard(nextConfig, newHandle, oldHandle)
-    // Keep the editor state and persisted config aligned with the active URL.
-    setConfig(nextConfig)
-    localStorage.setItem('currentBioLinkConfig', JSON.stringify(nextConfig))
+    // Update the Zustand store — this triggers debounced auto-save to Firestore
+    storeUpdate('profile.handle', newHandle)
 
     setIsEditingHandle(false)
     setHandleStatus('idle')
     setHandleError('')
   }
 
+  // ── Hydrate from Firestore via Zustand store ──
+  // Uses Firebase Auth uid as the canonical user identity.
   useEffect(() => {
-    const savedConfig = localStorage.getItem('currentBioLinkConfig')
-    const profile = localStorage.getItem('userProfile')
-    
-    if (!savedConfig || !profile) {
-      setLoading(false)
-      router.push('/create')
-      return
-    }
+    const loadDraft = useDraftStore.getState().loadDraft
 
-    try {
-      const parsedConfig = JSON.parse(savedConfig)
-      const parsedProfile = JSON.parse(profile)
-      const accountUsername = getCleanUsernameSlug(parsedProfile.username) || getAccountUsername()
-      const handleSlug =
-        resolveCardKey(parsedConfig.profile?.handle, parsedConfig.profile?.title) ||
-        accountUsername ||
-        'user'
+    // Try Firebase Auth first, fall back to localStorage profile
+    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      let userId: string | null = null
 
-      if (!parsedConfig.profile.handle && accountUsername) {
-        parsedConfig.profile.handle = accountUsername
+      if (firebaseUser?.uid) {
+        userId = firebaseUser.uid
+      } else {
+        // Fallback: check localStorage (for demo/mock users)
+        try {
+          const profileStr = localStorage.getItem('userProfile')
+          if (profileStr) {
+            const profile = JSON.parse(profileStr)
+            userId = profile.id || profile.uid || null
+          }
+        } catch { /* ignore */ }
       }
+
+      if (!userId) {
+        router.push('/create')
+        return
+      }
+
+      await loadDraft(userId)
+
+      // After hydration, set previewCardId from the loaded config
+      const storeConfig = useDraftStore.getState().config
+      if (!storeConfig) {
+        router.push('/create')
+        return
+      }
+
+      const handleSlug =
+        resolveCardKey(storeConfig.profile?.handle, storeConfig.profile?.title) ||
+        getAccountUsername() ||
+        'user'
 
       localStorage.setItem('editorPreviewCardId', handleSlug)
       localStorage.setItem('activeBioCardId', handleSlug)
       setPreviewCardId(handleSlug)
-      setConfig(parsedConfig)
-      setLoading(false)
+    })
 
-      syncPreviewCard(parsedConfig, handleSlug).catch(err => {
-        console.error('Error syncing initial preview:', err)
-      })
-    } catch (error) {
-      console.error('Error loading config:', error)
-      setLoading(false)
-      router.push('/create')
-    }
+    return () => unsubAuth()
   }, [router])
 
-  // updateConfig — accepts either a single path+value OR an array of {path, value}
-  // pairs, applying ALL changes in one atomic setConfig call so no updates are lost.
+  // updateConfig — thin wrapper around the Zustand store's update/batchUpdate.
+  // Keeps the same API surface so all child components work unchanged.
   const updateConfig = (pathOrUpdates: string | Array<{ path: string; value: any }>, value?: any) => {
     if (!config) return
 
-    // Don't save to history during undo/redo operations
-    if (!isUndoRedoRef.current) {
-      setPastConfigs(prev => [...prev, JSON.parse(JSON.stringify(config))].slice(-30))
-      setFutureConfigs([])
+    if (Array.isArray(pathOrUpdates)) {
+      storeBatchUpdate(pathOrUpdates)
+    } else {
+      storeUpdate(pathOrUpdates, value)
     }
-
-    const updates: Array<{ path: string; value: any }> = Array.isArray(pathOrUpdates)
-      ? pathOrUpdates
-      : [{ path: pathOrUpdates as string, value }]
-
-    setConfig(prev => {
-      if (!prev) return prev
-      const newConfig: BioLinkConfig = JSON.parse(JSON.stringify(prev))
-      for (const { path, value: val } of updates) {
-        const keys = path.split('.')
-        let current: any = newConfig
-        for (let i = 0; i < keys.length - 1; i++) {
-          if (current[keys[i]] === undefined || current[keys[i]] === null) current[keys[i]] = {}
-          current = current[keys[i]]
-        }
-        current[keys[keys.length - 1]] = val
-      }
-      return newConfig
-    })
   }
 
-  // Auto-save to localStorage whenever config changes
-  useEffect(() => {
-    if (!config) return
-
-    try {
-      localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
-    } catch (e: any) {
-      console.warn('⚠️ QuotaExceededError saving config to localStorage, clearing cache...', e)
-      try {
-        localStorage.removeItem('ally-supports-cache')
-        localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
-      } catch (err) {
-        console.error('Could not save currentBioLinkConfig to localStorage:', err)
-      }
-    }
-
-    syncPreviewCard(config, previewCardId).catch(err => {
-      console.error('Error syncing preview:', err)
-    })
-
-    setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-  }, [config, previewCardId])
+  // Auto-save is handled by the Zustand store's debounced saveDraftNow.
+  // No more localStorage-first auto-save or syncPreviewCard on every change.
+  // The preview renders directly from the in-memory store.
 
   const addLink = (preset?: Partial<TypedLinkItem>) => {
     if (!config) return
@@ -540,57 +500,20 @@ export default function EditorPage() {
     setSaveError(null)
 
     try {
+      // Publish via Zustand store → Firestore draft → published + bioCards + cardStore
+      const result = await storePublish()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to publish your card.')
+      }
+
       const handleSlug = resolveCardKey(config.profile?.handle, config.profile?.title) || getAccountUsername() || 'user'
-      const ownerId = getCurrentUserId()
-      
-      if (!ownerId) {
-        throw new Error('You must be signed in to save your card. Please log in and try again.')
-      }
-
-      console.log('💾 Saving card under account username:', handleSlug)
-
-      const cardPayload = {
-        id: handleSlug,
-        handle: handleSlug,
-        config: {
-          profile: config.profile,
-          links: config.links,
-          theme: config.theme,
-          socialLinks: config.socialLinks,
-        },
-        analytics: { views: 0, clicks: 0 },
-        createdAt: new Date().toISOString(),
-      }
-
-      const response = await fetch('/api/cards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cardId: handleSlug,
-          handle: handleSlug,
-          config: cardPayload.config,
-          analytics: cardPayload.analytics,
-          ownerId,
-          previousHandle: previewCardId !== handleSlug ? previewCardId : undefined,
-        }),
-      })
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || `Server error: ${response.status}. Please try again.`)
-      }
-
-      await saveCard(handleSlug, cardPayload, {
-        previousHandle: previewCardId !== handleSlug ? previewCardId : undefined,
-      })
-
       localStorage.setItem('editorPreviewCardId', handleSlug)
       localStorage.setItem('activeBioCardId', handleSlug)
       setPreviewCardId(handleSlug)
-      localStorage.setItem('currentBioLinkConfig', JSON.stringify(config))
 
       const cardUrl = getCardPublicUrl(handleSlug)
-      console.log('✅ Card saved successfully! Public URL:', cardUrl)
+      console.log('✅ Card published successfully! Public URL:', cardUrl)
       
       try {
         await navigator.clipboard.writeText(cardUrl)
@@ -601,7 +524,7 @@ export default function EditorPage() {
       setShowShareModal(true)
       setIsSaving(false)
     } catch (error: any) {
-      console.error('❌ Error saving bio link:', error)
+      console.error('❌ Error publishing bio link:', error)
       setSaveError(error.message || 'Failed to save your card. Please try again.')
       setIsSaving(false)
     }
@@ -666,22 +589,22 @@ export default function EditorPage() {
             </span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={handleUndo} disabled={pastConfigs.length === 0} title="Undo (Ctrl+Z)"
+            <button onClick={storeUndo} disabled={!canUndo} title="Undo (Ctrl+Z)"
               className={`p-1.5 rounded-xl transition-all ${
-                pastConfigs.length > 0
+                canUndo
                   ? 'cursor-pointer'
                   : 'opacity-30 cursor-not-allowed'
               }`}
-              style={pastConfigs.length > 0 ? { background: 'rgba(124,58,237,0.08)', color: '#7C3AED', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(124,58,237,0.08)' } : { background: 'rgba(148,163,184,0.08)', color: '#CBD5E1' }}>
+              style={canUndo ? { background: 'rgba(124,58,237,0.08)', color: '#7C3AED', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(124,58,237,0.08)' } : { background: 'rgba(148,163,184,0.08)', color: '#CBD5E1' }}>
               <Undo2 className="w-3 h-3" />
             </button>
-            <button onClick={handleRedo} disabled={futureConfigs.length === 0} title="Redo (Ctrl+Y)"
+            <button onClick={storeRedo} disabled={!canRedo} title="Redo (Ctrl+Y)"
               className={`p-1.5 rounded-xl transition-all ${
-                futureConfigs.length > 0
+                canRedo
                   ? 'cursor-pointer'
                   : 'opacity-30 cursor-not-allowed'
               }`}
-              style={futureConfigs.length > 0 ? { background: 'rgba(124,58,237,0.08)', color: '#7C3AED', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(124,58,237,0.08)' } : { background: 'rgba(148,163,184,0.08)', color: '#CBD5E1' }}>
+              style={canRedo ? { background: 'rgba(124,58,237,0.08)', color: '#7C3AED', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 4px rgba(124,58,237,0.08)' } : { background: 'rgba(148,163,184,0.08)', color: '#CBD5E1' }}>
               <Redo2 className="w-3 h-3" />
             </button>
           </div>
@@ -762,9 +685,8 @@ export default function EditorPage() {
                 const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
                 const cardUrl = getCardPublicUrl(previewCardId, slug)
                 window.open(cardUrl, '_blank')
-                syncPreviewCard(config, previewCardId).catch(() => {})
               }}
-              className="flex-1 py-2 px-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer clay-btn clay-btn-ghost"
+              className="flex-1 py-2 px-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer clay-btn clay-btn-ghost hover:scale-105 active:scale-95"
             >
               <Eye className="w-3.5 h-3.5" style={{ color: '#7C3AED' }} />
               <span className="text-slate-700">Preview</span>
@@ -796,14 +718,14 @@ export default function EditorPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={async () => {
+              onClick={() => {
                 if (!config) return
-                await syncPreviewCard(config, previewCardId)
                 const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
                 const cardUrl = getCardPublicUrl(previewCardId, slug)
-                window.location.href = cardUrl
+                window.open(cardUrl, '_blank')
               }}
-              className="p-2 rounded-xl bg-slate-100 text-slate-700 active:scale-95 transition-transform"
+              className="p-2 rounded-xl bg-slate-100 text-slate-700 active:scale-95 transition-transform cursor-pointer hover:bg-slate-200"
+              title="Open Live Preview in New Tab"
             >
               <Eye className="w-5 h-5" />
             </button>
@@ -1016,30 +938,40 @@ export default function EditorPage() {
             )}
           </div>
 
-          {/* ── Bezel-less Floating Mobile Card Screen ── */}
+          {/* ── Official Linktree Iframe Preview Viewport ── */}
           <div className="flex-1 flex items-center justify-center overflow-hidden w-full">
-            <div 
-              className="relative flex-shrink-0 overflow-hidden transition-all duration-300 clay-preview-shell"
+            <div
+              className="relative flex-shrink-0 overflow-hidden transition-all duration-300 shadow-lg rounded-2xl"
               style={{
-                width: 268,
-                height: 518,
-                borderRadius: 34,
+                width: 293,
+                height: 520,
               }}
             >
-              <BioLinkPreview config={config} />
+              <div
+                className="origin-top-left relative border-0 outline-none w-full h-full"
+                style={{
+                  width: 375,
+                  height: 667,
+                  transform: 'scale(0.78)',
+                }}
+              >
+                <iframe
+                  ref={previewIframeRef}
+                  src={`/${getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'}`}
+                  id="preview-iframe"
+                  onLoad={() => {
+                    if (previewIframeRef.current?.contentWindow && config) {
+                      previewIframeRef.current.contentWindow.postMessage({ type: 'UPDATE_CONFIG', config }, '*')
+                    }
+                  }}
+                  className="w-full h-full border-0 outline-none rounded-2xl bg-transparent"
+                  title="Live Preview"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Active Links Count */}
-          <div className="pt-3 text-center flex-shrink-0">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-              style={{ background: 'rgba(255,255,255,0.7)', border: '1.5px solid rgba(148,163,184,0.25)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 4px rgba(15,23,42,0.05)' }}>
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 4px rgba(52,211,153,0.6)' }} />
-              <p className="text-[10px] font-extrabold text-slate-500 tracking-tight">
-                {config.links.filter(l => l.isVisible !== false).length} active links
-              </p>
-            </div>
-          </div>
+
         </aside>
 
       {/* ── Mobile Bottom Navigation Bar ── */}
@@ -1055,14 +987,13 @@ export default function EditorPage() {
               return (
                 <button
                   key={id}
-                  onClick={async () => {
+                  onClick={() => {
                     if (!config) return
-                    await syncPreviewCard(config, previewCardId)
                     const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
                     const cardUrl = getCardPublicUrl(previewCardId, slug)
-                    window.location.href = cardUrl
+                    window.open(cardUrl, '_blank')
                   }}
-                  className="flex flex-col items-center gap-1 min-w-[64px] py-1 active:scale-95 transition-transform"
+                  className="flex flex-col items-center gap-1 min-w-[64px] py-1 active:scale-95 transition-transform cursor-pointer"
                 >
                   <div 
                     className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
@@ -1137,6 +1068,8 @@ export default function EditorPage() {
         />
       )}
 
+
+
       {/* Add Link Modal */}
       {showAddLinkModal && (
         <AddLinkModal
@@ -1196,759 +1129,10 @@ function themeBackground(theme: Theme): React.CSSProperties {
   return { backgroundColor: c.background || '#7F2AEB' }
 }
 
-// ── DesignIndexPanel — exact Linktree Design page layout ───────────────────
-function DesignIndexPanel({ config, bgSummary, fontSummary, buttonSummary, themeSummary, onNavigate }: {
-  config: any
-  bgSummary: string
-  fontSummary: string
-  buttonSummary: string
-  themeSummary: string
-  onNavigate: (tab: string) => void
-}) {
-  const c = config.theme.colors
-
-  // Background style for wallpaper/theme thumbnail
-  let cardBgStyle: React.CSSProperties = {}
-  if (c.backgroundImage) {
-    cardBgStyle = {
-      backgroundImage: `url(${c.backgroundImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-    }
-  } else if (c.backgroundMesh) {
-    cardBgStyle = { background: c.backgroundMesh }
-  } else if (c.backgroundGradient) {
-    cardBgStyle = { background: `linear-gradient(135deg, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})` }
-  } else {
-    cardBgStyle = { backgroundColor: c.background || '#6366f1' }
-  }
-
-  // Shared card row component matching official Linktree pill-card design
-  const DesignRow = ({ id, label, summary, thumbnail, showZap = false }: {
-    id: string; label: string; summary?: string; thumbnail: React.ReactNode; showZap?: boolean
-  }) => (
-    <button
-      onClick={() => onNavigate(id)}
-      className="w-full clay-design-row px-4 py-3.5 flex items-center gap-3.5 text-left group"
-    >
-      {/* Left thumbnail squircle */}
-      <div className="w-[48px] h-[48px] rounded-[16px] overflow-hidden flex-shrink-0 flex items-center justify-center"
-        style={{ boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.8), inset 0 -1.5px 0 rgba(148,163,184,0.12), 0 2px 0 rgba(148,163,184,0.18), 0 3px 8px rgba(15,23,42,0.07)', border: '1.5px solid rgba(148,163,184,0.2)' }}>
-        {thumbnail}
-      </div>
-
-      {/* Label */}
-      <span className="flex-1 text-[13px] font-extrabold text-slate-800 tracking-tight">{label}</span>
-
-      {/* Right side controls (Zap badge, Summary text, Chevron) */}
-      <div className="flex items-center gap-2.5 flex-shrink-0">
-        {showZap && (
-          <div className="w-6 h-6 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 0 #4F46E5, 0 3px 8px rgba(124,58,237,0.30)' }}>
-            <Zap className="w-3 h-3 fill-white text-white" />
-          </div>
-        )}
-        {summary && (
-          <span className="text-[11px] font-bold text-slate-400">{summary}</span>
-        )}
-        <div className="w-6 h-6 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover:translate-x-0.5"
-          style={{ background: 'rgba(148,163,184,0.12)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' }}>
-          <ChevronRight className="w-3 h-3 text-slate-400 stroke-[2.5]" />
-        </div>
-      </div>
-    </button>
-  )
-
-  return (
-    <div className="space-y-3">
-      {/* ── Theme (standalone top card) ── */}
-      <DesignRow
-        id="themes"
-        label="Theme"
-        summary={themeSummary}
-        thumbnail={
-          <div className="w-full h-full" style={cardBgStyle}>
-            <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 p-1">
-              <div className="w-4 h-4 rounded-full opacity-60" style={{ backgroundColor: c.profileText || '#fff' }} />
-              <div className="w-6 h-1 rounded-full opacity-80" style={{ backgroundColor: c.buttonDefault || '#fff' }} />
-              <div className="w-4 h-1 rounded-full opacity-50" style={{ backgroundColor: c.buttonDefault || '#fff' }} />
-            </div>
-          </div>
-        }
-      />
-
-      {/* ── Section Title ── */}
-      <div className="pt-2 pb-1">
-        <h2 className="text-base font-bold text-slate-900 px-1">Customize</h2>
-      </div>
-
-      {/* ── 1. Header ── */}
-      <DesignRow
-        id="profile"
-        label="Header"
-        summary={(config.profile.headerLayout || 'classic').charAt(0).toUpperCase() + (config.profile.headerLayout || 'classic').slice(1)}
-        showZap={true}
-        thumbnail={
-          <div className="w-full h-full bg-slate-950 flex items-center justify-center p-0.5">
-            <Avatar src={config.profile.avatar} size="sm" fallback="user" />
-          </div>
-        }
-      />
-
-      {/* ── 2. Wallpaper ── */}
-      <DesignRow
-        id="background"
-        label="Wallpaper"
-        summary={bgSummary}
-        showZap={true}
-        thumbnail={
-          <div className="w-full h-full rounded-xl" style={cardBgStyle} />
-        }
-      />
-
-      {/* ── 3. Buttons ── */}
-      <DesignRow
-        id="buttons"
-        label="Buttons"
-        summary={buttonSummary}
-        showZap={true}
-        thumbnail={
-          <div className="w-full h-full bg-slate-50 flex items-center justify-center">
-            <div
-              className="w-7 h-7 rounded-xl border border-slate-200/90 bg-white shadow-xs"
-              style={{
-                backgroundColor: c.buttonDefault || '#ffffff',
-                borderRadius: `${Math.min((config.theme.buttonStyle?.borderRadius ?? 12) / 2, 12)}px`,
-              }}
-            />
-          </div>
-        }
-      />
-
-      {/* ── 4. Text ── */}
-      <DesignRow
-        id="fonts"
-        label="Text"
-        summary={fontSummary}
-        showZap={true}
-        thumbnail={
-          <div className="w-full h-full bg-slate-100/70 flex items-center justify-center">
-            <span className="text-lg font-bold text-slate-800" style={{ fontFamily: config.theme.fonts?.body }}>Aa</span>
-          </div>
-        }
-      />
-
-      {/* ── 5. Colors ── */}
-      <DesignRow
-        id="colors"
-        label="Colors"
-        thumbnail={
-          <div className="w-[34px] h-[34px] rounded-xl border border-slate-200 bg-white shadow-xs" />
-        }
-      />
-
-      {/* ── 6. Stickers ── */}
-      <DesignRow
-        id="stickers"
-        label="Stickers"
-        summary="Decorate your page"
-        thumbnail={
-          <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <Sticker className="w-5 h-5" />
-          </div>
-        }
-      />
-
-      {/* ── 7. Footer ── */}
-      <DesignRow
-        id="footer"
-        label="Footer"
-        thumbnail={
-          <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-700">
-            <Asterisk className="w-5 h-5" />
-          </div>
-        }
-      />
-    </div>
-  )
-}
+// Feature panels are imported from @/components/editor/panels
 
 
-// Themes Panel Component — exact Linktree Theme page layout
-function ThemesPanel({ config, updateConfig, onBack }: any) {
-  const [subTab, setSubTab] = useState<'customizable' | 'curated'>('customizable')
-
-  const applyTheme = (targetTheme: Theme) => {
-    // Deep clone the preset so we don't mutate the THEMES array
-    const cleanTheme: Theme = JSON.parse(JSON.stringify(targetTheme))
-
-    // Keep preset backgrounds intact. Image themes store their actual visual in
-    // backgroundImage, so clearing it makes the selected theme look incorrect.
-    cleanTheme.colors.backgroundVideo   = ''
-    cleanTheme.colors.backgroundIframe  = ''
-    // Let the preset's fill/gradient/mesh/image background take over.
-    ;(cleanTheme.colors as any).backgroundType = ''
-
-    updateConfig('theme', cleanTheme)
-  }
-
-  const handleShuffle = () => {
-    const selectable = THEMES.filter(t => t.id !== 'custom')
-    if (selectable.length > 0) {
-      const randomIndex = Math.floor(Math.random() * selectable.length)
-      applyTheme(selectable[randomIndex])
-    }
-  }
-
-  const displayThemes = THEMES.filter(t => t.id !== 'custom')
-
-  return (
-    <div className="space-y-5">
-      {/* ── Top Bar: ← Theme title + Shuffle button ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="p-1 rounded-lg hover:bg-slate-100 text-slate-900 transition-colors cursor-pointer"
-              title="Back to Design"
-            >
-              <ArrowLeft className="w-5 h-5 stroke-[2]" />
-            </button>
-          )}
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Theme</h1>
-        </div>
-
-        <button
-          onClick={handleShuffle}
-          className="px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-800 flex items-center gap-2 shadow-2xs transition-all cursor-pointer"
-        >
-          <Shuffle className="w-4 h-4 text-slate-700" />
-          <span>Shuffle</span>
-        </button>
-      </div>
-
-      {/* ── Sub-tabs: Customizable | Curated ── */}
-      <div className="flex items-center gap-6 border-b border-slate-200/80">
-        <button
-          onClick={() => setSubTab('customizable')}
-          className={`pb-3 text-sm font-bold transition-all relative cursor-pointer ${
-            subTab === 'customizable' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Customizable
-          {subTab === 'customizable' && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-900 rounded-full" />
-          )}
-        </button>
-        <button
-          onClick={() => setSubTab('curated')}
-          className={`pb-3 text-sm font-bold transition-all relative cursor-pointer ${
-            subTab === 'curated' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          Curated
-          {subTab === 'curated' && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-900 rounded-full" />
-          )}
-        </button>
-      </div>
-
-      {/* ── Themes 5-column Grid ── */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3.5 pt-1">
-        {/* Custom Card (First) */}
-        <div className="flex flex-col items-center group">
-          <button
-            onClick={() => {
-              const customTheme = THEMES.find(t => t.id === 'custom') || THEMES[0]
-              applyTheme(customTheme)
-            }}
-            className={`w-full aspect-[3/4] rounded-[22px] border-2 bg-slate-100/90 flex flex-col items-center justify-center transition-all cursor-pointer ${
-              config.theme.id === 'custom'
-                ? 'border-slate-900 ring-2 ring-slate-900/20 shadow-md'
-                : 'border-slate-900 hover:bg-slate-200/80'
-            }`}
-          >
-            <Paintbrush className="w-6 h-6 text-slate-700 stroke-[1.5]" />
-          </button>
-          <span className="text-xs font-semibold text-slate-700 mt-2 text-center truncate max-w-full">
-            Custom
-          </span>
-        </div>
-
-        {/* Theme Cards */}
-        {displayThemes.map((theme) => (
-          <div key={theme.id} className="flex flex-col items-center group">
-            <button
-              onClick={() => applyTheme(theme)}
-              className={`w-full aspect-[3/4] rounded-[22px] relative overflow-hidden border-2 transition-all cursor-pointer shadow-2xs hover:shadow-md ${
-                config.theme.id === theme.id
-                  ? 'border-slate-900 ring-2 ring-slate-900/20 shadow-md'
-                  : 'border-slate-200/80 hover:border-slate-400'
-              }`}
-              style={themeBackground(theme)}
-            >
-              {/* Heading typography preview Aa */}
-              <span
-                className="absolute top-2.5 left-3 text-lg md:text-xl font-bold tracking-tight"
-                style={{
-                  color: theme.colors.profileText || '#FFFFFF',
-                  fontFamily: theme.fonts?.heading || 'sans-serif',
-                }}
-              >
-                Aa
-              </span>
-
-              {/* Zap lightning badge */}
-              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-slate-900/60 backdrop-blur-xs text-white flex items-center justify-center">
-                <Zap className="w-3 h-3 fill-white text-white" />
-              </div>
-
-              {/* Translucent pill button mockup preview at bottom */}
-              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-[82%] h-6 rounded-full bg-white/35 backdrop-blur-xs border border-white/20 shadow-2xs flex items-center justify-center">
-                <div className="w-[50%] h-1 rounded-full bg-white/70" />
-              </div>
-            </button>
-
-            {/* Theme title centered below */}
-            <span className="text-xs font-semibold text-slate-700 mt-2 text-center truncate max-w-full">
-              {theme.name}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-const compressImageFile = (file: File, maxDimension = 800, quality = 0.85): Promise<string> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-
-        if (width > height) {
-          if (width > maxDimension) {
-            height = Math.round((height * maxDimension) / width)
-            width = maxDimension
-          }
-        } else {
-          if (height > maxDimension) {
-            width = Math.round((width * maxDimension) / height)
-            height = maxDimension
-          }
-        }
-
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', quality))
-        } else {
-          resolve(e.target?.result as string)
-        }
-      }
-      img.onerror = () => resolve(e.target?.result as string)
-      img.src = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
-// Profile Panel Component (Header) — exact Linktree Header design
-function ProfilePanel({ config, updateConfig, onBack }: any) {
-  const selectedLayout = config.profile?.headerLayout || 'classic'
-  const titleStyle = config.profile?.titleStyle || 'text'
-  const altFontEnabled = config.profile?.altFont || false
-  const [showImageInput, setShowImageInput] = useState(false)
-
-  const avatarInputRef = useRef<HTMLInputElement>(null)
-  const bannerInputRef = useRef<HTMLInputElement>(null)
-
-  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      try {
-        const compressed = await compressImageFile(file, 800, 0.85)
-        updateConfig('profile.avatar', compressed)
-      } catch (err) {
-        console.error('Failed to compress avatar:', err)
-      }
-    }
-  }
-
-  const handleBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      try {
-        const compressed = await compressImageFile(file, 1200, 0.85)
-        updateConfig('profile.bannerImage', compressed)
-      } catch (err) {
-        console.error('Failed to compress banner:', err)
-      }
-    }
-  }
-
-  const layouts = [
-    { id: 'classic', label: 'Classic', isPro: false, showZap: false },
-    { id: 'hero',    label: 'Hero',    isPro: true,  showZap: true  },
-    { id: 'banner',  label: 'Banner',  isPro: false, showZap: true  },
-    { id: 'shape',   label: 'Shape',   isPro: false, showZap: true  },
-  ]
-
-  const fonts = [
-    'Manrope', 'Inter', 'Roboto', 'Outfit', 'Plus Jakarta Sans', 'Playfair Display', 'Space Grotesk'
-  ]
-
-  return (
-    <div className="space-y-7">
-      {/* Hidden file input pickers */}
-      <input
-        type="file"
-        ref={avatarInputRef}
-        accept="image/*"
-        onChange={handleAvatarFile}
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={bannerInputRef}
-        accept="image/*"
-        onChange={handleBannerFile}
-        className="hidden"
-      />
-
-      {/* ── Top Bar: ← Header title ── */}
-      <div className="flex items-center gap-2">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-900 transition-colors cursor-pointer"
-            title="Back to Design"
-          >
-            <ArrowLeft className="w-5 h-5 stroke-[2]" />
-          </button>
-        )}
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">Header</h1>
-      </div>
-
-      {/* ── 1. Layout Section ── */}
-      <div>
-        <h2 className="text-sm font-bold text-slate-900 mb-3">Layout</h2>
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {layouts.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => updateConfig('profile.headerLayout', l.id)}
-              className={`w-28 sm:w-32 aspect-square rounded-[22px] border-2 bg-white flex flex-col items-center justify-between p-3 relative overflow-hidden transition-all cursor-pointer flex-shrink-0 ${
-                selectedLayout === l.id
-                  ? 'border-slate-900 ring-2 ring-slate-900/20 shadow-md'
-                  : 'border-slate-200/80 hover:border-slate-400'
-              }`}
-            >
-              {/* Badge */}
-              {l.isPro ? (
-                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-slate-950 text-white text-[10px] font-bold flex items-center gap-1 shadow-xs">
-                  <span>Pro</span>
-                  <Zap className="w-2.5 h-2.5 fill-white text-white" />
-                </div>
-              ) : l.showZap ? (
-                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-slate-500 text-white flex items-center justify-center shadow-xs">
-                  <Zap className="w-3 h-3 fill-white text-white" />
-                </div>
-              ) : null}
-
-              {/* Mockup layout graphic tailored for each layout */}
-              <div className="flex-1 flex items-center justify-center w-full pt-1.5 pb-1">
-                {l.id === 'classic' && (
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-9 h-9 rounded-full bg-slate-900 overflow-hidden border border-slate-200 shadow-xs flex items-center justify-center">
-                      <Avatar src={config.profile.avatar} size="xs" fallback="user" />
-                    </div>
-                    <div className="w-10 h-1 bg-slate-300 rounded-full" />
-                  </div>
-                )}
-                {l.id === 'hero' && (
-                  <div className="w-full h-11 bg-slate-900 rounded-t-lg relative overflow-hidden flex flex-col justify-end p-1.5 border border-slate-700 shadow-xs">
-                    {config.profile.avatar && (config.profile.avatar.startsWith('http') || config.profile.avatar.startsWith('data:')) ? (
-                      <img src={config.profile.avatar} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-indigo-900 opacity-80" />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
-                    <div className="relative z-10 w-10 h-1 bg-white rounded-full mx-auto" />
-                  </div>
-                )}
-                {l.id === 'banner' && (
-                  <div className="w-full flex flex-col items-center relative">
-                    <div className="w-full h-6 rounded-t-lg bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 relative overflow-hidden">
-                      {config.profile.bannerImage && (
-                        <img src={config.profile.bannerImage} alt="" className="w-full h-full object-cover" />
-                      )}
-                    </div>
-                    <div className="w-7 h-7 rounded-full bg-slate-900 border-2 border-white -mt-3.5 relative z-10 overflow-hidden shadow-xs flex items-center justify-center">
-                      <Avatar src={config.profile.avatar} size="xs" fallback="user" />
-                    </div>
-                  </div>
-                )}
-                {l.id === 'shape' && (
-                  <div className="w-8 h-8 bg-rose-600 overflow-hidden shadow-xs flex items-center justify-center" style={{ borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%' }}>
-                    <Avatar src={config.profile.avatar} size="xs" fallback="user" />
-                  </div>
-                )}
-              </div>
-
-              {/* Label */}
-              <span className="text-xs font-semibold text-slate-800">{l.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Dynamic Sub-Section: Shape Selector (When Layout === 'shape') ── */}
-      {selectedLayout === 'shape' && (
-        <div className="pt-2 pb-2">
-          <h2 className="text-sm font-bold text-slate-900 mb-3">Shape</h2>
-          <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {[
-              { id: 'loop',    label: 'Loop',    iconPath: 'M10 25C10 15 25 10 40 10C55 10 70 15 70 25C70 35 55 40 40 40C25 40 10 35 10 25Z' },
-              { id: 'flower',  label: 'Flower',  iconPath: 'M25 10C30 5 45 5 50 10C55 15 65 20 65 30C65 40 55 45 50 50C45 55 30 55 25 50C20 45 10 40 10 30C10 20 20 15 25 10Z' },
-              { id: 'oval',    label: 'Oval',    iconPath: 'M15 25C15 14 26 10 40 10C54 10 65 14 65 25C65 36 54 40 40 40C26 40 15 36 15 25Z' },
-              { id: 'rounded', label: 'Rounded', iconPath: 'M15 15C15 10 20 10 40 10C60 10 65 10 65 15C65 35 65 35 65 35C65 40 60 40 40 40C20 40 15 40 15 35Z' },
-              { id: 'burst',   label: 'Burst',   iconPath: 'M40 5L46 16L58 12L54 24L65 30L55 38L62 48L50 46L44 57L36 48L24 53L27 41L15 38L24 28L18 18L30 20L40 5Z' },
-            ].map((s) => {
-              const currentShape = config.profile?.headerShape || 'loop'
-              const isSelected = currentShape === s.id
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => updateConfig('profile.headerShape', s.id)}
-                  className={`w-20 sm:w-24 aspect-square rounded-[20px] border-2 bg-white flex flex-col items-center justify-center p-2.5 transition-all cursor-pointer flex-shrink-0 ${
-                    isSelected
-                      ? 'border-slate-900 ring-2 ring-slate-900/20 shadow-md'
-                      : 'border-slate-200/80 hover:border-slate-400'
-                  }`}
-                >
-                  <div className="w-10 h-6 flex items-center justify-center mb-1">
-                    <svg viewBox="0 0 80 50" className="w-9 h-6 fill-slate-800">
-                      <path d={s.iconPath} />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-semibold text-slate-800">{s.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── 2. Profile image ── */}
-      <div className="flex items-center justify-between py-2 border-t border-slate-100">
-        <label className="text-sm font-bold text-slate-900">Profile image</label>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => avatarInputRef.current?.click()}
-            className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-[16px] flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Upload image
-          </button>
-          <div className="relative group">
-            <div
-              onClick={() => avatarInputRef.current?.click()}
-              className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center cursor-pointer"
-            >
-              <Avatar src={config.profile.avatar} size="lg" fallback="user" />
-            </div>
-            <button
-              onClick={() => avatarInputRef.current?.click()}
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-slate-200 rounded-full flex items-center justify-center shadow-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-              title="Upload new image"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {showImageInput && (
-        <div className="bg-slate-50 p-3.5 rounded-[18px] border border-slate-200 space-y-2">
-          <label className="block text-xs font-bold text-slate-700">Or enter Image URL / Emoji</label>
-          <input
-            type="text"
-            value={config.profile.avatar}
-            onChange={(e) => updateConfig('profile.avatar', e.target.value)}
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-[14px] bg-white text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
-            placeholder="https://... or emoji 😀"
-          />
-        </div>
-      )}
-
-      {/* ── Dynamic Sub-Section: Banner Image (When Layout === 'banner') ── */}
-      {selectedLayout === 'banner' && (
-        <div className="flex items-center justify-between py-2 border-t border-slate-100">
-          <label className="text-sm font-bold text-slate-900">Banner image</label>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => bannerInputRef.current?.click()}
-              className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-[16px] flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-xs cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Upload banner
-            </button>
-            <div
-              onClick={() => bannerInputRef.current?.click()}
-              className="w-14 h-14 rounded-[18px] bg-slate-100 border border-slate-200 flex flex-col items-center justify-center cursor-pointer shadow-xs hover:bg-slate-200/70 transition-colors relative overflow-hidden"
-              title="Upload Banner Image"
-            >
-              {config.profile.bannerImage ? (
-                <img src={config.profile.bannerImage} alt="banner" className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex items-center justify-center text-slate-500">
-                  <ImageIcon className="w-5 h-5" />
-                  <Plus className="w-3 h-3 -ml-1 -mt-2 stroke-[3]" />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 3. Title ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-t border-slate-100">
-        <label className="text-sm font-bold text-slate-900">Title</label>
-        <input
-          type="text"
-          value={config.profile.title}
-          onChange={(e) => updateConfig('profile.title', e.target.value)}
-          className="w-full sm:w-80 bg-white border border-slate-200 rounded-[18px] px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all"
-          placeholder="satvikpatel8373"
-        />
-      </div>
-
-      {/* ── 4. Bio ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 py-2 border-t border-slate-100">
-        <label className="text-sm font-bold text-slate-900 pt-3">Bio</label>
-        <div className="w-full sm:w-80 relative">
-          <textarea
-            value={config.profile.bio || ''}
-            onChange={(e) => {
-              if (e.target.value.length <= 160) {
-                updateConfig('profile.bio', e.target.value)
-              }
-            }}
-            maxLength={160}
-            className="w-full bg-white border border-slate-200 rounded-[20px] p-4 text-sm font-normal text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none min-h-[105px] pr-4 pb-8"
-            placeholder="Add a short bio"
-          />
-          <span className="absolute bottom-3 right-4 text-xs font-semibold text-slate-400 pointer-events-none">
-            {config.profile.bio?.length || 0}/160
-          </span>
-        </div>
-      </div>
-
-      {/* ── 5. Title style ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-t border-slate-100">
-        <label className="text-sm font-bold text-slate-900">Title style</label>
-        <div className="flex items-center gap-3">
-          {/* Aa Text */}
-          <button
-            onClick={() => updateConfig('profile.titleStyle', 'text')}
-            className={`w-28 py-3 rounded-[18px] border-2 bg-white flex flex-col items-center justify-center transition-all cursor-pointer ${
-              titleStyle === 'text'
-                ? 'border-slate-900 shadow-xs'
-                : 'border-slate-200/80 hover:border-slate-400'
-            }`}
-          >
-            <span className="text-lg font-bold text-slate-900 leading-none">Aa</span>
-            <span className="text-xs font-semibold text-slate-700 mt-1">Text</span>
-          </button>
-
-          {/* Logo */}
-          <button
-            onClick={() => updateConfig('profile.titleStyle', 'logo')}
-            className={`w-28 py-3 rounded-[18px] border-2 bg-white flex flex-col items-center justify-center transition-all cursor-pointer relative ${
-              titleStyle === 'logo'
-                ? 'border-slate-900 shadow-xs'
-                : 'border-slate-200/80 hover:border-slate-400'
-            }`}
-          >
-            <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-slate-500 text-white flex items-center justify-center">
-              <Zap className="w-3 h-3 fill-white text-white" />
-            </div>
-            <ImageIcon className="w-5 h-5 text-slate-700" />
-            <span className="text-xs font-semibold text-slate-700 mt-1">Logo</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── 6. Alternative title font ── */}
-      <div className="flex items-center justify-between py-2 border-t border-slate-100">
-        <div>
-          <label className="text-sm font-bold text-slate-900 block">Alternative title font</label>
-          <span className="text-xs text-slate-400 font-normal">Matches page font by default</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-slate-500 text-white flex items-center justify-center shadow-xs">
-            <Zap className="w-3 h-3 fill-white text-white" />
-          </div>
-          <button
-            onClick={() => updateConfig('profile.altFont', !altFontEnabled)}
-            className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
-              altFontEnabled ? 'bg-emerald-600' : 'bg-slate-300'
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full bg-white shadow-xs transition-transform ${
-                altFontEnabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* ── 7. Title font ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-t border-slate-100">
-        <label className="text-sm font-bold text-slate-900">Title font</label>
-        <select
-          value={config.theme.fonts?.heading || 'Manrope'}
-          onChange={(e) => updateConfig('theme.fonts.heading', e.target.value)}
-          className="w-full sm:w-80 bg-white border border-slate-200 rounded-[18px] px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer"
-        >
-          {fonts.map((f) => (
-            <option key={f} value={f}>
-              {f}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* ── 8. Title color ── */}
-      <div className="flex items-center justify-between py-2 border-t border-slate-100">
-        <label className="text-sm font-bold text-slate-900">Title color</label>
-        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-[18px] px-4 py-2.5 shadow-2xs">
-          <input
-            type="color"
-            value={config.theme.colors?.profileText || '#FFFFFF'}
-            onChange={(e) => updateConfig('theme.colors.profileText', e.target.value)}
-            className="w-6 h-6 rounded-lg border border-slate-200 cursor-pointer shadow-xs"
-          />
-          <input
-            type="text"
-            value={config.theme.colors?.profileText || '#FFFFFF'}
-            onChange={(e) => updateConfig('theme.colors.profileText', e.target.value)}
-            className="w-20 font-mono text-sm font-bold text-slate-900 uppercase focus:outline-none"
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
+// ThemesPanel and ProfilePanel are imported from @/components/editor/panels
 
 
 // Background Panel — wallpaper (Flat, Gradient, Google Drive)
@@ -3702,940 +2886,8 @@ function AnalyticsPanel({ config }: any) {
   )
 }
 
-// ── tiny icon for preview phone ───────────────────────────────────────────
-function PreviewIcon({ link, color }: { link: LinkItem; color: string }) {
-  const map: Record<string, React.FC<{ size?: number; className?: string }>> = {
-    instagram: InstagramIcon, tiktok: TikTokIcon, youtube: YouTubeIcon,
-    spotify: SpotifyIcon, twitter: TwitterIcon, facebook: FacebookIcon,
-    linkedin: LinkedInIcon, discord: DiscordIcon, github: GitHubIcon,
-    whatsapp: WhatsAppIcon, telegram: TelegramIcon, soundcloud: SoundCloudIcon,
-    'apple-music': AppleMusicIcon,
-  }
-  const Icon = link.platform && map[link.platform] ? map[link.platform] : null
-  if (Icon) return <Icon size={10} className="flex-shrink-0" />
-  if (link.type === 'shop')    return <ShoppingBag className="w-2.5 h-2.5 flex-shrink-0" />
-  if (link.type === 'contact') return <User        className="w-2.5 h-2.5 flex-shrink-0" />
-  if (link.type === 'event')   return <Globe       className="w-2.5 h-2.5 flex-shrink-0" />
-  return <LinkIcon className="w-2.5 h-2.5 flex-shrink-0" />
-}
 
-// ── Preview Component — matches Linktree's exact layout ─────────────────
-// ── Preview Component — compact, fits 500px screen height, no scroll ─────
-function BioLinkPreview({ config }: { config: BioLinkConfig }) {
-  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean | string>>({})
-  const [latestVideoDetails, setLatestVideoDetails] = useState<Record<string, { thumbnailUrl?: string; title?: string; latestUrl?: string }>>({})
 
-  useEffect(() => {
-    if (!config?.links) return
-    const targetLinks = config.links.filter(l => (l.videoClickOption === 'open_latest' || l.videoClickOption === 'display_latest') && l.url)
-    if (targetLinks.length === 0) return
-
-    targetLinks.forEach(async (link) => {
-      try {
-        const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.thumbnailUrl || data.title) {
-            setLatestVideoDetails(prev => ({
-              ...prev,
-              [link.id]: {
-                thumbnailUrl: data.thumbnailUrl,
-                title: data.title,
-                latestUrl: data.latestUrl,
-              }
-            }))
-          }
-        }
-      } catch {
-        // ignore
-      }
-    })
-  }, [config?.links])
-
-  if (!config) return null
-
-  // Use formatAndNormalizeTheme for button/font/palette — but read background
-  // fields DIRECTLY from config.theme.colors so no normalization can drop them.
-  const theme = formatAndNormalizeTheme(config.theme)
-  const rawColors = config.theme.colors  // direct — never normalized away
-  const c: typeof theme.colors = {
-    ...theme.colors,
-    backgroundVideo:   rawColors?.backgroundVideo   ?? '',
-    backgroundIframe:  rawColors?.backgroundIframe  ?? '',
-    backgroundImage:   rawColors?.backgroundImage   ?? '',
-    backgroundOverlay: rawColors?.backgroundOverlay ?? '',
-    backgroundMesh:    rawColors?.backgroundMesh    ?? theme.colors.backgroundMesh,
-    backgroundGradient: rawColors?.backgroundGradient ?? theme.colors.backgroundGradient,
-    backgroundType:    (rawColors?.backgroundType || undefined) as typeof theme.colors.backgroundType,
-  }
-  // The preview renders its overlay as a separate layer below, so avoid
-  // compositing it into the background image a second time.
-  const bg = themeBackground({ ...theme, colors: { ...c, backgroundOverlay: '' } })
-  const profile = config.profile || { title: 'satvikpatel8373', bio: '', avatar: '' }
-  const links = config.links || []
-
-  const bs = theme.buttonStyle || {}
-  const bStyle = bs?.style ?? 'solid'
-  const animEnabled = bs?.enableAnimations ?? true
-  const animStyle = bs?.animation ?? 'bounce'
-
-  let animClasses = 'cursor-pointer hover:opacity-95 active:scale-[0.97] transition-all duration-200'
-  if (animEnabled) {
-    if (animStyle === 'bounce') animClasses = 'cursor-pointer hover:scale-[1.025] hover:-translate-y-0.5 active:scale-[0.97] transition-all duration-200 ease-out'
-    else if (animStyle === 'pulse') animClasses = 'cursor-pointer animate-pulse hover:animate-none hover:scale-[1.02] transition-all'
-    else if (animStyle === 'wobble') animClasses = 'cursor-pointer hover:animate-bounce hover:scale-[1.02] transition-all'
-    else if (animStyle === 'slide') animClasses = 'cursor-pointer hover:translate-x-1.5 transition-transform duration-200 ease-out'
-  }
-
-  const makeBtnStyle = (overrideHeight?: number | string, flexDir?: any): React.CSSProperties => {
-    const r = bs?.borderRadius ?? 20
-    const shStyle = bs?.shadowStyle ?? (bs?.shadow ? 'soft' : 'none')
-    const bWidth = bs?.borderWidth ?? 0
-    const bColor = bs?.borderColor || c.buttonText || '#000000'
-
-    let boxShadow = 'none'
-    if (shStyle === 'soft') boxShadow = '0 3px 12px rgba(0,0,0,0.08)'
-    else if (shStyle === 'strong') boxShadow = '0 8px 24px rgba(0,0,0,0.22)'
-    else if (shStyle === 'hard') boxShadow = `3px 3px 0px ${bColor}`
-
-    const base: React.CSSProperties = {
-      fontFamily: theme.fonts?.body || 'Inter, sans-serif',
-      borderRadius: r > 20 ? '9999px' : `${r}px`,
-      width: '100%',
-      display: 'flex',
-      flexDirection: flexDir || 'row',
-      alignItems: flexDir === 'column' ? 'stretch' : 'center',
-      justifyContent: 'space-between',
-      height: overrideHeight !== undefined ? overrideHeight : 44,
-      padding: flexDir === 'column' ? '0' : (overrideHeight === 32 ? '0 10px' : '0 12px'),
-      flexShrink: 0,
-      position: 'relative',
-      textDecoration: 'none',
-      overflow: 'hidden',
-      boxShadow,
-    }
-    const getSmartContrast = (bgHex?: string, fallbackText?: string) => {
-      if (fallbackText && fallbackText !== '#000000' && fallbackText !== '#ffffff' && fallbackText !== '#000') {
-        return fallbackText
-      }
-      const bg = bgHex || '#ffffff'
-      if (bg.startsWith('#') && bg.length === 7) {
-        const r = parseInt(bg.substring(1, 3), 16)
-        const g = parseInt(bg.substring(3, 5), 16)
-        const b = parseInt(bg.substring(5, 7), 16)
-        const brightness = (r * 299 + g * 587 + b * 114) / 1000
-        return brightness < 140 ? '#ffffff' : '#0f172a'
-      }
-      return fallbackText || c.profileText || '#0f172a'
-    }
-
-    switch (bStyle) {
-      case 'clay':
-        const isClayWhite = !c.buttonDefault || c.buttonDefault === '#ffffff' || c.buttonDefault === '#FFFFFF'
-        const clayBg = isClayWhite ? 'rgba(255, 255, 255, 0.92)' : c.buttonDefault
-        return {
-          ...base,
-          backgroundColor: clayBg,
-          color: getSmartContrast(isClayWhite ? '#ffffff' : c.buttonDefault, c.buttonText),
-          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : '1px solid rgba(255, 255, 255, 0.65)',
-          boxShadow: 'inset 0 3px 6px rgba(255, 255, 255, 0.8), inset 0 -3px 6px rgba(0, 0, 0, 0.12), 0 12px 26px -4px rgba(0, 0, 0, 0.26)',
-        }
-      case 'glass':
-        const isOpaqueWhite = !c.buttonDefault || c.buttonDefault === '#ffffff' || c.buttonDefault === '#FFFFFF'
-        return {
-          ...base,
-          backgroundColor: isOpaqueWhite ? 'rgba(255, 255, 255, 0.22)' : c.buttonDefault,
-          color: c.buttonText && c.buttonText !== '#000000' && c.buttonText !== '#000' ? c.buttonText : '#ffffff',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          border: `${Math.max(bWidth, 1)}px solid ${bColor && bColor !== '#000000' ? bColor : 'rgba(255,255,255,0.35)'}`,
-          boxShadow: boxShadow !== 'none' ? boxShadow : '0 4px 18px rgba(0,0,0,0.1)',
-        }
-      case 'outline':
-        const outlineColor = c.buttonText && c.buttonText !== '#000000' ? c.buttonText : (c.profileText || '#ffffff')
-        return {
-          ...base,
-          backgroundColor: 'transparent',
-          color: outlineColor,
-          border: `${Math.max(bWidth, 2)}px solid ${bColor && bColor !== '#000000' ? bColor : outlineColor}`,
-          boxShadow: 'none',
-        }
-      case 'hard-shadow':
-        const hardBg = c.buttonDefault || '#ffffff'
-        const hardBorder = bColor && bColor !== '#000000' && bColor !== '#000' ? bColor : (c.profileText || '#000000')
-        return {
-          ...base,
-          backgroundColor: hardBg,
-          color: getSmartContrast(hardBg, c.buttonText),
-          border: `${Math.max(bWidth, 2)}px solid ${hardBorder}`,
-          boxShadow: `3px 3px 0px ${hardBorder}`,
-        }
-      case 'fill':
-        const fillBg = c.buttonDefault || '#ffffff'
-        return {
-          ...base,
-          backgroundColor: fillBg,
-          color: getSmartContrast(fillBg, c.buttonText),
-          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : 'none',
-          boxShadow: 'none',
-        }
-      case 'soft':
-        const softBg = c.buttonDefault || '#ffffff'
-        return {
-          ...base,
-          backgroundColor: softBg,
-          color: getSmartContrast(softBg, c.buttonText),
-          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : '1px solid rgba(255, 255, 255, 0.75)',
-          boxShadow: '0 12px 28px -6px rgba(0, 0, 0, 0.22), 0 6px 12px -4px rgba(0, 0, 0, 0.12)',
-        }
-      default: // solid
-        const solidBg = c.buttonDefault || '#ffffff'
-        return {
-          ...base,
-          backgroundColor: solidBg,
-          color: getSmartContrast(solidBg, c.buttonText),
-          border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : 'none',
-          boxShadow: boxShadow !== 'none' ? boxShadow : '0 3px 10px rgba(0,0,0,0.1)',
-        }
-    }
-  }
-
-  const btnStyle = makeBtnStyle()
-  
-  // Filter visible links and check schedule
-  const now = new Date()
-  const visible = config.links.filter(l => {
-    if (l.isVisible === false) return false
-    
-    // Check scheduling
-    if (l.isScheduled) {
-      if (l.scheduleStart) {
-        const start = new Date(l.scheduleStart)
-        if (now < start) return false
-      }
-      if (l.scheduleEnd) {
-        const end = new Date(l.scheduleEnd)
-        if (now > end) return false
-      }
-    }
-    
-    return true
-  })
-  
-  // Sort: pinned first, then by order
-  const sortedLinks = [...visible].sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1
-    if (!a.isPinned && b.isPinned) return 1
-    return 0
-  })
-  
-  const displayLinks = sortedLinks
-
-  // Active social icons come EXCLUSIVELY from config.socialLinks
-  const activeSocialIcons: { platform: string; url: string }[] = []
-  if (config.socialLinks) {
-    Object.entries(config.socialLinks).forEach(([platform, url]) => {
-      if (url && url.trim()) {
-        activeSocialIcons.push({ platform: platform.toLowerCase(), url: url.trim() })
-      }
-    })
-  }
-
-  function extractYouTubeThumb(url?: string): string | null {
-    if (!url) return null
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/)
-    if (match && match[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
-    if (url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be')) {
-      return `https://img.youtube.com/vi/hqdefault.jpg`
-    }
-    return null
-  }
-
-  const PlatformThumb = ({ link }: { link: LinkItem }) => {
-    const map: Record<string, React.FC<{ size?: number; className?: string }>> = {
-      instagram: InstagramIcon, tiktok: TikTokIcon, youtube: YouTubeIcon,
-      spotify: SpotifyIcon, twitter: TwitterIcon, facebook: FacebookIcon,
-      linkedin: LinkedInIcon, discord: DiscordIcon, github: GitHubIcon,
-      whatsapp: WhatsAppIcon, telegram: TelegramIcon, soundcloud: SoundCloudIcon,
-      shopify: ShopifyIcon, email: EmailIcon, phone: PhoneIcon, website: WebsiteIcon,
-      'apple-music': AppleMusicIcon,
-    }
-    const url = (link.url || '').toLowerCase()
-    let iconKey = (link.platform || link.icon || '').toLowerCase()
-
-    if (!map[iconKey]) {
-      if (url.includes('youtube.com') || url.includes('youtu.be')) iconKey = 'youtube'
-      else if (url.includes('instagram.com')) iconKey = 'instagram'
-      else if (url.includes('spotify.com')) iconKey = 'spotify'
-      else if (url.includes('twitter.com') || url.includes('x.com')) iconKey = 'twitter'
-      else if (url.includes('facebook.com')) iconKey = 'facebook'
-      else if (url.includes('tiktok.com')) iconKey = 'tiktok'
-      else if (url.includes('github.com')) iconKey = 'github'
-      else if (url.includes('linkedin.com')) iconKey = 'linkedin'
-    }
-
-    const Icon = map[iconKey] || null
-    const isYouTube = iconKey === 'youtube'
-
-    return (
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
-        isYouTube ? 'bg-red-600 text-white' : 'bg-black/10 text-current'
-      }`}>
-        {link.thumbnail ? (
-          <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
-        ) : Icon ? (
-          <Icon size={14} />
-        ) : link.type === 'shop' ? (
-          <ShoppingBag className="w-3.5 h-3.5" />
-        ) : link.type === 'contact' ? (
-          <User className="w-3.5 h-3.5" />
-        ) : link.type === 'event' ? (
-          <Globe className="w-3.5 h-3.5" />
-        ) : (
-          <LinkIcon className="w-3.5 h-3.5" />
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', ...bg }}>
-      {c.backgroundImage && (
-        <div
-          className="absolute inset-0 z-0 pointer-events-none"
-          style={{
-            backgroundImage: `url(${c.backgroundImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            filter: theme.backgroundFilter || 'none',
-          }}
-        />
-      )}
-      {/* Video Background */}
-      {c.backgroundVideo && (
-        <video
-          key={c.backgroundVideo}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
-          src={c.backgroundVideo}
-        />
-      )}
-
-      {/* YouTube / Vimeo / iframe Background */}
-      {c.backgroundIframe && (
-        <iframe
-          src={getEmbedIframeUrl(c.backgroundIframe)}
-          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none border-0 scale-150"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          tabIndex={-1}
-        />
-      )}
-
-      {/* Overlay */}
-      {c.backgroundOverlay && (
-        <div className="absolute inset-0 z-0 pointer-events-none" style={{ backgroundColor: c.backgroundOverlay }} />
-      )}
-
-      {theme.noiseOpacity && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-          opacity: theme.noiseOpacity, mixBlendMode: 'overlay' as any
-        }} />
-      )}
-
-      {/* ── Outer Card Wrapper matching user reference image ── */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', padding: '16px 14px 10px', overflowY: 'auto' }}>
-
-        {/* ── Top Bar Action Buttons (Inside Card) ── */}
-        <div className="flex items-center justify-between w-full mb-3 flex-shrink-0 relative z-30">
-          <div className="w-7 h-7 rounded-full bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-white/30 transition-colors">
-            <Sparkles className="w-3.5 h-3.5" />
-          </div>
-          <div className="w-7 h-7 rounded-full bg-white/20 border border-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-sm cursor-pointer hover:bg-white/30 transition-colors">
-            <Share2 className="w-3.5 h-3.5" />
-          </div>
-        </div>
-
-        {/* ── Avatar Profile Header (Dynamic Layouts) ── */}
-        {(() => {
-          const headerLayout = (profile as any)?.headerLayout || 'classic'
-          const headerShape = (profile as any)?.headerShape || 'loop'
-          const bannerImage = (profile as any)?.bannerImage || ''
-          const avatarSrc = profile?.avatar && profile?.avatar !== 'user' ? profile.avatar : ''
-          const hasImg = (src?: string) => Boolean(src && (src.startsWith('http') || src.startsWith('data:') || src.length > 10))
-
-          // 1. HERO LAYOUT
-          if (headerLayout === 'hero') {
-            return (
-              <div className="flex flex-col items-center text-center flex-shrink-0 mb-4 -mx-[14px] -mt-[56px] pt-14 relative h-[260px] overflow-hidden justify-end p-4">
-                {hasImg(avatarSrc) ? (
-                  <img
-                    src={avatarSrc}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{
-                      maskImage: 'linear-gradient(to bottom, black 50%, rgba(0,0,0,0.8) 75%, transparent 100%)',
-                      WebkitMaskImage: 'linear-gradient(to bottom, black 50%, rgba(0,0,0,0.8) 75%, transparent 100%)'
-                    }}
-                  />
-                ) : (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center text-white text-3xl font-bold"
-                    style={{
-                      background: c.backgroundGradient
-                        ? `linear-gradient(${c.backgroundGradient.direction || '135deg'}, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})`
-                        : c.backgroundMesh || `linear-gradient(135deg, ${c.background || '#0f172a'}, ${c.accent || '#4f46e5'})`,
-                      maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
-                      WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
-                    }}
-                  >
-                    {(config.profile.title || '?')[0].toUpperCase()}
-                  </div>
-                )}
-
-                <div className="relative z-10 text-center pb-1">
-                  <h2 className="text-sm font-black leading-snug tracking-tight mb-0.5 text-white drop-shadow-md" style={{ fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
-                    {config.profile.title || 'satvikpatel8373'}
-                  </h2>
-                  {config.profile.bio && (
-                    <p className="text-[11px] opacity-95 max-w-[200px] mx-auto line-clamp-2 font-medium leading-tight text-white drop-shadow-sm" style={{ fontFamily: theme.fonts?.body || 'Inter, sans-serif' }}>
-                      {config.profile.bio}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )
-          }
-
-          // 2. BANNER LAYOUT
-          if (headerLayout === 'banner') {
-            return (
-              <div className="flex flex-col items-center text-center flex-shrink-0 mb-4">
-                <div className="w-[calc(100%+28px)] h-32 -mx-[14px] -mt-[56px] relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center">
-                  {hasImg(bannerImage) ? (
-                    <img src={bannerImage} alt="banner" className="w-full h-full object-cover" />
-                  ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center text-white/80"
-                      style={{
-                        background: c.backgroundGradient
-                          ? `linear-gradient(${c.backgroundGradient.direction || '135deg'}, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})`
-                          : c.backgroundMesh || `linear-gradient(135deg, ${c.accent || '#ec4899'}, ${c.buttonDefault || '#4f46e5'})`
-                      }}
-                    >
-                      <ImageIcon size={24} opacity={0.7} />
-                    </div>
-                  )}
-                </div>
-
-                <div className="mb-2 flex justify-center relative z-10 -mt-10">
-                  {hasImg(avatarSrc) ? (
-                    <img src={avatarSrc} alt="" className="w-20 h-20 rounded-full object-cover shadow-md" />
-                  ) : (
-                    <div
-                      className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-bold shadow-md"
-                      style={{
-                        backgroundColor: c.buttonDefault || '#1e293b',
-                        color: c.buttonText || c.profileText || '#ffffff'
-                      }}
-                    >
-                      {(config.profile.title || '?')[0].toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                <h2 className="text-xs font-black leading-snug tracking-tight mb-0.5" style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
-                  {config.profile.title || 'satvikpatel8373'}
-                </h2>
-                {config.profile.bio && (
-                  <p className="text-[10px] opacity-85 max-w-[200px] mx-auto line-clamp-2 font-medium leading-tight" style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif' }}>
-                    {config.profile.bio}
-                  </p>
-                )}
-              </div>
-            )
-          }
-
-          // 4. SHAPE LAYOUT
-          if (headerLayout === 'shape') {
-            const shapeBorderRadius =
-              headerShape === 'flower' ? '38% 62% 63% 37% / 41% 44% 56% 59%' :
-              headerShape === 'loop' ? '60% 40% 30% 70% / 60% 30% 70% 40%' :
-              headerShape === 'oval' ? '50% / 35%' :
-              headerShape === 'burst' ? '30% 70% 70% 30% / 50% 30% 70% 50%' : '26px'
-
-            return (
-              <div className="flex flex-col items-center text-center flex-shrink-0 mb-3">
-                <div className="mb-2 flex justify-center">
-                  <div
-                    className="w-36 h-28 overflow-hidden shadow-2xl flex items-center justify-center relative transition-all duration-300 border-2 border-white/40"
-                    style={{
-                      borderRadius: shapeBorderRadius,
-                      backgroundColor: c.buttonDefault || c.accent || '#4F46E5'
-                    }}
-                  >
-                    {hasImg(avatarSrc) ? (
-                      <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-3xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
-                        {(config.profile.title || '?')[0].toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <h2 className="text-xs font-black leading-snug tracking-tight mb-0.5" style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter, sans-serif' }}>
-                  {config.profile.title || 'satvikpatel8373'}
-                </h2>
-                {config.profile.bio && (
-                  <p className="text-[10px] opacity-85 max-w-[200px] mx-auto line-clamp-2 font-medium leading-tight" style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter, sans-serif' }}>
-                    {config.profile.bio}
-                  </p>
-                )}
-              </div>
-            )
-          }
-
-          // 5. CLASSIC LAYOUT (DEFAULT)
-          return (
-            <div className="flex flex-col items-center text-center flex-shrink-0 mb-4">
-              <div className="mb-2">
-                {hasImg(avatarSrc) ? (
-                  <img
-                    src={avatarSrc}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="w-14 h-14 rounded-full object-cover shadow-md"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl shadow-md">
-                    {avatarSrc || <User className="w-7 h-7 text-white/70" />}
-                  </div>
-                )}
-              </div>
-
-              <h2
-                className="text-xs font-black leading-snug tracking-tight mb-0.5"
-                style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'Inter' }}
-              >
-                {config.profile.title || 'satvikpatel8373'}
-              </h2>
-
-              {config.profile.bio && (
-                <p
-                  className="text-[10px] opacity-85 max-w-[200px] mx-auto line-clamp-2 font-medium leading-tight"
-                  style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'Inter' }}
-                >
-                  {config.profile.bio}
-                </p>
-              )}
-            </div>
-          )
-        })()}
-
-        {/* ── Social Icons Bar (Top Position) ── */}
-        {activeSocialIcons.length > 0 && (config.socialIconPosition || 'top') === 'top' && (
-          <div className="flex justify-center items-center gap-2 mb-3 px-2 flex-wrap flex-shrink-0">
-            {activeSocialIcons.map(({ platform, url }) => (
-              <a
-                key={platform}
-                href={url || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => { if (!url || url === '#') e.preventDefault() }}
-                className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  color: c.profileText || '#ffffff',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                }}
-                title={platform}
-              >
-                <ServiceIcon iconId={platform} size={14} />
-              </a>
-            ))}
-          </div>
-        )}
-
-        {/* ── Stacked Linktree Link Buttons ── */}
-        <div className="w-full flex flex-col gap-2 flex-shrink-0 mb-3">
-          {displayLinks.length === 0 && (
-            <p style={{ textAlign: 'center', fontSize: 10, color: c.profileBio, opacity: 0.4, padding: '12px 0' }}>
-              No links added yet
-            </p>
-          )}
-          {(() => {
-            const renderSinglePreviewLink = (link: LinkItem) => {
-              if (link.type === 'header') {
-                const text = (link.groupTitle || link.text || '').trim()
-                const isDefault = !text || text.toLowerCase() === 'add collection title' || text.toLowerCase() === 'new section' || text.toLowerCase() === 'section header'
-                if (isDefault) return null
-
-                return (
-                  <div key={link.id} className="flex items-center gap-2 py-1">
-                    <div className="flex-1 h-px bg-white/20" />
-                    <span className="text-[9px] font-bold tracking-wider uppercase opacity-60" style={{ color: c.profileText }}>
-                      {text}
-                    </span>
-                    <div className="flex-1 h-px bg-white/20" />
-                  </div>
-                )
-              }
-              if (link.type === 'text') return (
-                <p key={link.id} className="text-center text-[10px] opacity-75 font-medium leading-relaxed px-1" style={{ color: c.profileBio }}>
-                  {link.description || link.text}
-                </p>
-              )
-
-              const isFeatured = link.layout === 'featured'
-              const isCompact = link.layout === 'compact'
-              const customStyle = isCompact 
-                ? makeBtnStyle(32) 
-                : isFeatured 
-                ? makeBtnStyle('auto', 'column') 
-                : makeBtnStyle(44)
-
-              const isYouTube = (link.url || '').toLowerCase().includes('youtube.com') || (link.url || '').toLowerCase().includes('youtu.be')
-              const ytThumb = isYouTube ? extractYouTubeThumb(link.url) : null
-              const latestInfo = latestVideoDetails[link.id]
-              const cardThumb = latestInfo?.thumbnailUrl || link.thumbnail || ytThumb
-              const cardTitle = latestInfo?.title || link.text || 'YouTube Video'
-              const clickOpt = link.videoClickOption || 'display_video'
-
-              // ── YOUTUBE VIDEO CARD FORMAT 1: "Display my video on my Linktree" (display_video / display_latest) ──
-              if (isYouTube && (clickOpt === 'display_video' || clickOpt === 'display_latest')) {
-                const isPlaying = Boolean(playingVideos[link.id])
-
-                if (isPlaying) {
-                  const playingTarget = typeof playingVideos[link.id] === 'string' ? (playingVideos[link.id] as unknown as string) : ''
-                  const embedSrc = getEmbedIframeUrl(playingTarget || link.embedUrl || link.url || '')
-                  const autoSrc = embedSrc ? `${embedSrc}${embedSrc.includes('?') ? '&' : '?'}autoplay=1${link.videoMute ? '&mute=1' : ''}` : ''
-                  return (
-                    <div key={link.id} className="relative w-full h-[140px] rounded-lg overflow-hidden shadow-md border border-white/10 bg-black flex flex-col justify-center">
-                      <iframe
-                        src={autoSrc}
-                        className="w-full h-full absolute inset-0 border-0 rounded-md"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setPlayingVideos(prev => ({ ...prev, [link.id]: false }))
-                        }}
-                        className="absolute top-2 right-2 z-30 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors shadow-md cursor-pointer"
-                        title="Close video"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )
-                }
-
-                return (
-                  <a
-                    key={link.id}
-                    href={link.url || '#'}
-                    onClick={async (e) => {
-                      e.preventDefault()
-                      if (clickOpt === 'display_latest') {
-                        const preEmbed = latestInfo?.latestUrl
-                        if (preEmbed) {
-                          setPlayingVideos(prev => ({ ...prev, [link.id]: preEmbed }))
-                          return
-                        }
-                        try {
-                          const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url || '')}`)
-                          const data = await res.json()
-                          if (data.embedUrl || data.latestUrl) {
-                            setPlayingVideos(prev => ({ ...prev, [link.id]: data.embedUrl || data.latestUrl }))
-                            return
-                          }
-                        } catch {
-                          // fallback
-                        }
-                      }
-                      setPlayingVideos(prev => ({ ...prev, [link.id]: true }))
-                    }}
-                    className={`group relative w-full h-[140px] flex flex-col justify-end rounded-lg overflow-hidden shadow-md border border-white/10 block text-decoration-none transition-all ${animClasses}`}
-                  >
-                    {/* Background Image */}
-                    {cardThumb ? (
-                      <img
-                        src={cardThumb}
-                        alt={cardTitle}
-                        className="w-full h-full absolute inset-0 object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full absolute inset-0 bg-slate-900 flex items-center justify-center">
-                        <YouTubeIcon size={36} className="text-red-600" />
-                      </div>
-                    )}
-
-                    {/* Center Translucent Play Button Icon */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                      <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                        <Play className="w-4.5 h-4.5 fill-white ml-0.5" />
-                      </div>
-                    </div>
-
-                    {/* Bottom Gradient & Video Info */}
-                    <div className="relative bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-2.5 z-10 text-left w-full pt-8">
-                      <h4 className="font-bold text-white text-xs leading-tight drop-shadow-md line-clamp-2">
-                        {cardTitle}
-                      </h4>
-                    </div>
-                  </a>
-                )
-              }
-
-              // ── YOUTUBE VIDEO CARD FORMAT 2: "Open YouTube video" (open_youtube) ──
-              if (isYouTube && clickOpt === 'open_youtube') {
-                return (
-                  <a
-                    key={link.id}
-                    href={link.url || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      if (!link.url || link.url === '#') e.preventDefault()
-                    }}
-                    className={`group w-full h-[140px] flex flex-col justify-between rounded-lg overflow-hidden shadow-sm border border-white/10 bg-white block text-decoration-none transition-all hover:shadow-md ${animClasses}`}
-                  >
-                    {/* Top Bezel-less Image Header */}
-                    <div className="w-full flex-1 overflow-hidden bg-black relative">
-                      {cardThumb ? (
-                        <img
-                          src={cardThumb}
-                          alt={cardTitle}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                          <YouTubeIcon size={32} className="text-red-600" />
-                        </div>
-                      )}
-                    </div>
-                    {/* Bottom Light Section with Title */}
-                    <div className="p-2 bg-white border-t border-gray-100/50">
-                      <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">
-                        {cardTitle}
-                      </h4>
-                    </div>
-                  </a>
-                )
-              }
-
-              // ── YOUTUBE VIDEO CARD FORMAT 3: "Open my channel's latest video" (open_latest) ──
-              if (isYouTube && clickOpt === 'open_latest') {
-                return (
-                  <button
-                    key={link.id}
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const targetUrl = latestInfo?.latestUrl
-                        if (targetUrl) {
-                          window.open(targetUrl, '_blank', 'noopener,noreferrer')
-                          return
-                        }
-                        const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url || '')}`)
-                        const data = await res.json()
-                        const target = data.latestUrl || link.url
-                        window.open(target, '_blank', 'noopener,noreferrer')
-                      } catch {
-                        window.open(link.url || '', '_blank', 'noopener,noreferrer')
-                      }
-                    }}
-                    className={`group w-full h-[140px] flex flex-col justify-between rounded-lg overflow-hidden shadow-sm border border-white/10 bg-white text-left transition-all hover:shadow-md ${animClasses}`}
-                  >
-                    {/* Top Bezel-less Image Header */}
-                    <div className="w-full flex-1 overflow-hidden bg-black relative">
-                      {cardThumb ? (
-                        <img
-                          src={cardThumb}
-                          alt={cardTitle}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                          <YouTubeIcon size={32} className="text-red-600" />
-                        </div>
-                      )}
-                      {/* "Latest" badge */}
-                      <span className="absolute top-1.5 left-1.5 bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide shadow">
-                        Latest
-                      </span>
-                    </div>
-                    {/* Bottom section */}
-                    <div className="p-2 bg-white border-t border-gray-100/50">
-                      <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">
-                        {cardTitle}
-                      </h4>
-                    </div>
-                  </button>
-                )
-              }
-
-              // ── 2. COMPACT ROW LAYOUT (Slim Chip Bar) ──
-              if (isCompact) {
-                return (
-                  <a
-                    key={link.id}
-                    href={link.url || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      if (!link.url || link.url === '#') e.preventDefault()
-                    }}
-                    style={{ ...makeBtnStyle(32), padding: '0 10px' }}
-                    className={`group ${animClasses}`}
-                  >
-                    <PlatformThumb link={link} />
-                    <span className="flex-1 text-left font-bold text-[10px] truncate px-2" style={{ color: c.buttonText }}>
-                      {link.text}
-                    </span>
-                    <div className="w-4 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
-                      <ChevronRight className="w-3 h-3" />
-                    </div>
-                  </a>
-                )
-              }
-
-              // CLASSIC BUTTON LAYOUT (DEFAULT)
-              return (
-                <a
-                  key={link.id}
-                  href={link.url || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    if (!link.url || link.url === '#') e.preventDefault()
-                  }}
-                  style={customStyle}
-                  className={`group ${animClasses}`}
-                >
-                  <PlatformThumb link={link} />
-                  <div className="flex-1 min-w-0 text-center px-2">
-                    <p className="font-extrabold text-[11px] leading-tight truncate" style={{ color: c.buttonText }}>
-                      {link.text}
-                    </p>
-                    {link.description && (
-                      <p className="text-[9.5px] truncate opacity-65 leading-tight mt-0.5" style={{ color: c.buttonText }}>
-                        {link.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="w-5 flex items-center justify-end opacity-40 group-hover:opacity-80 transition-opacity">
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </div>
-                </a>
-              )
-            }
-
-            return displayLinks.map((link) => {
-              if (link.groupId && !link.isGroupHeader) return null
-
-              if (link.isGroupHeader) {
-                const groupLinks = displayLinks.filter(l => l.groupId === link.id && !l.isGroupHeader)
-                const layout = link.collectionLayout || 'stack'
-
-                return (
-                  <div key={link.id} className="w-full space-y-2">
-                    {renderSinglePreviewLink(link)}
-
-                    {groupLinks.length > 0 && (
-                      <div className="w-full">
-                        {layout === 'grid' && (
-                          <div className="grid grid-cols-2 gap-2.5 w-full items-stretch">
-                            {groupLinks.map(gLink => (
-                              <div key={gLink.id} className="w-full h-full flex flex-col">
-                                {renderSinglePreviewLink(gLink)}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {layout === 'carousel' && (
-                          <div className="-mx-1 px-1 flex gap-3 overflow-x-auto pb-3 pt-1.5 w-full snap-x snap-mandatory scrollbar-none items-stretch">
-                            {groupLinks.map(gLink => (
-                              <div key={gLink.id} className="w-[220px] shrink-0 snap-center flex flex-col">
-                                {renderSinglePreviewLink(gLink)}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {layout === 'showcase' && (
-                          <div className="w-full space-y-2">
-                            {renderSinglePreviewLink({ ...groupLinks[0], layout: 'featured' })}
-                            {groupLinks.length > 1 && (
-                              <div className="grid grid-cols-2 gap-2 w-full">
-                                {groupLinks.slice(1).map(renderSinglePreviewLink)}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {layout === 'stack' && (
-                          <div className="w-full space-y-2">
-                            {groupLinks.map(renderSinglePreviewLink)}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              }
-
-              return renderSinglePreviewLink(link)
-            })
-          })()}
-        </div>
-
-        <div className="flex-1" />
-
-        {/* ── Social Icons Bar (Bottom Position) ── */}
-        {activeSocialIcons.length > 0 && config.socialIconPosition === 'bottom' && (
-          <div className="flex justify-center items-center gap-2 mb-3 px-2 flex-wrap flex-shrink-0">
-            {activeSocialIcons.map(({ platform, url }) => (
-              <a
-                key={platform}
-                href={url || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => { if (!url || url === '#') e.preventDefault() }}
-                className="w-7 h-7 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  color: c.profileText || '#ffffff',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                }}
-                title={platform}
-              >
-                <ServiceIcon iconId={platform} size={14} />
-              </a>
-            ))}
-          </div>
-        )}
-
-        {/* ── Bottom Linktree Join Pill Button ── */}
-        <div className="w-full flex-shrink-0 flex items-center justify-center py-2 px-3 rounded-full bg-white text-slate-900 shadow-md mb-2 cursor-pointer hover:bg-slate-50 active:scale-95 transition-all">
-          <span className="text-[10px] font-extrabold text-center truncate">
-            Join {config.profile.title || 'satvikpatel8373'} on BioLink
-          </span>
-        </div>
-
-        <p style={{ fontSize: 8, color: c.profileBio, opacity: 0.28, textAlign: 'center', flexShrink: 0 }}>Report · Privacy</p>
-      </div>
-    </div>
-  )
-}
 
 
 
@@ -4672,7 +2924,7 @@ const CORE_BLOCKS = [
   { id: 'contact',   label: 'Contact',    description: 'Email, phone, WhatsApp, or Telegram chat link',          bg: 'bg-sky-500',    SvgIcon: PhoneIcon,  type: 'contact' as LinkItem['type'] },
   { id: 'file',      label: 'File',       description: 'Share Google Drive docs, PDFs, & file downloads',       bg: 'bg-blue-600',   SvgIcon: ({ size, className }: any) => <Upload size={size} className={className} />, type: 'link' as LinkItem['type'], platform: 'google-drive' },
   { id: 'embed',     label: 'Embed',      description: 'Embed Spotify, SoundCloud, or custom web iFrames',       bg: 'bg-pink-600',   SvgIcon: SpotifyIcon,  type: 'music' as LinkItem['type'], platform: 'spotify' },
-  { id: 'gallery',   label: 'Gallery',    description: 'Showcase photos in grid, stack, or carousel',           bg: 'bg-amber-600',  SvgIcon: ({ size, className }: any) => <ImageIcon size={size} className={className} />, type: 'link' as LinkItem['type'] },
+  { id: 'gallery',   label: 'Gallery',    description: 'Showcase photo gallery slider with multiple images',    bg: 'bg-amber-600',  SvgIcon: ({ size, className }: any) => <ImageIcon size={size} className={className} />, type: 'gallery' as LinkItem['type'] },
   { id: 'divider',   label: 'Divider',    description: 'Add a subtle visual separator line',                    bg: 'bg-slate-400',  SvgIcon: ({ size, className }: any) => <Asterisk size={size} className={className} />, type: 'text' as LinkItem['type'] },
   { id: 'store',     label: 'Store',      description: 'Sell products & digital downloads with pricing', bg: 'bg-purple-700', SvgIcon: ShopifyIcon, type: 'shop' as LinkItem['type'] },
   { id: 'donation',  label: 'Donation',   description: 'Accept tips, coffee donations & one-time payments',     bg: 'bg-emerald-500',SvgIcon: ({ size, className }: any) => <User size={size} className={className} />, type: 'payment' as LinkItem['type'] },

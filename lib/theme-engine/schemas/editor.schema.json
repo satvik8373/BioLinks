@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BioLinkEditorSchema",
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "variants": { "type": "array", "items": { "type": "string" } },
+        "showBadge": { "type": "boolean" },
+        "showActions": { "type": "boolean" }
+      }
+    },
+    "avatar": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "shapes": { "type": "array", "items": { "type": "string" } },
+        "maxSize": { "type": "number" },
+        "border": { "type": "boolean" },
+        "shadow": { "type": "boolean" }
+      }
+    },
+    "buttons": {
+      "type": "object",
+      "properties": {
+        "variants": { "type": "array", "items": { "type": "string" } },
+        "radius": { "type": "boolean" },
+        "shadow": { "type": "boolean" },
+        "icon": { "type": "boolean" }
+      }
+    },
+    "cards": {
+      "type": "object",
+      "properties": {
+        "variants": { "type": "array", "items": { "type": "string" } },
+        "radius": { "type": "boolean" },
+        "shadow": { "type": "boolean" }
+      }
+    },
+    "background": {
+      "type": "object",
+      "properties": {
+        "types": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "decorations": {
+      "type": "object",
+      "properties": {
+        "blobs": { "type": "boolean" },
+        "opacityRange": { "type": "array", "items": { "type": "number" } }
+      }
+    },
+    "spacing": {
+      "type": "object",
+      "properties": {
+        "scales": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

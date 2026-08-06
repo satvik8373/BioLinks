@@ -2,22 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── App UI Design System vs User Theme Engine Namespace Separation ───────── */
+:root {
+  /* Immutable SaaS App Shell Tokens */
+  --app-bg: #F8FAFC;
+  --app-surface: #FFFFFF;
+  --app-border: #E2E8F0;
+  --app-text-primary: #0F172A;
+  --app-text-secondary: #64748B;
+  --app-primary: #7C3AED;
+  --app-primary-hover: #6D28D9;
+  --app-radius-md: 12px;
+  --app-radius-lg: 16px;
+  --app-font: 'Inter', sans-serif;
+}
+
+/* User Profile Theme Scope — strictly powers Public Profiles & Live Phone Preview */
+.bl-profile-theme {
+  --bl-bg: var(--theme-bg, #111827);
+  --bl-card-bg: var(--theme-card-bg, #1F2937);
+  --bl-button-bg: var(--theme-button-bg, #374151);
+  --bl-button-text: var(--theme-button-text, #FFFFFF);
+  --bl-button-radius: var(--theme-button-radius, 16px);
+  --bl-text-primary: var(--theme-text-primary, #FFFFFF);
+  --bl-accent: var(--theme-accent, #7C3AED);
+}
+
 /* ─── Clay Morphism Design System ─────────────────────────────────────────── */
 @layer base {
   html {
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    font-family: var(--app-font);
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.015em;
   }
 
   body {
-    background-color: #F6F7FB;
-    background-image: 
-      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%),
-      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.03) 0%, transparent 50%);
-    background-attachment: fixed;
+    background-color: var(--app-bg);
     min-height: 100vh;
-    color: #0F172A;
+    color: var(--app-text-primary);
   }
 
   /* Hide Scroll Indicators / Scrollbars globally across all browsers */
@@ -601,3 +623,5 @@
   /* Effects */
   --transition-duration: 200ms;
 }
+
+

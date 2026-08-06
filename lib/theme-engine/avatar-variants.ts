@@ -7,7 +7,7 @@
 export interface AvatarVariantSpec {
   id: string
   name: string
-  variant: 'circle' | 'rounded' | 'square'
+  variant: 'circle' | 'rounded' | 'square' | 'blob' | 'hexagon'
   size: number
   borderWidth: number
 }
@@ -31,6 +31,20 @@ export const AVATAR_VARIANTS: Record<string, AvatarVariantSpec> = {
     id: 'avatar-square',
     name: 'Sharp Square Avatar',
     variant: 'square',
+    size: 96,
+    borderWidth: 2
+  },
+  'avatar-blob': {
+    id: 'avatar-blob',
+    name: 'Organic Blob Avatar',
+    variant: 'blob',
+    size: 96,
+    borderWidth: 2
+  },
+  'avatar-hexagon': {
+    id: 'avatar-hexagon',
+    name: 'Geometric Hexagon Avatar',
+    variant: 'hexagon',
     size: 96,
     borderWidth: 2
   }

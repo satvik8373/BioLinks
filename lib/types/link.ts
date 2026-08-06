@@ -2,6 +2,7 @@ export type LinkType =
   | 'link'
   | 'header'
   | 'text'
+  | 'gallery'
   | 'social'
   | 'shop'
   | 'music'
@@ -91,9 +92,12 @@ export interface LinkItem {
   formShowMessage?: boolean
   formShowRating?: boolean
   formSuccessMsg?: string
-  submissions?: Array<{ date?: string; name?: string; email?: string; phone?: string; rating?: number; message?: string }>
+  // Gallery
+  galleryPhotos?: Array<{ id: string; url: string; title?: string; description?: string; linkUrl?: string; disabled?: boolean; public_id?: string; hash?: string }>
+  galleryLayout?: 'slider' | 'grid' | 'stack' | 'hero'
+  galleryCtaUrl?: string
+  galleryCtaLabel?: string
   
-
   // NFT
   nftContract?: string
   nftChain?: 'ethereum' | 'polygon' | 'solana' | 'base'

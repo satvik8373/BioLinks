@@ -1,0 +1,20 @@
+{
+  "decorations": [
+    {
+      "id": "blob-tl",
+      "type": "blob",
+      "position": "top-left",
+      "borderRadius": "45% 55% 60% 40% / 50% 45% 55% 50%",
+      "opacity": 0.9
+    },
+    {
+      "id": "blob-tr",
+      "type": "blob",
+      "position": "top-right",
+      "borderRadius": "40% 60% 55% 45% / 55% 40% 60% 45%",
+      "opacity": 0.85
+    }
+  ],
+  "wallpapers": [],
+  "patterns": []
+}

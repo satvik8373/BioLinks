@@ -1,0 +1,18 @@
+{
+  "wallpapers": [
+    "wallpapers/nebula-glass.webp",
+    "wallpapers/cyber-grid.svg"
+  ],
+  "patterns": [
+    "patterns/noise.png",
+    "patterns/mesh.svg"
+  ],
+  "decorations": [
+    "decorations/glass-sphere.svg",
+    "decorations/neon-ring.svg"
+  ],
+  "icons": [
+    "icons/sparkles.svg",
+    "icons/arrow-diagonal.svg"
+  ]
+}

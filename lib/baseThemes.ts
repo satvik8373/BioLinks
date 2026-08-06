@@ -206,56 +206,6 @@ export const BASE_THEMES: Record<string, any> = {
     layout: { style: 'centered', maxWidth: 680, headerLayout: 'classic' }
   },
 
-  'base-clay': {
-    version: '1.0.0',
-    extends: 'base-clay',
-    category: 'clay',
-    license: { type: 'pro' },
-    preview: { thumbnail: 'clay.webp', cover: 'clay-cover.webp' },
-    supports: { videoBackground: true, glass: false, clay: true, animatedGradient: false, particles: false },
-    a11y: { contrast: 'AA', reducedMotion: true },
-    effects: { glass: false, clay: true, noise: false, glow: false, blur: 0 },
-    animation: { hover: 'lift', page: 'fade', duration: 180, easing: 'ease-out' },
-    spacing: 'comfortable',
-    icon: { style: 'filled', size: 20 },
-    typography: {
-      font: 'inter',
-      headingFont: 'plus-jakarta',
-      fontFamily: 'Inter, sans-serif',
-      headingFamily: 'Plus Jakarta Sans, sans-serif',
-      headingWeight: 700,
-      bodyWeight: 400,
-      buttonWeight: 600
-    },
-    background: { type: 'mesh', preset: 'neumorphic-clay' },
-    palette: {
-      surface: '#E0E5EC',
-      text: '#2D3748',
-      textSecondary: '#718096',
-      primary: '#E0E5EC',
-      primaryHover: '#D1D9E6',
-      border: '#CBD5E0',
-      accent: '#5A67D8'
-    },
-    link: { style: 'card', icon: 'left', arrow: true },
-    components: {
-      button: {
-        variant: 'clay',
-        size: 'large',
-        iconPosition: 'left',
-        radius: 'md',
-        shadow: 'shadow-clay',
-        border: { width: 0, color: 'transparent', style: 'solid' },
-        states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
-      },
-      card: { variant: 'flat', radius: 'md', shadow: 'shadow-clay' },
-      avatar: { variant: 'circle', size: 96, border: { width: 2, color: '#CBD5E0', style: 'solid' } },
-      badge: { variant: 'soft' },
-      social: { variant: 'rounded', style: 'clay' }
-    },
-    layout: { style: 'centered', maxWidth: 680, headerLayout: 'classic' }
-  },
-
   'base-brutalist': {
     version: '1.0.0',
     extends: 'base-brutalist',
@@ -304,6 +254,48 @@ export const BASE_THEMES: Record<string, any> = {
       social: { variant: 'square', style: 'filled' }
     },
     layout: { style: 'centered', maxWidth: 680, headerLayout: 'classic' }
+  },
+
+  'base-clay': {
+    version: '1.0.0',
+    extends: 'base-clay',
+    category: 'clay',
+    license: { type: 'free' },
+    preview: { thumbnail: 'clay.webp', cover: 'clay-cover.webp' },
+    supports: { videoBackground: false, glass: false, clay: true, animatedGradient: false, particles: false },
+    a11y: { contrast: 'AA', reducedMotion: true },
+    effects: { glass: false, clay: true, noise: false, glow: false, blur: 0 },
+    animation: { hover: 'lift', page: 'fade', duration: 180, easing: 'ease-out' },
+    spacing: 'comfortable',
+    icon: { style: 'filled', size: 20 },
+    typography: {
+      font: 'inter',
+      headingFont: 'inter',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      headingFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      headingWeight: 800,
+      bodyWeight: 500,
+      buttonWeight: 700
+    },
+    background: 'neumorphic-clay',
+    palette: 'palette-clay',
+    link: { style: 'button', icon: 'left', arrow: true },
+    components: {
+      button: {
+        variant: 'clay',
+        size: 'large',
+        iconPosition: 'left',
+        radius: 'radius-xl',
+        shadow: 'shadow-pill-clay',
+        border: { width: 0, color: 'transparent', style: 'solid' },
+        states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+      },
+      card: { variant: 'clay', radius: 'radius-xl', shadow: 'shadow-card-clay' },
+      avatar: { variant: 'circle', size: 150, border: { width: 6, color: '#ffffff', style: 'solid' } },
+      badge: { variant: 'soft' },
+      social: { variant: 'rounded', style: 'clay' }
+    },
+    layout: { style: 'centered', maxWidth: 390, headerLayout: 'classic' }
   }
 }
 
@@ -330,7 +322,6 @@ export function extendTheme(childTheme: any): any {
       videoBackground: true,
       animatedGradient: true,
       glass: baseKey === 'base-glass',
-      clay: baseKey === 'base-clay',
       particles: false,
       customCursor: false,
       ...base.supports,
@@ -373,8 +364,16 @@ export function extendTheme(childTheme: any): any {
       card: childTheme.components?.card || childTheme.card || base.components?.card || 'card-elevated',
       avatar: childTheme.components?.avatar || childTheme.avatar || base.components?.avatar || 'avatar-circle',
       badge: childTheme.components?.badge || childTheme.badge || base.components?.badge || 'badge-soft',
-      social: childTheme.components?.social || childTheme.social || base.components?.social || 'social-rounded'
+      social: childTheme.components?.social || childTheme.social || base.components?.social || 'social-rounded',
+      iconContainer: childTheme.components?.iconContainer || base.components?.iconContainer || 'circle'
     },
-    layout: childTheme.layout || base.layout || 'layout-centered'
+    layout: typeof childTheme.layout === 'object'
+      ? { ...base.layout, ...childTheme.layout }
+      : { ...base.layout, width: childTheme.layoutWidth || base.layout?.width || 'normal' },
+    specialty: {
+      ...(base.specialty || {}),
+      ...(childTheme.specialty || {}),
+      decorations: childTheme.specialty?.decorations || childTheme.decorations || base.specialty?.decorations || (baseKey === 'base-glass' ? ['glass-spheres', 'mesh'] : [])
+    }
   }
 }

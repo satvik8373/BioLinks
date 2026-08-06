@@ -7,7 +7,7 @@
 export interface CardVariantSpec {
   id: string
   name: string
-  variant: 'flat' | 'elevated' | 'glass' | 'outline'
+  variant: 'flat' | 'elevated' | 'glass' | 'outline' | 'clay' | 'hero' | 'minimal'
   radius: string
   shadow: string
 }
@@ -39,6 +39,27 @@ export const CARD_VARIANTS: Record<string, CardVariantSpec> = {
     name: 'Bordered Outline Card',
     variant: 'outline',
     radius: 'radius-md',
+    shadow: 'shadow-none'
+  },
+  'card-clay': {
+    id: 'card-clay',
+    name: 'Soft Neumorphic Clay Card',
+    variant: 'clay',
+    radius: 'radius-lg',
+    shadow: 'shadow-clay'
+  },
+  'card-hero': {
+    id: 'card-hero',
+    name: 'Prominent Hero Banner Card',
+    variant: 'hero',
+    radius: 'radius-lg',
+    shadow: 'shadow-elevated'
+  },
+  'card-minimal': {
+    id: 'card-minimal',
+    name: 'Ultra Minimal Borderless Card',
+    variant: 'minimal',
+    radius: 'radius-sm',
     shadow: 'shadow-none'
   }
 }

@@ -1,0 +1,67 @@
+{
+  "version": "2.1.0",
+  "id": "soft-clay",
+  "name": "Soft Clay",
+  "namespace": "theme-soft-clay",
+  "extends": "base-clay",
+  "category": "clay",
+  "order": 6,
+  "license": "free",
+  "compatibility": { "minVersion": "2.1.0" },
+  "meta": {
+    "author": "BioLinks",
+    "description": "Light neumorphic clay theme with soft drop shadows, blob decorations, and a tactile pill link style.",
+    "tags": ["clay", "light", "neumorphic", "minimal", "soft"]
+  },
+  "background": "neumorphic-clay",
+  "palette": "palette-clay",
+  "buttonColor": "#eef0f3",
+  "buttonText": "#161821",
+  "accent": "#2f6fed",
+  "typography": {
+    "font": "font-inter",
+    "heading": "font-inter",
+    "headingWeight": 800,
+    "bodyWeight": 500,
+    "buttonWeight": 700
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": false, "clay": true, "blur": 0 },
+  "components": {
+    "button": { "variant": "button-clay", "radius": "radius-xl", "shadow": "shadow-pill-clay", "borderWidth": 0 },
+    "card": {
+      "variant": "card-clay",
+      "radius": 44,
+      "shadow": "shadow-card-clay",
+      "background": "linear-gradient(180deg,#fbfbfc 0%,#f2f3f5 100%)",
+      "maxWidth": "390px",
+      "padding": "28px 26px 34px"
+    },
+    "avatar": { "variant": "avatar-circle", "size": 150 },
+    "social": { "variant": "social-clay" },
+    "badge": { "variant": "badge-soft" }
+  },
+  "link": { "style": "button", "icon": "left", "arrow": true },
+  "visibility": {
+    "avatar": true,
+    "bio": true,
+    "verified": true,
+    "social": true,
+    "footer": true,
+    "shareButton": true
+  },
+  "supports": {
+    "imageBackground": false,
+    "videoBackground": false,
+    "animatedGradient": false,
+    "particles": false
+  },
+  "specialty": {
+    "decorations": ["blob-tl", "blob-tr"],
+    "cardGradient": "linear-gradient(180deg,#fbfbfc 0%,#f2f3f5 100%)",
+    "pillShadow": "6px 6px 12px rgba(163,168,178,0.45), -6px -6px 12px rgba(255,255,255,0.9)",
+    "socialShadow": "5px 5px 10px rgba(163,168,178,0.45), -5px -5px 10px rgba(255,255,255,0.9)"
+  },
+  "a11y": { "contrast": "AA", "reducedMotion": true }
+}

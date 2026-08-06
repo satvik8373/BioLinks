@@ -51,11 +51,11 @@ export default function Navigation() {
           
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-brand-600 text-white font-extrabold shadow-sm group-hover:bg-brand-700 transition-colors">
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-purple-600 text-white font-extrabold shadow-sm group-hover:bg-purple-700 transition-colors">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <span className="font-extrabold text-xl text-slate-900 tracking-tight">
-              Bio<span className="text-brand-600">Link</span>
+              Bio<span className="text-purple-600">Link</span>
             </span>
           </Link>
 

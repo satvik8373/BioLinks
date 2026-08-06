@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BioLinkAssetsSchema",
+  "type": "object",
+  "properties": {
+    "decorations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "position": { "type": "string" },
+          "borderRadius": { "type": "string" },
+          "opacity": { "type": "number" }
+        }
+      }
+    },
+    "wallpapers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "patterns": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

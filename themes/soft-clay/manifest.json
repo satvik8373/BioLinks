@@ -1,0 +1,16 @@
+{
+  "packageVersion": "2.1.0",
+  "id": "soft-clay",
+  "entry": "config.json",
+  "files": {
+    "config": "config.json",
+    "tokens": "tokens.json",
+    "editor": "editor.json",
+    "capabilities": "capabilities.json",
+    "assets": "assets.json",
+    "motion": "motion.json",
+    "layout": "layout.json"
+  },
+  "styles": [],
+  "components": []
+}

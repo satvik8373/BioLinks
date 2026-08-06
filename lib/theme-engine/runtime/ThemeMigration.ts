@@ -5,7 +5,7 @@
  */
 
 export class ThemeMigration {
-  public static CURRENT_VERSION = '1.0.0'
+  public static CURRENT_VERSION = '2.1.0'
 
   public static migrate(rawConfig: any): any {
     if (!rawConfig) return rawConfig

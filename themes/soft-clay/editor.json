@@ -1,0 +1,9 @@
+{
+  "header": { "enabled": true, "variants": ["classic"], "showBadge": true, "showActions": true },
+  "avatar": { "enabled": true, "shapes": ["circle"], "maxSize": 150, "border": true, "shadow": true },
+  "buttons": { "variants": ["clay", "filled", "outline"], "radius": true, "shadow": true, "icon": true },
+  "cards": { "variants": ["clay"], "radius": true, "shadow": true },
+  "background": { "types": ["solid", "gradient", "mesh"] },
+  "decorations": { "blobs": true, "opacityRange": [0.6, 1.0] },
+  "spacing": { "scales": ["tight", "comfortable", "loose"] }
+}

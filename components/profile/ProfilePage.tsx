@@ -13,7 +13,7 @@ export interface ProfilePageProps extends BioCardProps {
  * This is THE ONLY component that renders a bio profile.
  * Used by:
  * - Public pages: /[username]
- * - Editor preview: wrapped in <PhoneFrame>
+ * - Editor preview: wrapped in <iframe id="preview-iframe"> (/preview-iframe)
  * 
  * Theme updates happen via CSS variables ONLY.
  * Never conditionally render based on theme.
@@ -26,7 +26,7 @@ export default function ProfilePage({
   className = '',
 }: ProfilePageProps) {
   return (
-    <div className={`w-full h-full ${className}`}>
+    <div suppressHydrationWarning className={`w-full h-full ${className}`}>
       <BioCard
         cardId={cardId}
         overrideConfig={overrideConfig}

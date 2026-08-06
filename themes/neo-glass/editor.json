@@ -1,0 +1,22 @@
+{
+  "header": {
+    "enabled": true,
+    "variants": ["classic", "hero", "banner", "cover", "floating"]
+  },
+  "avatar": {
+    "enabled": true,
+    "shapes": ["circle", "rounded", "blob", "hexagon"],
+    "maxSize": 180,
+    "border": true,
+    "shadow": true
+  },
+  "buttons": {
+    "variants": ["filled", "glass", "outline", "gradient"],
+    "radius": true,
+    "shadow": true,
+    "icon": true
+  },
+  "background": {
+    "types": ["solid", "gradient", "image", "video", "mesh", "svg", "canvas", "lottie"]
+  }
+}

@@ -12,6 +12,10 @@ export const SHADOW_REGISTRY: Record<string, string> = {
   'shadow-xl': '0 20px 30px rgba(0, 0, 0, 0.2)',
   'shadow-glass': '0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
   'shadow-clay': '8px 8px 16px rgba(163, 177, 198, 0.6), -8px -8px 16px rgba(255, 255, 255, 0.5)',
+  // Card panel shadow — the deep floating lift of the .card div in the reference HTML
+  'shadow-card-clay': '0 30px 60px rgba(120,124,134,0.28), 0 2px 6px rgba(120,124,134,0.15), inset 0 1px 0 rgba(255,255,255,0.6)',
+  // Pill/link card shadow — the flat neumorphic inset of .link-pill
+  'shadow-pill-clay': '6px 6px 12px rgba(163,168,178,0.45), -6px -6px 12px rgba(255,255,255,0.9)',
   'shadow-hard': '4px 4px 0px rgba(0, 0, 0, 1)'
 }
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BioLinkMotionSchema",
+  "type": "object",
+  "properties": {
+    "hover": { "type": "string", "enum": ["lift", "glow", "scale", "bounce", "none"] },
+    "button": { "type": "string", "enum": ["scale", "glow", "lift"] },
+    "page": { "type": "string", "enum": ["fade", "slide", "zoom"] },
+    "card": { "type": "string", "enum": ["float", "tilt", "static"] },
+    "duration": { "type": "string" },
+    "easing": { "type": "string" }
+  }
+}

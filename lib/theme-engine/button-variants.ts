@@ -7,7 +7,7 @@
 export interface ButtonVariantSpec {
   id: string
   name: string
-  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft'
+  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft' | 'gradient'
   radius: string
   shadow: string
   borderWidth: number
@@ -64,6 +64,15 @@ export const BUTTON_VARIANTS: Record<string, ButtonVariantSpec> = {
     shadow: 'shadow-none',
     borderWidth: 2,
     states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+  },
+  'button-gradient': {
+    id: 'button-gradient',
+    name: 'Vibrant Gradient Button',
+    variant: 'gradient',
+    radius: 'radius-md',
+    shadow: 'shadow-soft',
+    borderWidth: 0,
+    states: { hover: 'glow', active: 'scale', focus: 'ring', disabled: 'opacity' }
   }
 }
 

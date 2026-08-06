@@ -13,6 +13,8 @@ import ShopBlockEditor from './ShopBlockEditor'
 import DonationBlockEditor from './DonationBlockEditor'
 import EventBlockEditor from './EventBlockEditor'
 
+import GalleryBlockEditor from './GalleryBlockEditor'
+
 interface BlockEditorDispatcherProps {
   link: LinkItem
   updateLink: (id: string, field: string, value: any) => void
@@ -20,6 +22,16 @@ interface BlockEditorDispatcherProps {
 
 export default function BlockEditorDispatcher({ link, updateLink }: BlockEditorDispatcherProps) {
   switch (link.type) {
+    case 'gallery':
+      return <GalleryBlockEditor link={link} onUpdate={(updated) => {
+        // GalleryBlockEditor uses onUpdate (full link replacement)
+        // We need to map each changed field through updateLink
+        Object.keys(updated).forEach(key => {
+          if (key !== 'id' && (updated as any)[key] !== (link as any)[key]) {
+            updateLink(link.id, key, (updated as any)[key])
+          }
+        })
+      }} />
     case 'header':
       return <HeaderBlockEditor link={link} updateLink={updateLink} />
     case 'text':

@@ -5,7 +5,8 @@
       "palette-arctic", "palette-coffee", "palette-mono", "palette-forest", "palette-midnight",
       "palette-sunset", "palette-neon", "palette-brutalist", "palette-y2k", "palette-pastel",
       "palette-neumorphic", "palette-cosmic", "palette-luxury", "palette-holographic", "palette-retro",
-      "palette-cyberpunk", "palette-emerald", "palette-waves", "palette-skyline", "palette-banner"
+      "palette-cyberpunk", "palette-emerald", "palette-waves", "palette-skyline", "palette-banner",
+      "palette-clay"
     ],
     "spacing": ["spacing-tight", "spacing-comfortable", "spacing-loose"],
     "radius": ["radius-none", "radius-sm", "radius-md", "radius-lg", "radius-xl", "radius-full"],

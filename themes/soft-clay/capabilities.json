@@ -1,0 +1,11 @@
+{
+  "supportsVideoBackground": false,
+  "supportsParticles": false,
+  "supportsGlass": false,
+  "supportsClay": true,
+  "supportsHero": false,
+  "supportsAnimations": true,
+  "supportsCustomFonts": true,
+  "supportsFloatingObjects": true,
+  "supportsMusicPlayer": false
+}

@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemesByCategory, Theme, parseGoogleDriveUrl } from '@/lib/themes'
 import { getCleanUsernameSlug } from '@/lib/urlHelper'
+import { saveDraft } from '@/lib/profileService'
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -250,6 +251,20 @@ export default function CreatePage() {
     localStorage.setItem('currentBioLinkConfig', JSON.stringify(bioLinkConfig))
     localStorage.setItem('editorPreviewCardId', accountUsername)
     localStorage.setItem('activeBioCardId', accountUsername)
+
+    // Also persist to Firestore draft so it survives refresh
+    const userId = profileData.id || profileData.uid || ''
+    if (userId) {
+      saveDraft(userId, {
+        version: 0,
+        theme: bioLinkConfig.theme,
+        profile: bioLinkConfig.profile,
+        links: bioLinkConfig.links,
+        socialLinks: bioLinkConfig.socialLinks,
+        settings: {},
+      }).catch(err => console.warn('Initial draft save warning:', err))
+    }
+
     router.push('/editor')
   }
 
