@@ -644,83 +644,36 @@ export default function EditorPage() {
           })}
         </nav>
 
-        {/* Bottom actions: Publish & Save Draft */}
-        <div className="flex-shrink-0 p-3 space-y-2 relative" style={{ borderTop: '1.5px solid rgba(148,163,184,0.2)' }}>
-          {/* Main Publish Button + Split Dropdown */}
-          <div className="flex items-center gap-1.5 w-full">
-            <button
-              type="button"
-              onClick={publishBioLink}
-              disabled={isSaving || isSavingDraft}
-              className={`flex-1 py-2.5 px-3 text-white text-xs font-extrabold rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                isSaving ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                <>
-                  <Globe className="w-3.5 h-3.5" />
-                  Publish Changes
-                </>
-              )}
-            </button>
-
-            {/* Dropdown Toggle Button */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowSaveDropdown(!showSaveDropdown)}
-                className="py-2.5 px-2.5 text-slate-700 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer"
-                title="More save options"
-              >
-                <ChevronDown className="w-4 h-4 stroke-[2.5]" />
-              </button>
-
-              {/* Dropdown Menu */}
-              {showSaveDropdown && (
-                <div className="absolute bottom-12 right-0 w-44 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-200/80 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setShowSaveDropdown(false)
-                      await saveDraftBioLink()
-                    }}
-                    disabled={isSavingDraft}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Save className="w-3.5 h-3.5 text-slate-500" />
-                    Save Draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSaveDropdown(false)
-                      const handleSlug = resolveCardKey(config.profile?.handle, config.profile?.title) || getAccountUsername() || 'user'
-                      const url = getCardPublicUrl(handleSlug)
-                      navigator.clipboard.writeText(url)
-                      setDraftSavedToast('Public link copied!')
-                      setTimeout(() => setDraftSavedToast(''), 3000)
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                    Copy Public Link
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* Bottom actions: Auto-save status & Share Page */}
+        <div className="flex-shrink-0 p-3 space-y-2.5 relative" style={{ borderTop: '1.5px solid rgba(148,163,184,0.2)' }}>
+          {/* Auto-save status indicator */}
+          <div className="flex items-center justify-between px-1">
+            {isDirty ? (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>Saving changes...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                <Check className="w-3.5 h-3.5" />
+                <span>Auto-saved {lastSavedAt ? `at ${lastSavedAt}` : ''}</span>
+              </div>
+            )}
           </div>
 
-          {/* Draft Saved Toast Notice */}
-          {draftSavedToast && (
-            <p className="text-[10px] font-bold text-emerald-600 text-center animate-pulse">
-              ✓ {draftSavedToast}
-            </p>
-          )}
+          {/* Share Page Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const handleSlug = resolveCardKey(config.profile?.handle, config.profile?.title) || getAccountUsername() || 'user'
+              localStorage.setItem('editorPreviewCardId', handleSlug)
+              setShowShareModal(true)
+            }}
+            className="w-full py-2.5 px-3 text-white text-xs font-extrabold rounded-xl bg-slate-900 hover:bg-slate-800 shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share Page</span>
+          </button>
 
           {/* Error Message */}
           {saveError && (
@@ -733,7 +686,7 @@ export default function EditorPage() {
           )}
 
           {/* Secondary links (Preview & Exit) */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2 pt-0.5">
             <button
               type="button"
               onClick={() => {
@@ -765,14 +718,31 @@ export default function EditorPage() {
       <main className="flex-1 overflow-hidden flex flex-col clay-main">
         
         {/* ── Top Mobile Header Bar ── */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200/80">
-          <div className="flex items-center gap-3">
+        <div className="md:hidden flex items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200/80">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Avatar src={config.profile.avatar} size="sm" fallback="user" />
-            <span className="text-sm font-bold text-slate-800 truncate max-w-[180px]">
-              {config.profile.title || 'My BioLink'}
-            </span>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-slate-800 truncate block leading-tight">
+                {config.profile.title || 'My BioLink'}
+              </span>
+              <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                {isDirty ? 'Saving...' : 'Auto-saved ✓'}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => {
+                const handleSlug = resolveCardKey(config.profile?.handle, config.profile?.title) || getAccountUsername() || 'user'
+                localStorage.setItem('editorPreviewCardId', handleSlug)
+                setShowShareModal(true)
+              }}
+              className="p-1.5 px-2.5 rounded-xl bg-slate-900 text-white active:scale-95 transition-transform cursor-pointer hover:bg-slate-800 flex items-center gap-1.5 text-xs font-bold"
+              title="Share page"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share</span>
+            </button>
             <button
               onClick={() => {
                 if (!config) return
@@ -783,7 +753,7 @@ export default function EditorPage() {
               className="p-2 rounded-xl bg-slate-100 text-slate-700 active:scale-95 transition-transform cursor-pointer hover:bg-slate-200"
               title="Open Live Preview in New Tab"
             >
-              <Eye className="w-5 h-5" />
+              <Eye className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -1077,23 +1047,6 @@ export default function EditorPage() {
           })}
         </div>
       </nav>
-
-      {/* ── Mobile Publish Button (Floating) ── */}
-      <button
-        onClick={publishBioLink}
-        disabled={isSaving}
-        className={`md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg flex items-center justify-center active:scale-95 transition-all ${
-          isSaving ? 'opacity-70' : ''
-        }`}
-        style={{ boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)' }}
-        title="Publish Changes"
-      >
-        {isSaving ? (
-          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <Globe className="w-6 h-6 stroke-[2]" />
-        )}
-      </button>
 
       {/* Share Modal */}
       {showShareModal && (

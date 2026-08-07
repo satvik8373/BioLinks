@@ -67,29 +67,29 @@ export default function MusicSheetModal({ link, onClose }: MusicSheetModalProps)
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl w-[94%] max-w-[360px] sm:max-w-md my-auto max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 cursor-default text-slate-900 font-sans border border-slate-100/90"
+        className="bg-white rounded-3xl w-[94%] max-w-[380px] sm:max-w-md my-auto max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 cursor-default text-slate-900 font-sans border border-slate-100/90"
       >
         {/* Header */}
-        <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
           <div className="min-w-0 flex-1 text-center pr-2">
-            <h3 className="text-xs font-extrabold text-slate-900 truncate leading-tight">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-tight">
               {link.text || 'Music Track'}
             </h3>
-            <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+            <p className="text-xs font-medium text-slate-500 truncate mt-0.5">
               {link.description || 'Song • Stream everywhere'}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-6.5 h-6.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer flex-shrink-0"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer flex-shrink-0 transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-3 overflow-y-auto flex-1 min-h-0 space-y-2.5">
+        <div className="p-4 overflow-y-auto flex-1 min-h-0 space-y-3.5">
           {/* Spotify Audio Embed Player (Official Spotify Snippet) */}
           {spotifyEmbed && (
             <iframe
@@ -108,24 +108,24 @@ export default function MusicSheetModal({ link, onClose }: MusicSheetModalProps)
           )}
 
           {/* Streaming Platforms List */}
-          <div className="space-y-1.5">
-            <h4 className="text-[11px] font-extrabold text-slate-800 px-0.5">Listen on</h4>
-            <div className="space-y-1">
+          <div className="space-y-2">
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider px-0.5">Listen on</h4>
+            <div className="space-y-1.5">
               {services.map((service: any) => (
                 <a
                   key={service.id}
                   href={ensureAbsoluteUrl(service.url || link.url)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 transition-all group cursor-pointer text-decoration-none"
+                  className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50 transition-all group cursor-pointer text-decoration-none"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
-                      <ServiceIcon name={service.platformKey || service.id} size={14} />
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0">
+                      <ServiceIcon name={service.platformKey || service.id} size={18} />
                     </div>
-                    <span className="text-[11px] font-extrabold text-slate-900 leading-none">{service.name}</span>
+                    <span className="text-xs sm:text-sm font-semibold text-slate-900 leading-none">{service.name}</span>
                   </div>
-                  <ExternalLink size={12} className="text-slate-400 group-hover:text-slate-700" />
+                  <ExternalLink size={15} className="text-slate-400 group-hover:text-slate-700 transition-colors" />
                 </a>
               ))}
             </div>
@@ -133,33 +133,33 @@ export default function MusicSheetModal({ link, onClose }: MusicSheetModalProps)
         </div>
 
         {/* Fixed Bottom Actions */}
-        <div className="p-2.5 bg-white border-t border-slate-100 flex items-center justify-between gap-2 flex-shrink-0">
+        <div className="p-3 bg-white border-t border-slate-100 flex items-center justify-between gap-2 flex-shrink-0">
           <a
             href={ensureAbsoluteUrl(link.url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 h-9 px-3.5 bg-black hover:bg-slate-900 text-white font-extrabold text-[11px] rounded-full flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm text-decoration-none"
+            className="flex-1 h-10 px-4 bg-black hover:bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm text-decoration-none"
           >
-            <SpotifyIcon size={15} />
+            <SpotifyIcon size={18} />
             <span className="truncate">Open in Spotify</span>
           </a>
 
           <button
             type="button"
             onClick={handleShare}
-            className="w-9 h-9 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+            className="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
             title="Share link"
           >
-            <Share2 className="w-3.5 h-3.5" />
+            <Share2 className="w-4 h-4" />
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+            className="w-10 h-10 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
             title="Close sheet"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
