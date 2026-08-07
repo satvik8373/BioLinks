@@ -143,13 +143,13 @@ export default function LoginPage() {
         {/* Brand Header */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-[3px_4px_12px_rgba(79,70,229,0.35)] text-white group-hover:scale-105 transition-transform">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-clay-btn text-white group-hover:scale-105 transition-transform">
               <Sparkles className="w-6 h-6" />
             </div>
-            <span className="text-2xl font-extrabold text-indigo-950 tracking-tight">Bio<span className="text-rose-500">Link</span></span>
+            <span className="text-2xl font-extrabold text-slate-900 tracking-tight">Bio<span className="text-rose-500">Link</span></span>
           </Link>
-          <h1 className="text-3xl font-black text-indigo-950 mb-1">Welcome Back!</h1>
-          <p className="text-indigo-900/60 text-sm font-semibold">Sign in to manage your bio link cards</p>
+          <h1 className="text-3xl font-black text-slate-900 mb-1">Welcome Back!</h1>
+          <p className="text-slate-600 text-sm font-semibold">Sign in to manage your bio link cards</p>
         </div>
 
         {/* Sharp Clay Container (Solid White, High Contrast) */}
@@ -163,9 +163,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold mb-1.5 text-indigo-950 uppercase tracking-wide">Email Address</label>
+              <label className="block text-xs font-bold mb-1.5 text-slate-900 uppercase tracking-wide">Email Address</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="email"
                   placeholder="you@example.com"
@@ -178,9 +178,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-1.5 text-indigo-950 uppercase tracking-wide">Password</label>
+              <label className="block text-xs font-bold mb-1.5 text-slate-900 uppercase tracking-wide">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="password"
                   placeholder="••••••••"
@@ -195,7 +195,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" className="w-4 h-4 accent-indigo-600 rounded" />
-                <span className="text-xs text-indigo-900 font-extrabold">Remember me</span>
+                <span className="text-xs text-slate-800 font-extrabold">Remember me</span>
               </label>
               <Link href="/forgot-password" className="text-xs font-extrabold text-rose-500 hover:text-rose-600 transition-colors">
                 Forgot password?
@@ -217,7 +217,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-xs font-bold text-indigo-900/60 mt-6">
+          <p className="text-center text-xs font-bold text-slate-600 mt-6">
             Don't have an account?{' '}
             <Link href="/signup" className="font-black text-rose-500 hover:text-rose-600 transition-colors">
               Sign Up Free
@@ -225,8 +225,8 @@ export default function LoginPage() {
           </p>
 
           {/* Social Sign-In */}
-          <div className="mt-6 pt-6 border-t border-indigo-50">
-            <p className="text-center text-xs text-indigo-400 font-extrabold uppercase tracking-wider mb-4">Or continue with</p>
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <p className="text-center text-xs text-slate-400 font-extrabold uppercase tracking-wider mb-4">Or continue with</p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -258,7 +258,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link href="/create" className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 transition-colors">
+          <Link href="/create" className="text-xs font-extrabold text-brand-600 hover:text-brand-800 transition-colors">
             Try Without Account →
           </Link>
         </div>
