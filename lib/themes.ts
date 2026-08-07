@@ -47,7 +47,7 @@ export interface Theme {
     shadow: boolean
     shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
     boxShadow?: string
-    style: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill'
+    style: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill' | 'wood' | 'carved' | 'raised' | 'leather'
     animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide'
     enableAnimations?: boolean
   }
@@ -119,6 +119,53 @@ function jsonToLegacyTheme(rawConfig: any): Theme {
     },
     preview: bgStr,
     isPremium: config.license?.type === 'pro' || config.isPro,
+    specialty: config.specialty
+      ? { ...config.specialty }
+      : undefined,
+    // ── Card panel specialty tokens ────────────────────────────────────────
+    // Populated from config.components.card so each theme controls its own
+    // card surface appearance without any hardcoded values in BioCard.
+    // NOTE: Do NOT use resolveBackground() on card.background — that function is
+    //       for page-level backgrounds only and sets .image which bleeds into
+    //       colors.backgroundImage, causing a duplicate full-page overlay.
+    ...(config.components?.card && (() => {
+      const card = config.components.card
+
+      // If specialty.cardBackground is already explicitly set in the JSON config,
+      // skip computing it from components.card.background to avoid duplication.
+      const specialtyAlreadyHasCardBg = Boolean(config.specialty?.cardBackground)
+
+      let cardBg: string | undefined = undefined
+      if (!specialtyAlreadyHasCardBg && card.background) {
+        const rawBg = card.background as string
+        // Wrap image file paths in url() for valid CSS. Gradients/colors used as-is.
+        if (
+          rawBg.startsWith('/') ||
+          rawBg.startsWith('./') ||
+          rawBg.startsWith('http') ||
+          rawBg.includes('.webp') || rawBg.includes('.jpg') || rawBg.includes('.png') || rawBg.includes('.gif')
+        ) {
+          cardBg = `url(${rawBg})`
+        } else {
+          cardBg = rawBg
+        }
+      }
+      const cardRadius = card.radius != null
+        ? (typeof card.radius === 'number' ? `${card.radius}px` : resolveRadius(card.radius, 8) + 'px')
+        : undefined
+      const cardShadow = card.shadow ? resolveShadow(card.shadow) : undefined
+      if (!cardBg && !cardRadius && !cardShadow) return {}
+      return {
+        specialty: {
+          ...(config.specialty || {}),
+          ...(cardBg     && { cardBackground:   cardBg }),
+          ...(cardRadius && { cardBorderRadius: cardRadius }),
+          ...(cardShadow && { cardBoxShadow:    cardShadow }),
+          ...(card.maxWidth  && { cardMaxWidth:  card.maxWidth }),
+          ...(card.padding   && { cardPadding:   card.padding }),
+        }
+      }
+    })()),
   }
 }
 
@@ -259,14 +306,13 @@ export function formatAndNormalizeTheme(rawTheme?: any): Theme {
     const userColorOverrides = rawTheme.colors ? {
       // Wallpaper / background customizations set by the editor panels
       ...(rawTheme.colors.backgroundType     !== undefined && { backgroundType:     rawTheme.colors.backgroundType }),
-      ...(rawTheme.colors.backgroundImage    !== undefined && rawTheme.colors.backgroundImage    && { backgroundImage:    rawTheme.colors.backgroundImage }),
-      ...(rawTheme.colors.backgroundVideo    !== undefined && rawTheme.colors.backgroundVideo    && { backgroundVideo:    rawTheme.colors.backgroundVideo }),
-      ...(rawTheme.colors.backgroundIframe   !== undefined && rawTheme.colors.backgroundIframe   && { backgroundIframe:   rawTheme.colors.backgroundIframe }),
-      ...(rawTheme.colors.backgroundMesh     !== undefined && rawTheme.colors.backgroundMesh     && { backgroundMesh:     rawTheme.colors.backgroundMesh }),
-      ...(rawTheme.colors.backgroundGradient !== undefined && rawTheme.colors.backgroundGradient && { backgroundGradient: rawTheme.colors.backgroundGradient }),
-      ...(rawTheme.colors.backgroundOverlay  !== undefined && rawTheme.colors.backgroundOverlay  && { backgroundOverlay:  rawTheme.colors.backgroundOverlay }),
-      // Explicit solid background pick (non-default)
-      ...(rawTheme.colors.background && rawTheme.colors.background !== base.colors.background && { background: rawTheme.colors.background }),
+      ...(rawTheme.colors.backgroundImage    !== undefined && { backgroundImage:    rawTheme.colors.backgroundImage }),
+      ...(rawTheme.colors.backgroundVideo    !== undefined && { backgroundVideo:    rawTheme.colors.backgroundVideo }),
+      ...(rawTheme.colors.backgroundIframe   !== undefined && { backgroundIframe:   rawTheme.colors.backgroundIframe }),
+      ...(rawTheme.colors.backgroundMesh     !== undefined && { backgroundMesh:     rawTheme.colors.backgroundMesh }),
+      ...(rawTheme.colors.backgroundGradient !== undefined && { backgroundGradient: rawTheme.colors.backgroundGradient }),
+      ...(rawTheme.colors.backgroundOverlay  !== undefined && { backgroundOverlay:  rawTheme.colors.backgroundOverlay }),
+      ...(rawTheme.colors.background         !== undefined && { background:         rawTheme.colors.background }),
       // User-overridden palette tokens (from Colors panel)
       ...(rawTheme.colors.buttonDefault && rawTheme.colors.buttonDefault !== base.colors.buttonDefault && { buttonDefault: rawTheme.colors.buttonDefault, buttonHover: rawTheme.colors.buttonDefault }),
       ...(rawTheme.colors.buttonText    && rawTheme.colors.buttonText    !== base.colors.buttonText    && { buttonText:    rawTheme.colors.buttonText }),
@@ -299,7 +345,13 @@ export function formatAndNormalizeTheme(rawTheme?: any): Theme {
       buttonStyle: {
         ...base.buttonStyle,
         ...userButtonOverrides,
-        style: rawTheme.buttonStyle?.style || base.buttonStyle.style,
+        style: (() => {
+          let s = rawTheme.buttonStyle?.style || base.buttonStyle.style
+          if (typeof s === 'string' && s.startsWith('button-')) {
+            s = s.substring(7)
+          }
+          return s as any
+        })(),
       },
       // fonts can be user-overridden but fall back to preset
       fonts: rawTheme.fonts || base.fonts,

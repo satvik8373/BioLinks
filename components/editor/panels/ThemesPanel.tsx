@@ -39,7 +39,8 @@ export default function ThemesPanel({ config, updateConfig, onBack }: Props) {
     const cleanTheme: Theme = JSON.parse(JSON.stringify(targetTheme))
     cleanTheme.colors.backgroundVideo   = ''
     cleanTheme.colors.backgroundIframe  = ''
-    ;(cleanTheme.colors as any).backgroundType = ''
+    cleanTheme.colors.backgroundImage   = targetTheme.colors.backgroundImage || ''
+    cleanTheme.colors.backgroundType    = targetTheme.colors.backgroundType || (targetTheme.colors.backgroundImage ? 'image' : 'fill')
     updateConfig('theme', cleanTheme)
   }
 

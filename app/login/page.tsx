@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LogIn, Mail, Lock, AlertCircle, Sparkles } from 'lucide-react'
-import { auth, googleProvider, githubProvider } from '@/lib/firebase'
+import { auth, googleProvider, githubProvider } from '@/lib/firebase-auth'
 import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth'
 
 export default function LoginPage() {

@@ -1,84 +1,30 @@
 /**
- * Resilient Storage (Firestore Cloud + LocalStorage Fallback)
- * - Dual Cloud Sync: Saves to both 'users/{userId}/cards' and 'bioCards' in Firestore
- * - Resilient Loading: Fetches from Firestore user subcollection, Firestore 'bioCards' collection, and localStorage
- * - Seamless experience: Works authenticated or unauthenticated without blocking
+ * Storage — client-side card persistence
+ *
+ * All Firestore collection access is server-side only (see lib/firestore.ts
+ * and app/api/cards routes). This module talks only to:
+ *   - The /api/cards HTTP routes (for cloud persistence)
+ *   - localStorage (for offline/fallback caching)
+ *   - Firebase Storage via firebaseStorage.ts (for file uploads)
+ *
+ * This keeps collection names, auth-field names, and the Firestore SDK
+ * out of browser bundles entirely, which resolves the
+ * react-doctor/artifact-baas-authority-surface warning.
  */
 
-import { db, auth } from './firebase'
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs,
-  deleteDoc,
-  serverTimestamp,
-  Timestamp
-} from 'firebase/firestore'
-function getUserId(): string | null {
-  if (typeof window === 'undefined') return null
-  
-  // 1. Check Firebase Auth
-  if (auth?.currentUser?.uid) {
-    return auth.currentUser.uid
-  }
-  
-  // 2. Check localStorage for user profile (demo or authenticated user session)
-  try {
-    const profileStr = localStorage.getItem('userProfile')
-    if (profileStr) {
-      const profile = JSON.parse(profileStr)
-      if (profile.id || profile.uid) {
-        return profile.id || profile.uid
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-  
-  // 3. Fallback to local user ID
-  let localUserId = localStorage.getItem('localUserId')
-  if (!localUserId) {
-    localUserId = 'user_' + Math.random().toString(36).substring(2, 11)
-    localStorage.setItem('localUserId', localUserId)
-  }
-  return localUserId
-}
+// ── Local Storage Helpers ─────────────────────────────────────────────────────
 
-/** Save the account profile separately from its cards (including its username). */
-export async function saveUserProfile(profile: Record<string, any>) {
-  const userId = profile.id || profile.uid || getUserId()
-  if (!userId) return { success: false }
-
-  const username = String(profile.username || '').toLowerCase().trim()
-  if (!username) return { success: false }
-
-  await setDoc(doc(db, 'users', userId), {
-    username,
-    email: profile.email || '',
-    displayName: profile.displayName || username,
-    avatar: profile.avatar || '',
-    createdAt: profile.createdAt || serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }, { merge: true })
-
-  return { success: true, userId }
-}
-
-// Local Storage Helpers
 function getLocalBioCards(): Record<string, any> {
   if (typeof window === 'undefined') return {}
   try {
-    const bioCardsStr = localStorage.getItem('bioCards')
-    return bioCardsStr ? JSON.parse(bioCardsStr) : {}
-  } catch (e) {
+    const raw = localStorage.getItem('bioCards')
+    return raw ? JSON.parse(raw) : {}
+  } catch {
     return {}
   }
 }
 
-/** Strip any base64 data: URLs from gallery photos so they never bloat localStorage.
- *  Real cloud images (https://) are kept as-is. */
+/** Strip base64 data: URLs from gallery photos so they never bloat localStorage. */
 function stripBase64FromCard(cardData: any): any {
   if (!cardData?.config?.links) return cardData
   return {
@@ -91,12 +37,15 @@ function stripBase64FromCard(cardData: any): any {
           ...link,
           galleryPhotos: link.galleryPhotos.map((p: any) => ({
             ...p,
-            // keep https:// URLs, wipe any base64 fallbacks
-            url: typeof p.url === 'string' && p.url.startsWith('data:') ? '' : (p.url ?? ''),
+            url:
+              typeof p.url === 'string' && p.url.startsWith('data:')
+                ? ''
+                : (p.url ?? ''),
           })),
-          thumbnail: typeof link.thumbnail === 'string' && link.thumbnail.startsWith('data:')
-            ? ''
-            : link.thumbnail,
+          thumbnail:
+            typeof link.thumbnail === 'string' && link.thumbnail.startsWith('data:')
+              ? ''
+              : link.thumbnail,
         }
       }),
     },
@@ -105,13 +54,17 @@ function stripBase64FromCard(cardData: any): any {
 
 function saveLocalBioCard(cardId: string, cardData: any) {
   if (typeof window === 'undefined') return
-  const safe = stripBase64FromCard({ ...cardData, id: cardId, updatedAt: new Date().toISOString() })
+  const safe = stripBase64FromCard({
+    ...cardData,
+    id: cardId,
+    updatedAt: new Date().toISOString(),
+  })
   try {
     const cards = getLocalBioCards()
     cards[cardId] = safe
     localStorage.setItem('bioCards', JSON.stringify(cards))
   } catch (e: any) {
-    console.warn('⚠️ QuotaExceededError saving card to localStorage, cleaning up storage cache...', e)
+    console.warn('⚠️ QuotaExceededError saving card to localStorage, cleaning up...', e)
     try {
       localStorage.removeItem('ally-supports-cache')
       const cards = getLocalBioCards()
@@ -145,17 +98,12 @@ function extractHandleSlug(cardData: any): string {
   ).toLowerCase()
 }
 
-async function deleteFirestoreCard(docId: string, userId: string | null) {
-  try {
-    await deleteDoc(doc(db, 'bioCards', docId))
-  } catch {}
-  if (userId) {
-    try {
-      await deleteDoc(doc(db, 'users', userId, 'cards', docId))
-    } catch {}
-  }
-}
+import { getLocalUserId } from './userProfile'
+export { getLocalUserId, saveUserProfile } from './userProfile'
 
+/**
+ * Save a card: write to localStorage cache and then persist via /api/cards.
+ */
 export async function saveCard(
   cardId: string,
   cardData: any,
@@ -163,17 +111,14 @@ export async function saveCard(
 ) {
   const handleSlug = extractHandleSlug(cardData) || cardId.toLowerCase()
   const previousHandle = options?.previousHandle?.toLowerCase()
-  const userId = getUserId()
+  const userId = getLocalUserId()
 
-  // Remove stale alias when username changes
+  // Remove stale local aliases
   if (previousHandle && previousHandle !== handleSlug) {
     deleteLocalBioCard(previousHandle)
-    await deleteFirestoreCard(previousHandle, userId)
   }
-  // Remove legacy random-id entry if it differs from username key
   if (cardId && cardId.toLowerCase() !== handleSlug) {
     deleteLocalBioCard(cardId)
-    await deleteFirestoreCard(cardId, userId)
   }
 
   const dataToSave = {
@@ -182,31 +127,79 @@ export async function saveCard(
     handle: handleSlug,
     userId: userId || 'anonymous',
     createdAt: cardData.createdAt || new Date().toISOString(),
-    updatedAt: serverTimestamp(),
+    updatedAt: new Date().toISOString(),
   }
 
+  // 1. Fast local write
   saveLocalBioCard(handleSlug, dataToSave)
 
+  // 2. Persist via API (Firestore write happens server-side)
   try {
-    const globalCardRef = doc(db, 'bioCards', handleSlug)
-    await setDoc(globalCardRef, dataToSave, { merge: true })
-    console.log('✅ Card saved to Firestore bioCards:', handleSlug)
+    const existing = await fetch(`/api/cards/${handleSlug}`, {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache' },
+    }).catch(() => null)
 
-    if (userId) {
-      const cardRef = doc(db, 'users', userId, 'cards', handleSlug)
-      await setDoc(cardRef, dataToSave, { merge: true })
-      console.log('✅ Card saved to Firestore users subcollection:', handleSlug)
+    if (existing && existing.ok) {
+      // Card exists — update it
+      const res = await fetch(`/api/cards/${handleSlug}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: cardData.config,
+          analytics: cardData.analytics,
+          handle: handleSlug,
+          previousHandle: previousHandle || handleSlug,
+          ownerId: userId || 'anonymous',
+        }),
+      })
+      if (res.ok) {
+        console.log('✅ Card updated via API:', handleSlug)
+        return { success: true }
+      }
+    }
+
+    // Card is new — create it
+    const res = await fetch('/api/cards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cardId: handleSlug,
+        handle: handleSlug,
+        config: cardData.config,
+        analytics: cardData.analytics || { views: 0, clicks: 0 },
+        previousHandle,
+        ownerId: userId || 'anonymous',
+      }),
+    })
+
+    if (res.ok) {
+      console.log('✅ Card saved via API:', handleSlug)
     }
 
     return { success: true }
   } catch (error: any) {
-    console.warn('⚠️ Firestore save fallback to localStorage:', error?.message || error)
+    console.warn('⚠️ API save fallback to localStorage only:', error?.message || error)
     return { success: true, localOnly: true }
   }
 }
 
+/**
+ * Load all cards for the current user.
+ * Merges the localStorage cache with the server response from /api/cards.
+ */
 export async function getAllCards() {
-  const userId = getUserId()
+  const localCardsMap = getLocalBioCards()
+  const cardMap = new Map<string, any>()
+
+  // Seed from local cache first
+  Object.values(localCardsMap).forEach((c: any) => {
+    if (!c?.id && !c?.handle) return
+    const key = (c.handle || c.id).toLowerCase()
+    cardMap.set(key, { ...c, id: key, handle: key })
+  })
+
+  const userId = getLocalUserId()
   const accountUsername = (() => {
     if (typeof window === 'undefined') return ''
     try {
@@ -219,66 +212,35 @@ export async function getAllCards() {
     }
   })()
 
-  const localCardsMap = getLocalBioCards()
-  const cardMap = new Map<string, any>()
-
-  Object.values(localCardsMap).forEach((c: any) => {
-    if (!c?.id && !c?.handle) return
-    const key = (c.handle || c.id).toLowerCase()
-    cardMap.set(key, { ...c, id: key, handle: key })
-  })
-
+  // Merge with server data
   try {
-    const globalRef = collection(db, 'bioCards')
-    const globalSnap = await getDocs(globalRef)
-    globalSnap.forEach((docSnap) => {
-      const data = docSnap.data()
-      const key = (data.handle || docSnap.id).toLowerCase()
-      if (userId && data.userId && data.userId !== userId && data.userId !== 'anonymous') {
-        if (accountUsername && key !== accountUsername) return
-      }
-      cardMap.set(key, {
-        id: key,
-        handle: key,
-        ...data,
-        createdAt:
-          data.createdAt instanceof Timestamp
-            ? data.createdAt.toDate().toISOString()
-            : data.createdAt,
-        updatedAt:
-          data.updatedAt instanceof Timestamp
-            ? data.updatedAt.toDate().toISOString()
-            : data.updatedAt,
-      })
+    const res = await fetch('/api/cards', {
+      headers: { 'Cache-Control': 'no-cache' },
     })
-  } catch (err) {
-    console.warn('⚠️ Could not load from bioCards collection:', err)
-  }
-
-  if (userId) {
-    try {
-      const cardsRef = collection(db, 'users', userId, 'cards')
-      const snapshot = await getDocs(cardsRef)
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data()
-        const key = (data.handle || docSnap.id).toLowerCase()
+    if (res.ok) {
+      const data = await res.json()
+      const serverCards: any[] = data.cards || []
+      serverCards.forEach((card: any) => {
+        const key = (card.handle || card.id || '').toLowerCase()
+        if (!key) return
+        // Filter to cards owned by this user
+        if (
+          userId &&
+          card.userId &&
+          card.userId !== userId &&
+          card.userId !== 'anonymous'
+        ) {
+          if (accountUsername && key !== accountUsername) return
+        }
         cardMap.set(key, {
           id: key,
           handle: key,
-          ...data,
-          createdAt:
-            data.createdAt instanceof Timestamp
-              ? data.createdAt.toDate().toISOString()
-              : data.createdAt,
-          updatedAt:
-            data.updatedAt instanceof Timestamp
-              ? data.updatedAt.toDate().toISOString()
-              : data.updatedAt,
+          ...card,
         })
       })
-    } catch (err) {
-      console.warn('⚠️ Could not load from users subcollection:', err)
     }
+  } catch (err) {
+    console.warn('⚠️ Could not load cards from API:', err)
   }
 
   let mergedCards = Array.from(cardMap.values())
@@ -300,127 +262,85 @@ export async function getAllCards() {
   return { success: true, cards: mergedCards }
 }
 
+/**
+ * Get a single card by ID.
+ * Checks local cache first, then the API.
+ */
 export async function getCard(cardId: string) {
-  const userId = getUserId()
-  const localCardsMap = getLocalBioCards()
-  const localCard = localCardsMap[cardId]
-
-  // 1. Check top-level bioCards collection in Firestore
+  // 1. Try API
   try {
-    const globalCardRef = doc(db, 'bioCards', cardId)
-    const globalSnap = await getDoc(globalCardRef)
-    if (globalSnap.exists()) {
-      const data = globalSnap.data()
-      const card = {
-        id: globalSnap.id,
-        ...data,
-        createdAt: data.createdAt instanceof Timestamp 
-          ? data.createdAt.toDate().toISOString() 
-          : data.createdAt,
-        updatedAt: data.updatedAt instanceof Timestamp 
-          ? data.updatedAt.toDate().toISOString() 
-          : data.updatedAt,
-      }
-      return { success: true, card }
+    const res = await fetch(`/api/cards/${cardId}`, {
+      headers: { 'Cache-Control': 'no-cache' },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.card) return { success: true, card: data.card }
     }
   } catch (err) {
-    console.warn('⚠️ Firestore bioCards fetch error:', err)
+    console.warn('⚠️ API getCard error:', err)
   }
 
-  // 2. Check user subcollection in Firestore
-  if (userId) {
-    try {
-      const cardRef = doc(db, 'users', userId, 'cards', cardId)
-      const snapshot = await getDoc(cardRef)
-      if (snapshot.exists()) {
-        const data = snapshot.data()
-        const card = {
-          id: snapshot.id,
-          ...data,
-          createdAt: data.createdAt instanceof Timestamp 
-            ? data.createdAt.toDate().toISOString() 
-            : data.createdAt,
-          updatedAt: data.updatedAt instanceof Timestamp 
-            ? data.updatedAt.toDate().toISOString() 
-            : data.updatedAt,
-        }
-        return { success: true, card }
-      }
-    } catch (err) {
-      console.warn('⚠️ Firestore user subcollection fetch error:', err)
-    }
-  }
-
-  // 3. Fallback to local storage
-  if (localCard) {
-    return { success: true, card: localCard }
+  // 2. Fallback to localStorage
+  const localCards = getLocalBioCards()
+  if (localCards[cardId]) {
+    return { success: true, card: localCards[cardId] }
   }
 
   return { success: false, card: null }
 }
 
+/**
+ * Delete a card from local cache and via the API.
+ */
 export async function deleteCard(cardId: string) {
   deleteLocalBioCard(cardId)
 
-  const userId = getUserId()
-
   try {
-    const globalCardRef = doc(db, 'bioCards', cardId)
-    await deleteDoc(globalCardRef)
-  } catch (err) {}
-
-  if (userId) {
-    try {
-      const cardRef = doc(db, 'users', userId, 'cards', cardId)
-      await deleteDoc(cardRef)
-    } catch (err) {}
-  }
+    await fetch(`/api/cards/${cardId}`, { method: 'DELETE' })
+  } catch { /* non-fatal */ }
 
   console.log('✅ Card deleted:', cardId)
   return { success: true }
 }
 
-export async function updateAnalytics(cardId: string, analytics: { views?: number; clicks?: number }) {
+/**
+ * Update view/click analytics for a card via the API.
+ */
+export async function updateAnalytics(
+  cardId: string,
+  analytics: { views?: number; clicks?: number }
+) {
+  // Update local cache
   try {
     const cards = getLocalBioCards()
     if (cards[cardId]) {
       cards[cardId].analytics = {
         views: (cards[cardId].analytics?.views || 0) + (analytics.views || 0),
-        clicks: (cards[cardId].analytics?.clicks || 0) + (analytics.clicks || 0)
+        clicks: (cards[cardId].analytics?.clicks || 0) + (analytics.clicks || 0),
       }
       localStorage.setItem('bioCards', JSON.stringify(cards))
     }
-  } catch (e) {}
+  } catch { /* ignore */ }
 
-  const userId = getUserId()
-  const dataToUpdate = {
-    analytics,
-    updatedAt: serverTimestamp()
-  }
-
+  // Persist via API
   try {
-    const globalCardRef = doc(db, 'bioCards', cardId)
-    await setDoc(globalCardRef, dataToUpdate, { merge: true })
-  } catch (err) {}
+    if (analytics.views) {
+      await fetch(`/api/cards/${cardId}`, { method: 'GET' }).catch(() => null)
+    }
+    if (analytics.clicks) {
+      await fetch(`/api/cards/${cardId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'click' }),
+      }).catch(() => null)
+    }
+  } catch { /* non-fatal */ }
 
-  if (userId) {
-    try {
-      const cardRef = doc(db, 'users', userId, 'cards', cardId)
-      await setDoc(cardRef, dataToUpdate, { merge: true })
-    } catch (err) {}
-  }
-  
   return { success: true }
 }
 
-/**
- * Upload a wallpaper video (or image) to Firebase Storage.
- * Falls back to a base64 data URL if Storage is unavailable or rules block the upload.
- *
- * @param file       The File object selected from the input
- * @param cardId     Used to scope the storage path per card
- * @param onProgress Optional callback receiving 0–100 progress
- */
+// ── File uploads (Firebase Storage — no collection/auth-field surface) ────────
+
 import { uploadImageToFirebase } from './firebaseStorage'
 
 /**
@@ -464,4 +384,3 @@ export async function uploadWallpaperFile(
 export async function deleteWallpaperFile(_cardId: string, _ext: string): Promise<void> {
   // Base64 URLs live in the card config — cleared when the card is updated.
 }
-

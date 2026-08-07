@@ -7,7 +7,7 @@
 export interface ButtonVariantSpec {
   id: string
   name: string
-  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft' | 'gradient'
+  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft' | 'gradient' | 'wood' | 'carved' | 'raised' | 'leather'
   radius: string
   shadow: string
   borderWidth: number
@@ -73,6 +73,42 @@ export const BUTTON_VARIANTS: Record<string, ButtonVariantSpec> = {
     shadow: 'shadow-soft',
     borderWidth: 0,
     states: { hover: 'glow', active: 'scale', focus: 'ring', disabled: 'opacity' }
+  },
+  'button-wood': {
+    id: 'button-wood',
+    name: 'Wood Plank Button',
+    variant: 'wood',
+    radius: 'radius-md',
+    shadow: 'shadow-soft',
+    borderWidth: 1,
+    states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+  },
+  'button-carved': {
+    id: 'button-carved',
+    name: 'Carved Inset Wood Button',
+    variant: 'carved',
+    radius: 'radius-md',
+    shadow: 'shadow-none',
+    borderWidth: 0,
+    states: { hover: 'none', active: 'scale', focus: 'ring', disabled: 'opacity' }
+  },
+  'button-raised': {
+    id: 'button-raised',
+    name: 'Extruded Wood Button',
+    variant: 'raised',
+    radius: 'radius-md',
+    shadow: 'shadow-md',
+    borderWidth: 1,
+    states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+  },
+  'button-leather': {
+    id: 'button-leather',
+    name: 'Leather Stitched Button',
+    variant: 'leather',
+    radius: 'radius-md',
+    shadow: 'shadow-soft',
+    borderWidth: 1,
+    states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
   }
 }
 
@@ -84,14 +120,21 @@ export function resolveButtonVariant(input: any): ButtonVariantSpec {
   }
 
   if (typeof input === 'object' && input !== null) {
+    const variantId = input.variant || input.id
+    let baseSpec = BUTTON_VARIANTS['button-filled']
+    if (variantId) {
+      const key = variantId.startsWith('button-') ? variantId : `button-${variantId}`
+      if (BUTTON_VARIANTS[key]) baseSpec = BUTTON_VARIANTS[key]
+      else if (BUTTON_VARIANTS[variantId]) baseSpec = BUTTON_VARIANTS[variantId]
+    }
     return {
-      id: input.id || 'custom-button',
-      name: input.name || 'Custom Button',
-      variant: input.variant || 'filled',
-      radius: input.radius || 'radius-md',
-      shadow: input.shadow || 'shadow-soft',
-      borderWidth: input.border?.width ?? input.borderWidth ?? 0,
-      states: input.states || { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+      id: input.id || baseSpec.id || 'custom-button',
+      name: input.name || baseSpec.name || 'Custom Button',
+      variant: baseSpec.variant, // Lock to the resolved standard variant keyword
+      radius: input.radius || baseSpec.radius || 'radius-md',
+      shadow: input.shadow || baseSpec.shadow || 'shadow-soft',
+      borderWidth: input.border?.width ?? input.borderWidth ?? baseSpec.borderWidth ?? 0,
+      states: input.states || baseSpec.states || { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
     }
   }
 

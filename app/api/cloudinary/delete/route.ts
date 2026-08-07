@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
       { method: 'POST', body: form }
     )
 
+    if (!res.ok) {
+      throw new Error(`Cloudinary API returned HTTP status ${res.status}`)
+    }
+
     const data = await res.json()
 
     if (data.result === 'ok' || data.result === 'not found') {

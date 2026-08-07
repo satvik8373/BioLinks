@@ -14,6 +14,7 @@ import sunsetVibesConfig from './sunset-vibes/config.json'
 import pastelDreamConfig from './pastel-dream/config.json'
 import warmCoffeeConfig from './warm-coffee/config.json'
 import softClayConfig from './soft-clay/config.json'
+import skeuoWoodConfig from './skeuo-wood/config.json'
 
 export const ALL_JSON_CONFIGS: ThemeConfig[] = [
   popBrutalistConfig as unknown as ThemeConfig,
@@ -22,6 +23,7 @@ export const ALL_JSON_CONFIGS: ThemeConfig[] = [
   pastelDreamConfig as unknown as ThemeConfig,
   warmCoffeeConfig as unknown as ThemeConfig,
   softClayConfig as unknown as ThemeConfig,
+  skeuoWoodConfig as unknown as ThemeConfig,
 ]
 
 export function jsonToLegacyTheme(config: any): Theme {
@@ -76,11 +78,37 @@ export function jsonToLegacyTheme(config: any): Theme {
     // ── Card panel specialty tokens ────────────────────────────────────────
     // Populated from config.components.card so each theme controls its own
     // card surface appearance without any hardcoded values in BioCard.
+    // NOTE: We intentionally do NOT call resolveBackground() on card.background
+    //       because resolveBackground is designed for page-level backgrounds and
+    //       sets a `.image` property which would bleed into colors.backgroundImage
+    //       and cause a duplicate full-page background overlay.
     ...(config.components?.card && (() => {
       const card = config.components.card
-      const cardBg = card.background
-        ? (resolveBackground(card.background)?.value || card.background)
-        : undefined
+
+      // If specialty.cardBackground is already explicitly set in the JSON config,
+      // skip computing it from components.card.background to avoid duplication.
+      const specialtyAlreadyHasCardBg = Boolean(config.specialty?.cardBackground)
+
+      let cardBg: string | undefined = undefined
+      if (!specialtyAlreadyHasCardBg && card.background) {
+        const rawBg = card.background as string
+        // For image file paths (e.g. /wallpapers/light-wood.webp), wrap in url()
+        // For gradients and solid colors, use as-is
+        if (
+          rawBg.startsWith('/') ||
+          rawBg.startsWith('./') ||
+          rawBg.startsWith('http') ||
+          (rawBg.includes('.webp') || rawBg.includes('.jpg') || rawBg.includes('.png') || rawBg.includes('.gif'))
+        ) {
+          cardBg = `url(${rawBg})`
+        } else if (!rawBg.startsWith('url(')) {
+          // gradient or solid color — use directly
+          cardBg = rawBg
+        } else {
+          cardBg = rawBg
+        }
+      }
+
       const cardRadius = card.radius != null
         ? (typeof card.radius === 'number' ? `${card.radius}px` : resolveRadius(card.radius, 8) + 'px')
         : undefined

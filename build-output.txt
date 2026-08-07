@@ -1,0 +1,44 @@
+  Γû▓ Next.js 14.2.15
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/16) ...
+   Generating static pages (4/16) 
+   Generating static pages (8/16) 
+   Generating static pages (12/16) 
+ Γ£ô Generating static pages (16/16)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+Γöî Γùï /                                    3.97 kB         101 kB
+Γö£ Γùï /_not-found                          873 B          88.1 kB
+Γö£ ╞Æ /[username]                          381 B           163 kB
+Γö£ ╞Æ /api/cards                           0 B                0 B
+Γö£ ╞Æ /api/cards/[cardId]                  0 B                0 B
+Γö£ ╞Æ /api/cards/check-handle              0 B                0 B
+Γö£ ╞Æ /api/cloudinary/delete               0 B                0 B
+Γö£ ╞Æ /api/proxy-image                     0 B                0 B
+Γö£ ╞Æ /api/youtube-latest                  0 B                0 B
+Γö£ ╞Æ /card/[cardId]                       378 B           163 kB
+Γö£ Γùï /create                              7.5 kB          285 kB
+Γö£ Γùï /debug                               1.63 kB        88.8 kB
+Γö£ Γùï /editor                              65.7 kB         383 kB
+Γö£ ╞Æ /editor/[templateId]                 1.09 kB        88.3 kB
+Γö£ Γùï /login                               3.79 kB         269 kB
+Γö£ Γùï /my-cards                            4.54 kB         121 kB
+Γö£ Γùï /onboarding                          4.4 kB           99 kB
+Γö£ Γùï /signup                              4.1 kB          272 kB
+Γöö Γùï /status                              142 B          87.3 kB
++ First Load JS shared by all            87.2 kB
+  Γö£ chunks/117-8d2823af818e9469.js       31.6 kB
+  Γö£ chunks/fd9d1056-dc445a89d8ecafdd.js  53.6 kB
+  Γöö other shared chunks (total)          1.96 kB
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

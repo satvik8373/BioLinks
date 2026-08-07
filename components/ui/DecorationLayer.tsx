@@ -77,6 +77,26 @@ export const DecorationLayer: React.FC<DecorationLayerProps> = ({
       {hasStars && (
         <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]" />
       )}
+
+      {/* 6. Carved Leaf Twig Decoration */}
+      {decorations.includes('leaf') && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-10 flex items-center justify-center opacity-25 mix-blend-multiply pointer-events-none select-none">
+          <svg viewBox="0 0 120 40" className="w-full h-full" style={{ filter: 'drop-shadow(0 1px 0.5px rgba(255,255,255,0.6))' }}>
+            {/* Stem */}
+            <path d="M15 20 Q60 16 105 20" stroke="#2B1F16" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+            {/* Top Leaves */}
+            <path d="M35 18 C40 8, 50 10, 52 17 C42 19, 37 20, 35 18 Z" fill="#2B1F16" />
+            <path d="M55 17 C60 7, 70 9, 72 16 C62 18, 57 19, 55 17 Z" fill="#2B1F16" />
+            <path d="M75 17 C80 7, 90 9, 92 16 C82 18, 77 19, 75 17 Z" fill="#2B1F16" />
+            {/* Bottom Leaves */}
+            <path d="M30 22 C35 32, 45 30, 47 23 C37 21, 32 20, 30 22 Z" fill="#2B1F16" />
+            <path d="M50 21 C55 31, 65 29, 67 22 C57 20, 52 19, 50 21 Z" fill="#2B1F16" />
+            <path d="M70 21 C75 31, 85 29, 87 22 C77 20, 72 19, 70 21 Z" fill="#2B1F16" />
+            {/* Tip Leaves */}
+            <path d="M92 19 C97 13, 105 16, 107 20 C101 22, 96 22, 92 19 Z" fill="#2B1F16" />
+          </svg>
+        </div>
+      )}
     </div>
   )
 }

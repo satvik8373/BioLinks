@@ -21,8 +21,6 @@ import GallerySlider from '@/components/card/GallerySlider'
 import BioCard from '@/components/card/BioCard'
 import BlockEditorDispatcher from '@/components/editor/blocks/BlockEditorDispatcher'
 import { useDraftStore, useCanUndo, useCanRedo } from '@/lib/stores/useDraftStore'
-import { auth } from '@/lib/firebase'
-import { onAuthStateChanged } from 'firebase/auth'
 import { 
   ArrowLeft, 
   Save, 
@@ -44,6 +42,7 @@ import {
   Play,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   X,
   Check,
   EyeOff,
@@ -74,6 +73,8 @@ import WallpaperPanel from '@/components/editor/wallpaper/WallpaperPanel'
 import DesignIndexPanel from '@/components/editor/panels/DesignIndexPanel'
 import ThemesPanel from '@/components/editor/panels/ThemesPanel'
 import ProfilePanel from '@/components/editor/panels/ProfilePanel'
+import SocialMediaPanel from '@/components/editor/panels/SocialMediaPanel'
+import FontsPanel from '@/components/editor/panels/FontsPanel'
 
 interface LinkItem {
   id: string
@@ -196,6 +197,9 @@ export default function EditorPage() {
   const [isEditingHandle, setIsEditingHandle] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [showSaveDropdown, setShowSaveDropdown] = useState(false)
+  const [draftSavedToast, setDraftSavedToast] = useState('')
   const [handleDraft, setHandleDraft] = useState('')
   const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
   const [handleError, setHandleError] = useState('')
@@ -330,53 +334,34 @@ export default function EditorPage() {
     setHandleError('')
   }
 
-  // ── Hydrate from Firestore via Zustand store ──
-  // Uses Firebase Auth uid as the canonical user identity.
   useEffect(() => {
     const loadDraft = useDraftStore.getState().loadDraft
 
-    // Try Firebase Auth first, fall back to localStorage profile
-    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      let userId: string | null = null
-
-      if (firebaseUser?.uid) {
-        userId = firebaseUser.uid
-      } else {
-        // Fallback: check localStorage (for demo/mock users)
-        try {
-          const profileStr = localStorage.getItem('userProfile')
-          if (profileStr) {
-            const profile = JSON.parse(profileStr)
-            userId = profile.id || profile.uid || null
-          }
-        } catch { /* ignore */ }
+    let userId: string | null = null
+    try {
+      const profileStr = localStorage.getItem('userProfile')
+      if (profileStr) {
+        const profile = JSON.parse(profileStr)
+        userId = profile.id || profile.uid || null
       }
+    } catch { /* ignore */ }
 
-      if (!userId) {
-        router.push('/create')
-        return
-      }
+    if (!userId) {
+      router.push('/create')
+      return
+    }
 
-      await loadDraft(userId)
-
-      // After hydration, set previewCardId from the loaded config
+    loadDraft(userId).then(() => {
       const storeConfig = useDraftStore.getState().config
       if (!storeConfig) {
         router.push('/create')
         return
       }
-
-      const handleSlug =
-        resolveCardKey(storeConfig.profile?.handle, storeConfig.profile?.title) ||
-        getAccountUsername() ||
-        'user'
-
-      localStorage.setItem('editorPreviewCardId', handleSlug)
-      localStorage.setItem('activeBioCardId', handleSlug)
-      setPreviewCardId(handleSlug)
+      setPreviewCardId(storeConfig.profile?.handle || '')
+    }).catch((err) => {
+      console.error('Error hydrating draft:', err)
+      router.push('/create')
     })
-
-    return () => unsubAuth()
   }, [router])
 
   // updateConfig — thin wrapper around the Zustand store's update/batchUpdate.
@@ -493,7 +478,25 @@ export default function EditorPage() {
     updateConfig('links', newLinks)
   }
 
-  const saveBioLink = async () => {
+  const saveDraftBioLink = async () => {
+    if (!config) return
+    setIsSavingDraft(true)
+    setSaveError(null)
+    setDraftSavedToast('')
+
+    try {
+      await storeSaveDraftNow()
+      setDraftSavedToast('Draft saved successfully!')
+      setTimeout(() => setDraftSavedToast(''), 3500)
+    } catch (error: any) {
+      console.error('❌ Error saving draft:', error)
+      setSaveError(error.message || 'Failed to save draft.')
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
+  const publishBioLink = async () => {
     if (!config) return
     
     setIsSaving(true)
@@ -518,14 +521,16 @@ export default function EditorPage() {
       try {
         await navigator.clipboard.writeText(cardUrl)
       } catch (clipErr) {
-        console.warn('Clipboard access denied, but save succeeded')
+        console.warn('Clipboard access denied, but publish succeeded')
       }
       
+      setDraftSavedToast('Published! Public link copied.')
+      setTimeout(() => setDraftSavedToast(''), 4000)
       setShowShareModal(true)
-      setIsSaving(false)
     } catch (error: any) {
       console.error('❌ Error publishing bio link:', error)
-      setSaveError(error.message || 'Failed to save your card. Please try again.')
+      setSaveError(error.message || 'Failed to publish your card. Please try again.')
+    } finally {
       setIsSaving(false)
     }
   }
@@ -639,52 +644,103 @@ export default function EditorPage() {
           })}
         </nav>
 
-        {/* Bottom actions */}
-        <div className="flex-shrink-0 p-3 space-y-2" style={{ borderTop: '1.5px solid rgba(148,163,184,0.2)' }}>
-          <button
-            type="button"
-            onClick={saveBioLink}
-            disabled={isSaving}
-            className={`w-full py-2.5 px-4 text-white text-xs clay-save-btn flex items-center justify-center gap-2 ${
-              isSaving ? 'opacity-70 cursor-not-allowed' : ''
-            }`}
-          >
-            {isSaving ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Share2 className="w-3.5 h-3.5" />
-                Save & Share
-              </>
-            )}
-          </button>
-          
+        {/* Bottom actions: Publish & Save Draft */}
+        <div className="flex-shrink-0 p-3 space-y-2 relative" style={{ borderTop: '1.5px solid rgba(148,163,184,0.2)' }}>
+          {/* Main Publish Button + Split Dropdown */}
+          <div className="flex items-center gap-1.5 w-full">
+            <button
+              type="button"
+              onClick={publishBioLink}
+              disabled={isSaving || isSavingDraft}
+              className={`flex-1 py-2.5 px-3 text-white text-xs font-extrabold rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                isSaving ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Globe className="w-3.5 h-3.5" />
+                  Publish Changes
+                </>
+              )}
+            </button>
+
+            {/* Dropdown Toggle Button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowSaveDropdown(!showSaveDropdown)}
+                className="py-2.5 px-2.5 text-slate-700 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/80 flex items-center justify-center transition-all cursor-pointer"
+                title="More save options"
+              >
+                <ChevronDown className="w-4 h-4 stroke-[2.5]" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {showSaveDropdown && (
+                <div className="absolute bottom-12 right-0 w-44 bg-white rounded-2xl p-1.5 shadow-xl border border-slate-200/80 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setShowSaveDropdown(false)
+                      await saveDraftBioLink()
+                    }}
+                    disabled={isSavingDraft}
+                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5 text-slate-500" />
+                    Save Draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSaveDropdown(false)
+                      const handleSlug = resolveCardKey(config.profile?.handle, config.profile?.title) || getAccountUsername() || 'user'
+                      const url = getCardPublicUrl(handleSlug)
+                      navigator.clipboard.writeText(url)
+                      setDraftSavedToast('Public link copied!')
+                      setTimeout(() => setDraftSavedToast(''), 3000)
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-slate-500" />
+                    Copy Public Link
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Draft Saved Toast Notice */}
+          {draftSavedToast && (
+            <p className="text-[10px] font-bold text-emerald-600 text-center animate-pulse">
+              ✓ {draftSavedToast}
+            </p>
+          )}
+
           {/* Error Message */}
           {saveError && (
-            <div className="p-2.5 rounded-xl" style={{ background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.2)' }}>
-              <p className="text-[10px] font-bold text-red-600 flex items-center gap-1.5">
-                <X className="w-3.5 h-3.5" />
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
+              <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1.5">
+                <X className="w-3.5 h-3.5 flex-shrink-0" />
                 {saveError}
               </p>
-              <button
-                onClick={() => setSaveError(null)}
-                className="text-[10px] text-red-500 hover:text-red-700 mt-1 underline font-semibold"
-              >
-                Dismiss
-              </button>
             </div>
           )}
-          <div className="flex gap-2">
+
+          {/* Secondary links (Preview & Exit) */}
+          <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={() => {
                 if (!config) return
                 const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
                 const cardUrl = getCardPublicUrl(previewCardId, slug)
-                window.open(cardUrl, '_blank')
+                window.open(cardUrl, '_blank', 'noopener,noreferrer')
               }}
               className="flex-1 py-2 px-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer clay-btn clay-btn-ghost hover:scale-105 active:scale-95"
             >
@@ -722,7 +778,7 @@ export default function EditorPage() {
                 if (!config) return
                 const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
                 const cardUrl = getCardPublicUrl(previewCardId, slug)
-                window.open(cardUrl, '_blank')
+                window.open(cardUrl, '_blank', 'noopener,noreferrer')
               }}
               className="p-2 rounded-xl bg-slate-100 text-slate-700 active:scale-95 transition-transform cursor-pointer hover:bg-slate-200"
               title="Open Live Preview in New Tab"
@@ -822,16 +878,14 @@ export default function EditorPage() {
 
 
 
-        {/* Right Panel - Live Preview (Always Visible with Share URL) */}
-        <aside className="hidden lg:flex w-[380px] flex-col items-center flex-shrink-0 overflow-hidden py-6 px-4 clay-right-panel">
-
-          {/* ── Bezel-less Floating Mobile Card Screen ── */}
-          <div className="w-[270px] mb-5 flex-shrink-0">
+        {/* Right Panel - Live Preview with Top Share URL Pill */}
+        <aside className="hidden lg:flex w-[420px] flex-shrink-0 flex-col items-center justify-center p-6 bg-slate-50/50 border-l border-slate-200/80 overflow-hidden">
+          {/* Top Share URL Link Pill */}
+          <div className="w-[300px] mb-3.5 flex-shrink-0">
             {isEditingHandle ? (
               <div className="bg-white border border-indigo-300 rounded-2xl px-3.5 py-2.5 shadow-sm ring-2 ring-indigo-500/10 space-y-2">
-                {/* Input row */}
                 <div className="flex items-center gap-1 min-w-0">
-                  <span className="text-xs font-semibold text-slate-400 select-none flex-shrink-0">biolink.ee/</span>
+                  <span className="text-xs font-semibold text-slate-400 select-none flex-shrink-0">linktr.ee/</span>
                   <input
                     type="text"
                     autoFocus
@@ -852,12 +906,12 @@ export default function EditorPage() {
                       setHandleStatus('checking')
                       setHandleError('')
                       try {
-                        // previewCardId is the authoritative current username. The
-                        // config can briefly contain the pre-rename handle while
-                        // React state is updating.
                         const excludeId = previewCardId || resolveCardKey(config.profile?.handle, config.profile?.title) || ''
                         const ownerId = getCurrentUserId()
                         const res = await fetch(`/api/cards/check-handle?handle=${raw}&excludeId=${excludeId}&ownerId=${ownerId}`, { cache: 'no-store' })
+                        if (!res.ok) {
+                          throw new Error(`HTTP error ${res.status}`)
+                        }
                         const data = await res.json()
                         if (data.available) {
                           setHandleStatus('available')
@@ -884,13 +938,11 @@ export default function EditorPage() {
                     className="flex-1 min-w-0 text-xs font-bold text-slate-900 bg-transparent outline-none border-none p-0 focus:ring-0"
                     placeholder="your-handle"
                   />
-                  {/* Status icon */}
                   {handleStatus === 'checking' && <span className="text-[10px] text-slate-400 flex-shrink-0 animate-pulse">…</span>}
                   {handleStatus === 'available' && <span className="text-emerald-500 flex-shrink-0 text-[10px] font-bold">✓</span>}
                   {(handleStatus === 'taken' || handleStatus === 'invalid') && <span className="text-rose-500 flex-shrink-0 text-[10px] font-bold">✕</span>}
                 </div>
 
-                {/* Error / hint */}
                 {handleError && (
                   <p className={`text-[10px] font-semibold px-0.5 ${handleStatus === 'available' ? 'text-emerald-600' : 'text-rose-500'}`}>
                     {handleError}
@@ -900,7 +952,6 @@ export default function EditorPage() {
                   <p className="text-[10px] font-semibold text-emerald-600 px-0.5">Available!</p>
                 )}
 
-                {/* Confirm / Cancel */}
                 <div className="flex gap-2 pt-0.5">
                   <button
                     disabled={handleStatus !== 'available'}
@@ -919,59 +970,41 @@ export default function EditorPage() {
               </div>
             ) : (
               <div
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   setHandleDraft((config.profile.handle || config.profile.title || '').toLowerCase().replace(/[^a-z0-9-]/g, ''))
                   setHandleStatus('idle')
                   setHandleError('')
                   setIsEditingHandle(true)
                 }}
-                className="clay-url-pill px-4 py-2 flex items-center justify-between cursor-pointer"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHandleDraft((config.profile.handle || config.profile.title || '').toLowerCase().replace(/[^a-z0-9-]/g, '')); setHandleStatus('idle'); setHandleError(''); setIsEditingHandle(true) } }}
+                className="w-full px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-full flex items-center justify-between cursor-pointer shadow-2xs transition-all"
                 title="Click to edit URL handle"
               >
-                <span className="text-[11px] font-bold text-slate-600 truncate mr-2 flex-1">
-                  biolink.ee/<span className="text-slate-900">{getDisplayUrlSlug(config.profile.handle || config.profile.title)}</span>
+                <span className="text-xs font-bold text-slate-700 truncate mr-2 flex-1 text-center">
+                  linktr.ee/<span className="text-slate-900">{getDisplayUrlSlug(config.profile.handle || config.profile.title)}</span>
                 </span>
-                <div className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(124,58,237,0.08)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)' }}>
-                  <Pencil className="w-2.5 h-2.5 text-violet-500" />
+                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-slate-400 hover:text-slate-700">
+                  <Share2 className="w-3.5 h-3.5" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Official Linktree Iframe Preview Viewport ── */}
-          <div className="flex-1 flex items-center justify-center overflow-hidden w-full">
-            <div
-              className="relative flex-shrink-0 overflow-hidden transition-all duration-300 shadow-lg rounded-2xl"
-              style={{
-                width: 293,
-                height: 520,
-              }}
-            >
-              <div
-                className="origin-top-left relative border-0 outline-none w-full h-full"
-                style={{
-                  width: 375,
-                  height: 667,
-                  transform: 'scale(0.78)',
-                }}
-              >
-                <iframe
-                  ref={previewIframeRef}
-                  src={`/${getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'}`}
-                  id="preview-iframe"
-                  onLoad={() => {
-                    if (previewIframeRef.current?.contentWindow && config) {
-                      previewIframeRef.current.contentWindow.postMessage({ type: 'UPDATE_CONFIG', config }, '*')
-                    }
-                  }}
-                  className="w-full h-full border-0 outline-none rounded-2xl bg-transparent"
-                  title="Live Preview"
-                />
-              </div>
-            </div>
-          </div>
-
-
+          {/* Direct Simple Iframe Preview */}
+          <iframe
+            ref={previewIframeRef}
+            src={`/${getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'}`}
+            id="preview-iframe"
+            onLoad={() => {
+              if (previewIframeRef.current?.contentWindow && config) {
+                previewIframeRef.current.contentWindow.postMessage({ type: 'UPDATE_CONFIG', config }, '*')
+              }
+            }}
+            className="w-full max-w-[340px] h-[650px] max-h-[82vh] border border-slate-200/60 rounded-[36px] shadow-xl bg-white"
+            title="Live Preview"
+          />
         </aside>
 
       {/* ── Mobile Bottom Navigation Bar ── */}
@@ -991,7 +1024,7 @@ export default function EditorPage() {
                     if (!config) return
                     const slug = getCleanUsernameSlug(config.profile?.handle || config.profile?.title) || 'user'
                     const cardUrl = getCardPublicUrl(previewCardId, slug)
-                    window.open(cardUrl, '_blank')
+                    window.open(cardUrl, '_blank', 'noopener,noreferrer')
                   }}
                   className="flex flex-col items-center gap-1 min-w-[64px] py-1 active:scale-95 transition-transform cursor-pointer"
                 >
@@ -1045,19 +1078,20 @@ export default function EditorPage() {
         </div>
       </nav>
 
-      {/* ── Mobile Save Button (Floating) ── */}
+      {/* ── Mobile Publish Button (Floating) ── */}
       <button
-        onClick={saveBioLink}
+        onClick={publishBioLink}
         disabled={isSaving}
-        className={`md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg flex items-center justify-center active:scale-95 transition-all ${
+        className={`md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg flex items-center justify-center active:scale-95 transition-all ${
           isSaving ? 'opacity-70' : ''
         }`}
         style={{ boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)' }}
+        title="Publish Changes"
       >
         {isSaving ? (
           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : (
-          <Share2 className="w-6 h-6" />
+          <Globe className="w-6 h-6 stroke-[2]" />
         )}
       </button>
 
@@ -1126,7 +1160,7 @@ function themeBackground(theme: Theme): React.CSSProperties {
     return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
   }
 
-  return { backgroundColor: c.background || '#7F2AEB' }
+  return { backgroundColor: c.background || '#FFFFFF' }
 }
 
 // Feature panels are imported from @/components/editor/panels
@@ -1669,76 +1703,7 @@ function BackgroundPanel({ config, updateConfig, onBack }: any) {
   )
 }
 
-// Fonts Panel Component (Text)
-function FontsPanel({ config, updateConfig }: any) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-slate-900 mb-1">Fonts</h2>
-        <p className="text-sm text-slate-500">Choose typography and text colors for your card</p>
-      </div>
 
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Page font</label>
-        <select
-          value={config.theme.fonts.body}
-          onChange={(e) => updateConfig('theme.fonts.body', e.target.value)}
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-medium"
-        >
-          <option value="Inter">Inter</option>
-          <option value="Poppins">Poppins</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Playfair Display">Playfair Display</option>
-          <option value="Space Grotesk">Space Grotesk</option>
-          <option value="Roboto">Roboto</option>
-          <option value="Open Sans">Open Sans</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Page text color</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.profileBio}
-            onChange={(e) => updateConfig('theme.colors.profileBio', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.profileBio}
-              onChange={(e) => updateConfig('theme.colors.profileBio', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#666666"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Title color</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.profileText}
-            onChange={(e) => updateConfig('theme.colors.profileText', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.profileText}
-              onChange={(e) => updateConfig('theme.colors.profileText', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#000000"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Buttons Panel Component
 function ButtonsPanel({ config, updateConfig, onBack }: any) {
@@ -2551,116 +2516,7 @@ function SettingsPanel({ config, updateConfig }: any) {
 }
 
 // Social Media Panel Component
-function SocialMediaPanel({ config, updateConfig }: any) {
-  const socialPlatforms = [
-    { id: 'instagram', name: 'Instagram', placeholder: '@username or https://instagram.com/username' },
-    { id: 'tiktok', name: 'TikTok', placeholder: '@username or https://tiktok.com/@username' },
-    { id: 'youtube', name: 'YouTube', placeholder: '@channel or https://youtube.com/@channel' },
-    { id: 'twitter', name: 'Twitter / X', placeholder: '@handle or https://x.com/handle' },
-    { id: 'github', name: 'GitHub', placeholder: 'username or https://github.com/username' },
-    { id: 'linkedin', name: 'LinkedIn', placeholder: 'in/username or https://linkedin.com/in/username' },
-    { id: 'facebook', name: 'Facebook', placeholder: 'username or https://facebook.com/username' },
-    { id: 'discord', name: 'Discord', placeholder: 'invite-code or https://discord.gg/invite' },
-    { id: 'whatsapp', name: 'WhatsApp', placeholder: '+1234567890 (phone number)' },
-    { id: 'telegram', name: 'Telegram', placeholder: '@username or https://t.me/username' },
-    { id: 'spotify', name: 'Spotify', placeholder: 'artist-id or https://open.spotify.com/artist/...' },
-    { id: 'soundcloud', name: 'SoundCloud', placeholder: 'username or https://soundcloud.com/username' },
-    { id: 'apple-music', name: 'Apple Music', placeholder: 'https://music.apple.com/...' },
-    { id: 'shopify', name: 'Shopify Store', placeholder: 'https://yourstore.myshopify.com' },
-  ]
 
-  const handleInputChange = (platformId: string, val: string) => {
-    updateConfig(`socialLinks.${platformId}`, val)
-  }
-
-  const handleInputBlur = (platformId: string, val: string) => {
-    if (val) {
-      const formatted = formatSocialUrl(platformId, val)
-      if (formatted !== val) {
-        updateConfig(`socialLinks.${platformId}`, formatted)
-      }
-    }
-  }
-
-  const activeCount = Object.values(config.socialLinks || {}).filter(Boolean).length
-
-  return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Social Channels</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Connect your social media profiles & channels</p>
-        </div>
-        <span className="text-xs font-bold px-3 py-1 bg-purple-100 text-purple-800 rounded-lg">
-          {activeCount} Connected
-        </span>
-      </div>
-
-      <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center p-2 flex-shrink-0 shadow-2xs">
-          <Share2 className="w-5 h-5" />
-        </div>
-        <div>
-          <h3 className="font-bold text-sm text-purple-950">Official Brand Icons</h3>
-          <p className="text-xs text-purple-800 mt-0.5 leading-relaxed">
-            Enter your handle (e.g. <code className="bg-purple-100 px-1 py-0.5 rounded font-mono text-purple-900">@username</code>) or full URL. Icons display as small circular buttons below your profile.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {socialPlatforms.map((platform) => {
-          const rawVal = config.socialLinks?.[platform.id] || ''
-          const isConnected = Boolean(rawVal)
-          return (
-            <div 
-              key={platform.id}
-              className={`p-3.5 bg-white border rounded-2xl transition-all shadow-2xs ${
-                isConnected ? 'border-purple-300 ring-2 ring-purple-500/10' : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-2 transition-colors flex-shrink-0 ${
-                  isConnected ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  <ServiceIcon iconId={platform.id} size={20} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-gray-900 flex items-center gap-2">
-                      <span>{platform.name}</span>
-                      {isConnected && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Connected
-                        </span>
-                      )}
-                    </label>
-                    {isConnected && (
-                      <button
-                        onClick={() => updateConfig(`socialLinks.${platform.id}`, '')}
-                        className="text-[11px] font-semibold text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
-                      >
-                        Disconnect
-                      </button>
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={rawVal}
-                    onChange={(e) => handleInputChange(platform.id, e.target.value)}
-                    onBlur={(e) => handleInputBlur(platform.id, e.target.value)}
-                    placeholder={platform.placeholder}
-                    className="w-full bg-gray-50/50 border border-gray-200 focus:border-purple-500 focus:bg-white rounded-xl px-3 py-2 text-xs text-gray-900 outline-none transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
 // Shop Panel Component
 function ShopPanel({ config, onOpenAddModal }: any) {
@@ -2821,7 +2677,7 @@ function AnalyticsPanel({ config }: any) {
             <h3 className="font-bold text-gray-900 mb-2">Track Your Success</h3>
             <p className="text-sm text-gray-700 mb-4">View detailed analytics after you save and publish your page. Track views, clicks, and engagement.</p>
             <button
-              onClick={() => window.open('/my-cards', '_blank')}
+              onClick={() => window.open('/my-cards', '_blank', 'noopener,noreferrer')}
               className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-semibold text-sm shadow-md"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
@@ -3091,7 +2947,7 @@ function ShareModal({ onClose }: { onClose: () => void }) {
     }
     
     if (urls[platform]) {
-      window.open(urls[platform], '_blank', 'width=600,height=400')
+      window.open(urls[platform], '_blank', 'noopener,noreferrer,width=600,height=400')
     }
   }
 
@@ -3135,7 +2991,7 @@ function ShareModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
             <button
-              onClick={() => window.open(cardUrl, '_blank')}
+              onClick={() => window.open(cardUrl, '_blank', 'noopener,noreferrer')}
               className="w-full py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors border border-indigo-200"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -3197,7 +3053,7 @@ function ShareModal({ onClose }: { onClose: () => void }) {
         <div className="flex gap-3">
           <button
             onClick={() => {
-              window.open(cardUrl, '_blank')
+              window.open(cardUrl, '_blank', 'noopener,noreferrer')
             }}
             className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >

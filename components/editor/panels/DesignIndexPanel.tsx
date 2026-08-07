@@ -13,36 +13,18 @@ interface Props {
   onNavigate: (tab: string) => void
 }
 
-export default function DesignIndexPanel({
-  config,
-  bgSummary,
-  fontSummary,
-  buttonSummary,
-  themeSummary,
-  onNavigate,
-}: Props) {
-  const c = config.theme.colors
+interface DesignRowProps {
+  id: string
+  label: string
+  summary?: string
+  thumbnail: React.ReactNode
+  showZap?: boolean
+  onNavigate: (tab: string) => void
+}
 
-  // Background style for wallpaper/theme thumbnail
-  let cardBgStyle: React.CSSProperties = {}
-  if (c.backgroundImage) {
-    cardBgStyle = {
-      backgroundImage: `url(${c.backgroundImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-    }
-  } else if (c.backgroundMesh) {
-    cardBgStyle = { background: c.backgroundMesh }
-  } else if (c.backgroundGradient) {
-    cardBgStyle = { background: `linear-gradient(135deg, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})` }
-  } else {
-    cardBgStyle = { backgroundColor: c.background || '#6366f1' }
-  }
-
-  // Shared card row component matching official Linktree pill-card design
-  const DesignRow = ({ id, label, summary, thumbnail, showZap = false }: {
-    id: string; label: string; summary?: string; thumbnail: React.ReactNode; showZap?: boolean
-  }) => (
+// Hoisted outside the parent to prevent remounting on every render
+function DesignRow({ id, label, summary, thumbnail, showZap = false, onNavigate }: DesignRowProps) {
+  return (
     <button
       onClick={() => onNavigate(id)}
       className="w-full clay-design-row px-4 py-3.5 flex items-center gap-3.5 text-left group"
@@ -74,6 +56,35 @@ export default function DesignIndexPanel({
       </div>
     </button>
   )
+}
+
+export default function DesignIndexPanel({
+  config,
+  bgSummary,
+  fontSummary,
+  buttonSummary,
+  themeSummary,
+  onNavigate,
+}: Props) {
+  const c = config.theme.colors
+
+  // Background style for wallpaper/theme thumbnail
+  const bgType = c.backgroundType || (c.backgroundImage ? 'image' : 'fill')
+
+  let cardBgStyle: React.CSSProperties = {}
+  if (bgType === 'image' && c.backgroundImage) {
+    cardBgStyle = {
+      backgroundImage: `url(${c.backgroundImage})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+    }
+  } else if (c.backgroundMesh) {
+    cardBgStyle = { background: c.backgroundMesh }
+  } else if (c.backgroundGradient) {
+    cardBgStyle = { background: `linear-gradient(135deg, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})` }
+  } else {
+    cardBgStyle = { backgroundColor: c.background || '#FFFFFF' }
+  }
 
   return (
     <div className="space-y-3">
@@ -82,6 +93,7 @@ export default function DesignIndexPanel({
         id="themes"
         label="Theme"
         summary={themeSummary}
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full" style={cardBgStyle}>
             <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 p-1">
@@ -104,6 +116,7 @@ export default function DesignIndexPanel({
         label="Header"
         summary={(config.profile.headerLayout || 'classic').charAt(0).toUpperCase() + (config.profile.headerLayout || 'classic').slice(1)}
         showZap={true}
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full bg-slate-950 flex items-center justify-center p-0.5">
             <Avatar src={config.profile.avatar} size="sm" fallback="user" />
@@ -117,6 +130,7 @@ export default function DesignIndexPanel({
         label="Wallpaper"
         summary={bgSummary}
         showZap={true}
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full rounded-xl" style={cardBgStyle} />
         }
@@ -128,6 +142,7 @@ export default function DesignIndexPanel({
         label="Buttons"
         summary={buttonSummary}
         showZap={true}
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full bg-slate-50 flex items-center justify-center">
             <div
@@ -147,6 +162,7 @@ export default function DesignIndexPanel({
         label="Text"
         summary={fontSummary}
         showZap={true}
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full bg-slate-100/70 flex items-center justify-center">
             <span className="text-lg font-bold text-slate-800" style={{ fontFamily: config.theme.fonts?.body }}>Aa</span>
@@ -158,6 +174,7 @@ export default function DesignIndexPanel({
       <DesignRow
         id="colors"
         label="Colors"
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-[34px] h-[34px] rounded-xl border border-slate-200 bg-white shadow-xs" />
         }
@@ -168,6 +185,7 @@ export default function DesignIndexPanel({
         id="stickers"
         label="Stickers"
         summary="Decorate your page"
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full bg-emerald-50 flex items-center justify-center text-emerald-600">
             <Sticker className="w-5 h-5" />
@@ -179,6 +197,7 @@ export default function DesignIndexPanel({
       <DesignRow
         id="footer"
         label="Footer"
+        onNavigate={onNavigate}
         thumbnail={
           <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-700">
             <Asterisk className="w-5 h-5" />

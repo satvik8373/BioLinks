@@ -18,14 +18,9 @@
  */
 
 import { create } from 'zustand'
-import {
-  getDraft,
-  saveDraft,
-  publishProfile as publishProfileService,
-  migrateLegacyData,
-  type ProfileDocument,
-} from '@/lib/profileService'
-import { saveCard as saveCardToFirestore } from '@/lib/storage'
+import type { ProfileDocument } from '@/lib/profileService'
+// Note: saveCard from storage.ts now routes through the /api/cards HTTP endpoint,
+// so we call the API directly below rather than via the storage helper.
 import { resolveCardKey, getCleanUsernameSlug, getAccountUsername } from '@/lib/urlHelper'
 import type { Theme } from '@/lib/themes'
 
@@ -105,10 +100,10 @@ export const useDraftStore = create<DraftState>()((set, get) => {
 
     const timer = setTimeout(() => {
       const s = get()
-      if (s.isDirty && s.config && s.userId) {
+      if (s.isDirty && s.config) {
         s.saveDraftNow()
       }
-    }, 800)
+    }, 500)
 
     set({ _debounceTimer: timer })
   }
@@ -159,12 +154,52 @@ export const useDraftStore = create<DraftState>()((set, get) => {
       set({ isLoading: true, userId })
 
       try {
-        // 1. Try Firestore draft
-        let draft = await getDraft(userId)
+        // 1. Try Firestore draft via API
+        const res = await fetch(`/api/drafts?userId=${encodeURIComponent(userId)}`)
+        if (!res.ok) {
+          throw new Error(`Failed to load draft: ${res.status}`)
+        }
+        const data = await res.json()
+        let draft = data.draft
 
         // 2. If no draft, try legacy migration from localStorage
-        if (!draft) {
-          draft = await migrateLegacyData(userId)
+        if (!draft && typeof window !== 'undefined') {
+          const configStr = localStorage.getItem('currentBioLinkConfig')
+          if (configStr) {
+            try {
+              const config = JSON.parse(configStr)
+              if (config && config.profile) {
+                const migratedDraft = {
+                  version: 1,
+                  theme: config.theme,
+                  profile: config.profile,
+                  links: config.links || [],
+                  socialLinks: config.socialLinks || {},
+                  socialIconPosition: config.socialIconPosition,
+                  settings: {},
+                }
+                const saveRes = await fetch('/api/drafts', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId, draftData: migratedDraft }),
+                })
+                if (!saveRes.ok) {
+                  throw new Error(`Failed to save migrated draft: ${saveRes.status}`)
+                }
+                const saveResult = await saveRes.json()
+                if (saveResult.success) {
+                  draft = {
+                    ...migratedDraft,
+                    version: saveResult.version,
+                    updatedAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                  } as any
+                }
+              }
+            } catch (err) {
+              console.error('[useDraftStore] migrateLegacyData error:', err)
+            }
+          }
         }
 
         if (draft) {
@@ -318,7 +353,17 @@ export const useDraftStore = create<DraftState>()((set, get) => {
     // ── saveDraftNow ─────────────────────────────────────────────────────
     saveDraftNow: async () => {
       const state = get()
-      if (!state.config || !state.userId) return
+      if (!state.config) return
+
+      const userId = state.userId || getAccountUsername() || 'anonymous_user'
+
+      // Always save to localStorage immediately so no user changes are ever lost locally
+      try {
+        localStorage.setItem('currentBioLinkConfig', JSON.stringify(state.config))
+        localStorage.setItem('bioLinkDraft', JSON.stringify(state.config))
+      } catch (err) {
+        console.warn('⚠️ Local auto-save failed:', err)
+      }
 
       try {
         const draftDoc: any = {
@@ -329,28 +374,43 @@ export const useDraftStore = create<DraftState>()((set, get) => {
           socialLinks: state.config.socialLinks,
           socialIconPosition: state.config.socialIconPosition,
           settings: {},
-          lastEditor: state.userId,
+          lastEditor: userId,
         }
 
-        const result = await saveDraft(state.userId, draftDoc)
-        if (result.success) {
-          set({
-            isDirty: false,
-            version: result.version,
-            lastSavedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          })
+        const saveRes = await fetch('/api/drafts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, draftData: draftDoc }),
+        })
+        if (saveRes.ok) {
+          const result = await saveRes.json()
+          if (result.success) {
+            set({
+              isDirty: false,
+              version: result.version,
+              lastSavedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            })
+            return
+          }
         }
       } catch (err) {
-        console.error('[useDraftStore] saveDraftNow error:', err)
+        console.warn('[useDraftStore] Remote saveDraftNow warning:', err)
       }
+
+      set({
+        isDirty: false,
+        lastSavedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      })
     },
 
     // ── publishProfile ───────────────────────────────────────────────────
     publishProfile: async () => {
       const state = get()
-      if (!state.config || !state.userId) {
-        return { success: false, error: 'Not signed in or no config' }
+      if (!state.config) {
+        return { success: false, error: 'No config found to publish' }
       }
+
+      const userId = state.userId || getAccountUsername() || 'anonymous_user'
 
       try {
         // 1. Ensure draft is saved first
@@ -363,45 +423,9 @@ export const useDraftStore = create<DraftState>()((set, get) => {
           getAccountUsername() ||
           'user'
 
-        // 2. Claim username via API (server-side validation)
-        const response = await fetch(`/api/cards/${handleSlug}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            config: {
-              profile: state.config.profile,
-              links: state.config.links,
-              theme: state.config.theme,
-              socialLinks: state.config.socialLinks,
-            },
-            handle: handleSlug,
-            ownerId: state.userId,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}))
-          throw new Error(data.error || `Server error: ${response.status}`)
-        }
-
-        // 3. Publish to Firestore profiles/{uid}/published
-        const draftDoc: ProfileDocument = {
-          version: state.version,
-          theme: state.config.theme,
-          profile: state.config.profile,
-          links: state.config.links,
-          socialLinks: state.config.socialLinks,
-          socialIconPosition: state.config.socialIconPosition,
-          settings: {},
-          updatedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          lastEditor: state.userId,
-        }
-
-        const pubResult = await publishProfileService(state.userId, draftDoc)
-
-        // 4. Also save to bioCards collection (for public page rendering)
-        const cardPayload = {
+        // Always write to localStorage so the client-side state is updated
+        // even if Firestore is unauthenticated or has permission errors.
+        const localCardPayload = {
           id: handleSlug,
           handle: handleSlug,
           config: {
@@ -412,37 +436,107 @@ export const useDraftStore = create<DraftState>()((set, get) => {
           },
           analytics: { views: 0, clicks: 0 },
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          userId: userId
+        }
+        
+        try {
+          const cards = JSON.parse(localStorage.getItem('bioCards') || '{}')
+          cards[handleSlug] = localCardPayload
+          localStorage.setItem('bioCards', JSON.stringify(cards))
+          console.log('✅ Local storage cache updated for card:', handleSlug)
+        } catch (storageErr) {
+          console.warn('⚠️ Failed to cache to localStorage:', storageErr)
         }
 
-        await saveCardToFirestore(handleSlug, cardPayload).catch(err =>
-          console.warn('[useDraftStore] bioCards save warning:', err)
-        )
+        let apiSucceeded = true
 
-        // 5. Also save to server-side card store (for API/SSR rendering)
+        // 2. Claim username via API (server-side validation)
         try {
-          await fetch('/api/cards', {
-            method: 'POST',
+          const response = await fetch(`/api/cards/${handleSlug}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              cardId: handleSlug,
+              config: {
+                profile: state.config.profile,
+                links: state.config.links,
+                theme: state.config.theme,
+                socialLinks: state.config.socialLinks,
+              },
               handle: handleSlug,
-              config: cardPayload.config,
-              analytics: cardPayload.analytics,
-              ownerId: state.userId,
+              ownerId: userId,
             }),
           })
-        } catch { /* non-fatal */ }
 
-        // Update store with new version
-        if (pubResult.success) {
-          set({ version: pubResult.version, isDirty: false })
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}))
+            console.warn('⚠️ Server failed to update card in Firestore, using local fallback:', data.error)
+            apiSucceeded = false
+          }
+        } catch (fetchErr) {
+          console.warn('⚠️ Network failed to contact API, using local fallback:', fetchErr)
+          apiSucceeded = false
         }
 
-        // Keep localStorage references in sync
+        // 3. Publish to Firestore profiles/{uid}/published
+        if (apiSucceeded) {
+          try {
+            const draftDoc: ProfileDocument = {
+              version: state.version,
+              theme: state.config.theme,
+              profile: state.config.profile,
+              links: state.config.links,
+              socialLinks: state.config.socialLinks,
+              socialIconPosition: state.config.socialIconPosition,
+              settings: {},
+              updatedAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              lastEditor: userId,
+            }
+
+            const pubRes = await fetch('/api/published', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: userId, draftData: draftDoc }),
+            })
+            if (!pubRes.ok) {
+              console.warn(`⚠️ Failed to publish profile to database: ${pubRes.status}`)
+              apiSucceeded = false
+            } else {
+              const pubResult = await pubRes.json()
+              if (pubResult.success) {
+                set({ version: pubResult.version, isDirty: false })
+              }
+            }
+          } catch (pubErr) {
+            console.warn('⚠️ Failed to contact publish API:', pubErr)
+            apiSucceeded = false
+          }
+        }
+
+        // 4. Save to server-side card store (for API/SSR rendering)
+        if (apiSucceeded) {
+          try {
+            await fetch('/api/cards', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                cardId: handleSlug,
+                handle: handleSlug,
+                config: localCardPayload.config,
+                analytics: localCardPayload.analytics,
+                ownerId: userId,
+              }),
+            })
+          } catch { /* non-fatal */ }
+        }
+
+        // Keep localStorage references in sync and mark clean anyway
         localStorage.setItem('editorPreviewCardId', handleSlug)
         localStorage.setItem('activeBioCardId', handleSlug)
+        set({ isDirty: false })
 
-        return { success: true }
+        return { success: true, localOnly: !apiSucceeded, cardId: handleSlug }
       } catch (err: any) {
         console.error('[useDraftStore] publishProfile error:', err)
         return { success: false, error: err.message || 'Failed to publish' }

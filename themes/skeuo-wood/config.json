@@ -1,0 +1,63 @@
+{
+  "version": "1.0.0",
+  "id": "skeuo-wood",
+  "name": "Skeuo Wood",
+  "namespace": "theme-skeuo-wood",
+  "extends": "base-skeuo",
+  "category": "skeuomorphic",
+  "license": {
+    "type": "free"
+  },
+  "overrides": {
+    "colors": true,
+    "radius": true,
+    "buttons": true,
+    "wallpaper": true,
+    "decorations": true
+  },
+  "background": {
+    "type": "image",
+    "value": "/wallpapers/light-wood.webp",
+    "image": "/wallpapers/light-wood.webp"
+  },
+  "palette": {
+    "surface": "#FFF8F0",
+    "text": "#2B1F16",
+    "textMuted": "#6F5746",
+    "brand": "#8B5A2B",
+    "border": "#D6C2A6",
+    "surfaceAlt": "#F2E9DC"
+  },
+  "typography": {
+    "font": "font-inter",
+    "heading": "font-playfair",
+    "headingWeight": 700,
+    "bodyWeight": 400,
+    "buttonWeight": 700
+  },
+  "components": {
+    "button": {
+      "variant": "button-wood",
+      "radius": "radius-md",
+      "shadow": "shadow-soft",
+      "borderWidth": 1
+    },
+    "card": {
+      "variant": "card-wood",
+      "radius": 28,
+      "shadow": "0 10px 30px rgba(43, 31, 22, 0.15)",
+      "maxWidth": "390px",
+      "padding": "16px 16px 20px"
+    },
+    "avatar": {
+      "variant": "avatar-circle",
+      "size": 120
+    },
+    "social": {
+      "variant": "social-rounded"
+    }
+  },
+  "specialty": {
+    "decorations": []
+  }
+}

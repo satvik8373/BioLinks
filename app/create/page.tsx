@@ -7,7 +7,6 @@ import Button from '@/components/ui/Button'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemesByCategory, Theme, parseGoogleDriveUrl } from '@/lib/themes'
 import { getCleanUsernameSlug } from '@/lib/urlHelper'
-import { saveDraft } from '@/lib/profileService'
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -255,13 +254,20 @@ export default function CreatePage() {
     // Also persist to Firestore draft so it survives refresh
     const userId = profileData.id || profileData.uid || ''
     if (userId) {
-      saveDraft(userId, {
-        version: 0,
-        theme: bioLinkConfig.theme,
-        profile: bioLinkConfig.profile,
-        links: bioLinkConfig.links,
-        socialLinks: bioLinkConfig.socialLinks,
-        settings: {},
+      fetch('/api/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          draftData: {
+            version: 0,
+            theme: bioLinkConfig.theme,
+            profile: bioLinkConfig.profile,
+            links: bioLinkConfig.links,
+            socialLinks: bioLinkConfig.socialLinks,
+            settings: {},
+          }
+        })
       }).catch(err => console.warn('Initial draft save warning:', err))
     }
 
@@ -347,6 +353,9 @@ export default function CreatePage() {
               <div
                 key={theme.id}
                 onClick={() => setSelectedTheme(theme)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedTheme(theme) } }}
                 className={`w-full aspect-[9/16] rounded-[24px] p-4 flex flex-col justify-between items-center text-center relative overflow-hidden border-2 transition-all duration-300 group cursor-pointer ${
                   isSelected
                     ? 'border-brand-600 ring-4 ring-brand-500/30 shadow-2xl scale-[1.04]'

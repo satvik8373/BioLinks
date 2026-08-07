@@ -296,6 +296,58 @@ export const BASE_THEMES: Record<string, any> = {
       social: { variant: 'rounded', style: 'clay' }
     },
     layout: { style: 'centered', maxWidth: 390, headerLayout: 'classic' }
+  },
+
+  'base-skeuo': {
+    version: '1.0.0',
+    extends: 'base-skeuo',
+    category: 'custom',
+    license: { type: 'free' },
+    preview: { thumbnail: 'skeuo-wood.webp', cover: 'skeuo-wood-cover.webp' },
+    supports: { videoBackground: false, glass: false, clay: false, animatedGradient: false, particles: false },
+    a11y: { contrast: 'AA', reducedMotion: true },
+    effects: { glass: false, clay: false, noise: false, glow: false, blur: 0 },
+    animation: { hover: 'lift', page: 'fade', duration: 180, easing: 'ease-out' },
+    spacing: 'comfortable',
+    icon: { style: 'filled', size: 20 },
+    typography: {
+      font: 'inter',
+      headingFont: 'playfair',
+      fontFamily: 'Inter, sans-serif',
+      headingFamily: 'Playfair Display, serif',
+      headingWeight: 700,
+      bodyWeight: 400,
+      buttonWeight: 700
+    },
+    background: { type: 'image', value: '/wallpapers/light-wood.webp', image: '/wallpapers/light-wood.webp' },
+    palette: {
+      surface: '#FFF8F0',
+      text: '#2B1F16',
+      textMuted: '#6F5746',
+      brand: '#8B5A2B',
+      border: '#D6C2A6',
+      surfaceAlt: '#F2E9DC',
+      success: '#10B981',
+      warning: '#F59E0B',
+      danger: '#EF4444'
+    },
+    link: { style: 'button', icon: 'left', arrow: true },
+    components: {
+      button: {
+        variant: 'wood',
+        size: 'large',
+        iconPosition: 'left',
+        radius: 'md',
+        shadow: 'shadow-soft',
+        border: { width: 1, color: '#D6C2A6', style: 'solid' },
+        states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+      },
+      card: { variant: 'elevated', radius: 'lg', shadow: 'shadow-soft' },
+      avatar: { variant: 'circle', size: 120, border: { width: 3, color: '#8B5A2B', style: 'solid' } },
+      badge: { variant: 'soft' },
+      social: { variant: 'rounded', style: 'filled' }
+    },
+    layout: { style: 'centered', maxWidth: 680, headerLayout: 'classic' }
   }
 }
 

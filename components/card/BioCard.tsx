@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { gsap } from 'gsap'
 import {
   Eye, ExternalLink, ShoppingBag, Phone, Mail,
@@ -13,14 +14,16 @@ import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
   FacebookIcon, LinkedInIcon, DiscordIcon, GitHubIcon, WhatsAppIcon,
   TelegramIcon, SoundCloudIcon, ShopifyIcon, EmailIcon, PhoneIcon,
-  WebsiteIcon, AppleMusicIcon
+  WebsiteIcon, AppleMusicIcon, ServiceIcon
 } from '@/components/icons/ServiceIcons'
 import { getEmbedIframeUrl, parseGoogleDriveUrl, formatAndNormalizeTheme } from '@/lib/themes'
+import { getCardPublicUrl } from '@/lib/urlHelper'
 import GallerySlider from '@/components/card/GallerySlider'
 import LinkRenderer from '@/components/card/renderers/LinkRenderer'
 import ShopRenderer from '@/components/card/renderers/ShopRenderer'
 import ContactRenderer from '@/components/card/renderers/ContactRenderer'
 import DecorationLayer from '@/components/ui/DecorationLayer'
+import MusicSheetModal from '@/components/modals/MusicSheetModal'
 
 
 
@@ -63,6 +66,18 @@ interface LinkItem {
   collectionLayout?: 'stack' | 'grid' | 'carousel' | 'showcase'
   videoClickOption?: 'display_video' | 'open_youtube' | 'open_latest' | 'display_latest'
   videoMute?: boolean
+  musicClickOption?:
+    | 'display_services_preview'
+    | 'display_services'
+    | 'display_spotify'
+    | 'direct_url'
+  streamingServices?: Array<{
+    id: string
+    name: string
+    platformKey: string
+    url?: string
+    isVisible: boolean
+  }>
   isScheduled?: boolean
   scheduleNotify?: boolean
   scheduleTimezone?: string
@@ -103,7 +118,7 @@ interface BioLinkConfig {
       shadow: boolean
       shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
       boxShadow?: string
-      style?: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill'
+      style?: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill' | 'wood' | 'carved' | 'raised' | 'leather'
       animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide' | string
       enableAnimations?: boolean
     }
@@ -145,21 +160,18 @@ function ensureAbsoluteUrl(url?: string): string {
 
 // ─── Background helper ────────────────────────────────────────────────────
 function getBg(c: ThemeColors): React.CSSProperties {
-  if (c.backgroundType === 'video' || c.backgroundVideo || c.backgroundIframe) {
+  const type = c.backgroundType || (
+    (c.backgroundVideo || c.backgroundIframe) ? 'video' :
+    c.backgroundImage ? 'image' :
+    c.backgroundMesh ? (c.backgroundMesh.includes('radial-gradient(circle') ? 'pattern' : 'blur') :
+    c.backgroundGradient ? 'gradient' : 'fill'
+  )
+
+  if (type === 'video' || type === 'image') {
     return { backgroundColor: 'transparent' }
   }
 
-  if (c.backgroundImage) {
-    const driveObj = parseGoogleDriveUrl(c.backgroundImage)
-    const imgUrl = driveObj.directUrl || c.backgroundImage
-    return {
-      backgroundImage: `url(${imgUrl})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-    }
-  }
-
-  if (c.backgroundMesh) {
+  if ((type === 'pattern' || type === 'blur' || type === 'mesh') && c.backgroundMesh) {
     return {
       background: c.backgroundMesh,
       backgroundSize: 'cover',
@@ -167,7 +179,7 @@ function getBg(c: ThemeColors): React.CSSProperties {
     }
   }
 
-  if (c.backgroundGradient) {
+  if (type === 'gradient' && c.backgroundGradient) {
     const g = c.backgroundGradient
     if (g.direction === 'radial') {
       return { background: `radial-gradient(circle, ${g.from}, ${g.to})` }
@@ -175,7 +187,7 @@ function getBg(c: ThemeColors): React.CSSProperties {
     return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
   }
 
-  return { background: c.background || '#e9eaee' }
+  return { background: c.background || '#FFFFFF' }
 }
 
 function getSmartContrastTextColor(bgHex?: string, fallbackText?: string, profileText?: string): string {
@@ -191,6 +203,41 @@ function getSmartContrastTextColor(bgHex?: string, fallbackText?: string, profil
     return brightness < 140 ? '#ffffff' : '#0f172a'
   }
   return fallbackText || profileText || '#0f172a'
+}
+
+export function resolveFontFamily(fontName?: string): string {
+  if (!fontName) return "'Inter', sans-serif"
+  const clean = fontName.trim()
+
+  const map: Record<string, string> = {
+    'Albert Sans': "'Albert Sans', sans-serif",
+    'Belanosima': "'Belanosima', sans-serif",
+    'Bricolage Grotesque': "'Bricolage Grotesque', sans-serif",
+    'DM Sans': "'DM Sans', sans-serif",
+    'Epilogue': "'Epilogue', sans-serif",
+    'IBM Plex Sans': "'IBM Plex Sans', sans-serif",
+    'Inter': "'Inter', sans-serif",
+    'Lato': "'Lato', sans-serif",
+    'Link Sans': "'Plus Jakarta Sans', sans-serif",
+    'M Plus Rounded': "'M PLUS Rounded 1c', sans-serif",
+    'Manrope': "'Manrope', sans-serif",
+    'Oxanium': "'Oxanium', cursive",
+    'Poppins': "'Poppins', sans-serif",
+    'Red Hat Display': "'Red Hat Display', sans-serif",
+    'Roboto': "'Roboto', sans-serif",
+    'Rubik': "'Rubik', sans-serif",
+    'Space Grotesk': "'Space Grotesk', sans-serif",
+    'Syne': "'Syne', sans-serif",
+    'Montserrat': "'Montserrat', sans-serif",
+    'Playfair Display': "'Playfair Display', serif",
+    'Open Sans': "'Open Sans', sans-serif",
+  }
+
+  if (map[clean]) return map[clean]
+  if (clean.includes(',') || clean.includes("'") || clean.includes('"')) {
+    return clean
+  }
+  return `'${clean}', sans-serif`
 }
 
 function buildBtnStyle(
@@ -212,8 +259,8 @@ function buildBtnStyle(
   }
 
   const base: React.CSSProperties = {
-    fontFamily: fonts?.body || 'Inter, sans-serif',
-    borderRadius: (style === 'clay') ? '26px' : (r > 20 ? '9999px' : `${r}px`),
+    fontFamily: resolveFontFamily(fonts?.body),
+    borderRadius: typeof r === 'number' ? (r > 35 ? '9999px' : `${r}px`) : String(r || '20px'),
     transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     cursor: 'pointer',
     display: 'block',
@@ -285,6 +332,46 @@ function buildBtnStyle(
         color: getSmartContrastTextColor(softBg, c.buttonText, c.profileText),
         border: bWidth > 0 ? `${bWidth}px solid ${bColor}` : '1px solid rgba(255, 255, 255, 0.75)',
         boxShadow: '0 12px 28px -6px rgba(0, 0, 0, 0.22), 0 6px 12px -4px rgba(0, 0, 0, 0.12)',
+      }
+    case 'wood':
+      return {
+        ...base,
+        backgroundImage: 'url(/wallpapers/wood-button.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        color: '#2B1F16',
+        border: `${Math.max(bWidth, 1)}px solid rgba(43, 31, 22, 0.25)`,
+        boxShadow: '0 4px 10px rgba(43, 31, 22, 0.25)',
+      }
+    case 'carved':
+      return {
+        ...base,
+        backgroundImage: 'url(/wallpapers/wood-button.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        color: '#2B1F16',
+        border: 'none',
+        boxShadow: 'inset 0 3px 6px rgba(0, 0, 0, 0.35), 0 1px 0px rgba(255, 255, 255, 0.4)',
+      }
+    case 'raised':
+      return {
+        ...base,
+        backgroundImage: 'url(/wallpapers/wood-button.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        color: '#2B1F16',
+        border: `${Math.max(bWidth, 1)}px solid rgba(43, 31, 22, 0.3)`,
+        boxShadow: '0 8px 0px #8B5A2B, 0 8px 15px rgba(0, 0, 0, 0.35)',
+      }
+    case 'leather':
+      return {
+        ...base,
+        backgroundImage: 'url(/wallpapers/leather-button.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        color: '#FFF8F0',
+        border: '1.5px dashed rgba(255, 248, 240, 0.4)',
+        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)',
       }
     default: // solid
       const solidBg = c.buttonDefault || '#ffffff'
@@ -361,6 +448,7 @@ export default function BioCard({
     ctaLabel?: string
     ctaUrl?: string
   } | null>(null)
+  const [activeMusicSheetLink, setActiveMusicSheetLink] = useState<LinkItem | null>(null)
 
   const linksContainerRef = useRef<HTMLDivElement>(null)
 
@@ -425,7 +513,7 @@ export default function BioCard({
     const targetUrl = ensureAbsoluteUrl(lockedModalLink.url)
     setLockedModalLink(null)
     if (targetUrl && targetUrl !== '#') {
-      window.open(targetUrl, '_blank')
+      window.open(targetUrl, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -567,6 +655,18 @@ export default function BioCard({
     }
   }, [cardId, overrideConfig])
 
+  useEffect(() => {
+    const linkId = 'biocard-google-fonts-stylesheet'
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link')
+      link.id = linkId
+      link.rel = 'stylesheet'
+      link.href =
+        'https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;700&family=Belanosima:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=DM+Sans:wght@400;700&family=Epilogue:wght@400;700&family=IBM+Plex+Sans:wght@400;700&family=Inter:wght@400;700&family=Lato:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Manrope:wght@400;700&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Oxanium:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Poppins:wght@400;700&family=Red+Hat+Display:wght@400;700&family=Roboto:wght@400;700&family=Rubik:wght@400;700&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700&display=swap'
+      document.head.appendChild(link)
+    }
+  }, [])
+
   const trackClick = async (linkId: string) => {
     try {
       await fetch(`/api/cards/${cardId}`, {
@@ -598,7 +698,7 @@ export default function BioCard({
       <Link2 className="w-16 h-16 mb-4 text-gray-500" />
       <h1 className="text-2xl font-bold mb-2">Page not found</h1>
       <p className="text-gray-400 mb-6 text-sm">This bio link doesn't exist or hasn't been saved yet.</p>
-      <a href="/" className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm transition-colors">Go Home</a>
+      <Link href="/" className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm transition-colors">Go Home</Link>
     </div>
   )
 
@@ -607,6 +707,8 @@ export default function BioCard({
   const c = theme.colors
   const bg = getBg(c)
   const btnStyle = buildBtnStyle(theme)
+  const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
+  const isWood = theme.buttonStyle?.style === 'wood' || theme.buttonStyle?.style === 'carved' || theme.buttonStyle?.style === 'raised' || theme.buttonStyle?.style === 'leather' || theme.id === 'skeuo-wood'
   
   // Filter visible links + apply scheduling logic
   const now = new Date()
@@ -639,7 +741,7 @@ export default function BioCard({
   }
 
   const hasSocials = allSocialItems.length > 0
-  const pageUrl = typeof window !== 'undefined' ? window.location.href : `https://biolink.ee/${cardId}`
+  const pageUrl = getCardPublicUrl(cardId, (config.profile as any)?.handle || config.profile?.title)
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(pageUrl)}`
 
   const handleCopyLink = () => {
@@ -656,6 +758,18 @@ export default function BioCard({
     if (match && match[1]) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
     if (url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be')) {
       return `https://img.youtube.com/vi/hqdefault.jpg`
+    }
+    return null
+  }
+
+  const getSpotifyEmbedUrl = (url?: string): string | null => {
+    if (!url) return null
+    const clean = url.trim()
+    if (clean.includes('open.spotify.com/embed/')) return clean
+
+    const match = clean.match(/open\.spotify\.com\/(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/)
+    if (match && match[1] && match[2]) {
+      return `https://open.spotify.com/embed/${match[1]}/${match[2]}`
     }
     return null
   }
@@ -991,67 +1105,66 @@ export default function BioCard({
       </a>
     )
 
-    if (link.type === 'music') {
-      const isFeatured = link.layout === 'featured'
-      const embedSrc = getEmbedIframeUrl(link.embedUrl || link.url || '')
-      const isAutoEmbed = embedSrc && (embedSrc.includes('spotify.com/embed') || embedSrc.includes('soundcloud.com') || embedSrc.includes('apple.com'))
-      
-      // If embedUrl or embeddable music link is provided, render embedded player
-      if (link.embedUrl || isAutoEmbed) {
-        return (
-          <div key={key} className="w-full mb-3 shadow-sm rounded-xl overflow-hidden">
-            <iframe
-              src={embedSrc}
-              className="w-full h-[152px] rounded-xl border-0"
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              loading="lazy"
-            />
-          </div>
-        )
-      }
-      
-      if (isFeatured && link.thumbnail) {
-        return (
-          <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-            onClick={() => trackClick(key)} style={btnStyle}
-            className={`group relative overflow-hidden transform-gpu ${animClasses}`}>
-            <div className="flex flex-col">
-              <div className="w-full aspect-video bg-black/10 overflow-hidden">
-                <img src={link.thumbnail} alt={link.text} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3">
-                <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0">
-                  {link.platform && PLATFORM_ICONS[link.platform]
-                    ? (() => { const I = PLATFORM_ICONS[link.platform!]; return <I size={16} /> })()
-                    : <Music size={16} />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-                  {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
-                </div>
-                <Sparkles size={14} style={{ color: c.buttonText, opacity: 0.4 }} className="flex-shrink-0" />
-              </div>
-            </div>
-          </a>
-        )
-      }
-      
+    if (link.type === 'music' || (link.url && link.url.includes('spotify.com'))) {
+      const musicOpt = link.musicClickOption || 'display_services_preview'
+      const isSpotify = (link.url || '').toLowerCase().includes('spotify.com')
+      const albumArt = link.thumbnail || (isSpotify ? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150&auto=format&fit=crop&q=80' : null)
+
       return (
-        <a key={key} href={ensureAbsoluteUrl(link.url)} target="_blank" rel="noopener noreferrer"
-          onClick={() => trackClick(key)} style={btnStyle}
-          className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}>
-          <div className="flex items-center gap-3 px-4 py-3.5">
-            <div className="w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-              {link.platform && PLATFORM_ICONS[link.platform]
-                ? (() => { const I = PLATFORM_ICONS[link.platform!]; return <I size={18} /> })()
-                : <Music size={18} />}
+        <button
+          key={key}
+          type="button"
+          onClick={() => {
+            trackClick(key)
+            if (musicOpt === 'direct_url') {
+              window.open(ensureAbsoluteUrl(link.url), '_blank', 'noopener,noreferrer')
+            } else {
+              setActiveMusicSheetLink(link)
+            }
+          }}
+          style={btnStyle}
+          className={`w-full group relative overflow-hidden transform-gpu min-h-[58px] block text-decoration-none transition-all mb-3 text-left cursor-pointer ${animClasses}`}
+        >
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            {/* Square Album Cover Image */}
+            {albumArt ? (
+              <img
+                src={albumArt}
+                alt=""
+                className="w-12 h-12 rounded-lg object-cover flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-lg bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                {isSpotify ? <SpotifyIcon size={22} /> : <Music size={20} />}
+              </div>
+            )}
+
+            {/* Center: Track Title & Subtitle with Spotify Icon */}
+            <div className="min-w-0 flex-1 text-center pr-1">
+              <p className="font-extrabold text-sm tracking-tight truncate" style={{ color: c.buttonText }}>
+                {link.text || 'Song Title'}
+              </p>
+              <div
+                className="flex items-center justify-center gap-1.5 text-xs truncate mt-0.5"
+                style={{ color: c.buttonText, opacity: 0.8 }}
+              >
+                {isSpotify ? (
+                  <SpotifyIcon size={13} className="flex-shrink-0 inline" />
+                ) : (
+                  <Music size={12} className="flex-shrink-0 inline" />
+                )}
+                <span className="truncate">
+                  {link.description || 'Song • Stream everywhere'}
+                </span>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-extrabold text-sm" style={{ color: c.buttonText }}>{link.text}</p>
-              {link.description && <p className="text-xs truncate mt-0.5" style={{ color: c.buttonText, opacity: 0.65 }}>{link.description}</p>}
+
+            {/* Right: Three Vertical Dots (MoreVertical) */}
+            <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+              <MoreVertical size={16} style={{ color: c.buttonText }} />
             </div>
           </div>
-        </a>
+        </button>
       )
     }
 
@@ -1073,10 +1186,11 @@ export default function BioCard({
         const autoSrc = embedSrc ? `${embedSrc}${embedSrc.includes('?') ? '&' : '?'}autoplay=1${link.videoMute ? '&mute=1' : ''}` : ''
 
         return (
-          <div key={key} className="relative w-full h-[140px] rounded-lg overflow-hidden shadow-md border border-white/10 bg-black flex flex-col justify-center">
+          <div key={key} style={btnStyle} className="relative w-full aspect-video rounded-[inherit] overflow-hidden shadow-md bg-black flex flex-col justify-center mb-3">
             <iframe
               src={autoSrc}
-              className="w-full h-full absolute inset-0 border-0 rounded-md"
+              title={link.text || 'YouTube Video Player'}
+              className="w-full h-full absolute inset-0 border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
@@ -1110,6 +1224,9 @@ export default function BioCard({
               }
               try {
                 const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+                if (!res.ok) {
+                  throw new Error(`HTTP error ${res.status}`)
+                }
                 const data = await res.json()
                 if (data.embedUrl || data.latestUrl) {
                   setPlayingVideos(prev => ({ ...prev, [link.id]: data.embedUrl || data.latestUrl }))
@@ -1121,13 +1238,14 @@ export default function BioCard({
             }
             setPlayingVideos(prev => ({ ...prev, [link.id]: true }))
           }}
-          className={`group relative w-full h-[140px] flex flex-col justify-end rounded-lg overflow-hidden shadow-md border border-white/10 block text-decoration-none transition-all ${animClasses}`}
+          style={btnStyle}
+          className={`group relative w-full aspect-video rounded-[inherit] overflow-hidden shadow-md block text-decoration-none transition-all mb-3 ${animClasses}`}
         >
           {/* Background Thumbnail Image */}
           {cardThumb ? (
             <img
               src={cardThumb}
-              alt={cardTitle}
+              alt={cardTitle || 'YouTube Video'}
               className="w-full h-full absolute inset-0 object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
@@ -1136,19 +1254,27 @@ export default function BioCard({
             </div>
           )}
 
-          {/* Center Translucent Play Button Icon */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-              <Play size={20} className="fill-white ml-0.5" />
+          {/* Top Left YouTube Badge */}
+          <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-extrabold shadow-sm pointer-events-none">
+            <YouTubeIcon size={14} className="text-red-500" />
+            <span>YouTube</span>
+          </div>
+
+          {/* Center Play Button */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <div className="w-11 h-11 rounded-full bg-black/65 backdrop-blur-xs text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <Play size={18} className="fill-white ml-0.5" />
             </div>
           </div>
 
-          {/* Bottom Gradient Overlay & Video Title Info */}
-          <div className="relative bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-2.5 z-10 text-left w-full pt-8">
-            <h4 className="font-bold text-white text-xs leading-tight drop-shadow-md line-clamp-2">
-              {cardTitle}
-            </h4>
-          </div>
+          {/* Bottom Gradient Title Overlay */}
+          {cardTitle && (
+            <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 text-left pointer-events-none">
+              <h4 className="font-bold text-white text-xs leading-tight drop-shadow-md truncate">
+                {cardTitle}
+              </h4>
+            </div>
+          )}
         </a>
       )
     }
@@ -1204,6 +1330,9 @@ export default function BioCard({
                 return
               }
               const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+              if (!res.ok) {
+                throw new Error(`HTTP error ${res.status}`)
+              }
               const data = await res.json()
               const target = data.latestUrl || link.url
               window.open(target, '_blank', 'noopener,noreferrer')
@@ -1243,10 +1372,70 @@ export default function BioCard({
 
 
 
-    // Classic Button Layout (Default)
+    // Classic Button Layout (Default) or Featured Card Layout
     const iconKey = (link.platform || link.icon || '').toLowerCase()
     const Icon = PLATFORM_ICONS[iconKey] || null
     const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
+
+    const featuredThumb = link.thumbnail || (link as any).featuredImage || (link as any).imageUrl || null
+
+    if (isFeatured) {
+      return (
+        <a
+          key={key}
+          href={ensureAbsoluteUrl(link.url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => handleLinkClick(e, link)}
+          style={{
+            ...btnStyle,
+            height: 'auto',
+            padding: 0,
+            overflow: 'hidden',
+          }}
+          className={`group relative overflow-hidden transform-gpu flex flex-col w-full shadow-md transition-all ${animClasses}`}
+        >
+          {/* Top Featured Banner Image */}
+          <div className="w-full h-36 sm:h-44 bg-slate-800 relative overflow-hidden flex items-center justify-center">
+            {featuredThumb ? (
+              <img
+                src={featuredThumb}
+                alt={link.text}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            ) : (
+              <div
+                className="w-full h-full flex flex-col items-center justify-center p-4 text-center text-white/80"
+                style={{
+                  background: `linear-gradient(135deg, ${c.accent || '#4f46e5'}, ${c.buttonDefault || '#161821'})`,
+                }}
+              >
+                <Sparkles size={24} className="mb-1 opacity-70" />
+                <span className="text-xs font-bold tracking-tight">Featured Showcase Banner</span>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Info Bar */}
+          <div className={`flex items-center ${isClay ? 'px-[18px] py-[12px]' : 'px-4 py-3'} gap-3 w-full border-t border-white/10`}>
+            <div className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0">
+              {Icon ? <Icon size={16} /> : <Globe size={16} />}
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="font-extrabold text-sm leading-tight truncate" style={{ color: isClay ? '#161821' : c.buttonText }}>
+                {link.text}
+              </p>
+              {link.description && (
+                <p className="text-xs truncate mt-0.5 opacity-75" style={{ color: isClay ? '#6b7280' : c.buttonText }}>
+                  {link.description}
+                </p>
+              )}
+            </div>
+            <ChevronRight size={16} style={{ color: isClay ? '#9aa0ab' : c.buttonText, opacity: 0.7 }} className="flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </a>
+      )
+    }
 
     return (
       <a 
@@ -1259,32 +1448,49 @@ export default function BioCard({
         className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}
       >
         <div className={`flex items-center ${isClay ? 'px-[18px] py-[14px]' : 'px-4 py-3.5'} gap-3.5`}>
-          <div className={isClay ? "w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0" : "w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200"}
-            style={isClay ? (() => {
-              const p = (link.platform || link.icon || '').toLowerCase()
-              const isYT = p === 'youtube' || (link.url || '').includes('youtube')
-              const isWork = p === 'briefcase' || p === 'work'
-              const isMail = p === 'mail' || p === 'email'
-              if (isYT)   return { background: '#ff1f1f', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-              if (isWork) return { background: '#f2f3f5', color: '#c7791f',  boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-              if (isMail) return { background: '#3f5cf0', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-              return { background: '#ffffff', color: '#2f6fed', boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-            })() : undefined}
+          <div className={
+            isClay 
+              ? "w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0" 
+              : (isWood 
+                  ? "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200 shadow-[inset_0_1px_2px_rgba(0,0,0,0.35),_0_1px_1px_rgba(255,255,255,0.3)] border border-amber-950/20" 
+                  : "w-9 h-9 rounded-full bg-black/10 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-200")
+            }
+            style={
+              isClay 
+                ? (() => {
+                    const p = (link.platform || link.icon || '').toLowerCase()
+                    const isYT = p === 'youtube' || (link.url || '').includes('youtube')
+                    const isWork = p === 'briefcase' || p === 'work'
+                    const isMail = p === 'mail' || p === 'email'
+                    if (isYT)   return { background: '#ff1f1f', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    if (isWork) return { background: '#f2f3f5', color: '#c7791f',  boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    if (isMail) return { background: '#3f5cf0', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    return { background: '#ffffff', color: '#2f6fed', boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                  })() 
+                : (isWood 
+                    ? {
+                        backgroundImage: 'url(/wallpapers/wood-button.webp)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        color: '#2B1F16',
+                      }
+                    : undefined)
+            }
           >
             {Icon ? <Icon size={isClay ? 22 : 18} /> : <Globe size={isClay ? 22 : 18} />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : c.buttonText, fontFamily: theme.fonts?.body }}>
+            <p className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : (theme.buttonStyle?.style === 'leather' ? '#FFF8F0' : (isWood ? '#2B1F16' : c.buttonText)), fontFamily: theme.fonts?.body }}>
               {link.text}
             </p>
             {link.description && (
-              <p className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : c.buttonText, fontFamily: theme.fonts?.body, opacity: isClay ? 1 : 0.8 }}>
+              <p className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : (theme.buttonStyle?.style === 'leather' ? 'rgba(255,248,240,0.75)' : (isWood ? 'rgba(43,31,22,0.75)' : c.buttonText)), fontFamily: theme.fonts?.body, opacity: isClay ? 1 : 0.8 }}>
                 {link.description}
               </p>
             )}
           </div>
           <div className="w-5 flex items-center justify-end transition-opacity">
-            <ChevronRight size={18} style={{ color: isClay ? '#9aa0ab' : c.buttonText, opacity: isClay ? 1 : 0.4 }} />
+            <ChevronRight size={18} style={{ color: isClay ? '#9aa0ab' : (theme.buttonStyle?.style === 'leather' ? '#FFF8F0' : (isWood ? '#2B1F16' : c.buttonText)), opacity: isClay ? 1 : (isWood ? 0.7 : 0.4) }} />
           </div>
         </div>
       </a>
@@ -1308,13 +1514,13 @@ export default function BioCard({
     widthToken === 'full' ? 'max-w-4xl w-full' :
     'max-w-[480px]'
 
-  const cardStyle: React.CSSProperties = theme.specialty?.cardBackground ? {
-    background:    hasCustomBackground ? 'transparent' : theme.specialty.cardBackground,
-    borderRadius:  theme.specialty.cardBorderRadius,
-    boxShadow:     hasCustomBackground ? 'none' : theme.specialty.cardBoxShadow,
-    maxWidth:      theme.specialty.cardMaxWidth || (widthToken === 'compact' ? '390px' : widthToken === 'wide' ? '640px' : '480px'),
-    padding:       theme.specialty.cardPadding || (isPreview ? '20px 18px 24px' : '28px 26px 34px'),
-  } : {}
+  const hasCardSpecialty = Boolean(theme.specialty?.cardBackground || theme.specialty?.cardBorderRadius || isWood || isClay)
+  const cardMaxWidth = theme.specialty?.cardMaxWidth || (widthToken === 'compact' ? '390px' : widthToken === 'wide' ? '640px' : '480px')
+  const cardPadding = theme.specialty?.cardPadding || '16px 16px 20px'
+
+  const cardStyle: React.CSSProperties = hasCardSpecialty
+    ? { maxWidth: cardMaxWidth }
+    : {}
 
   const activeDecorations = (theme.specialty as any)?.decorations || ((theme.specialty as any)?.blobs ? ['blobs', 'noise'] : [])
 
@@ -1325,7 +1531,7 @@ export default function BioCard({
       className={`bl-profile-theme ${isPreview ? 'w-full h-full relative overflow-hidden p-3 sm:p-4 flex items-center justify-center' : 'min-h-screen relative flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden'}`}
       style={bg}
     >
-      {c.backgroundImage && (
+      {c.backgroundImage && c.backgroundType === 'image' && (
         <div
           className="absolute inset-0 z-0 pointer-events-none"
           style={{
@@ -1338,7 +1544,7 @@ export default function BioCard({
       )}
 
       {/* Custom Video Background (.mp4 / .webm) */}
-      {c.backgroundVideo && (
+      {c.backgroundVideo && c.backgroundType === 'video' && (
         <video
           key={c.backgroundVideo}
           autoPlay
@@ -1351,9 +1557,10 @@ export default function BioCard({
       )}
 
       {/* Custom YouTube / Vimeo / Iframe Embed Background */}
-      {c.backgroundIframe && (
+      {c.backgroundIframe && c.backgroundType === 'video' && (
         <iframe
           src={getEmbedIframeUrl(c.backgroundIframe)}
+          title="Background Video Player"
           className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none border-0 scale-125"
           allow="autoplay; encrypted-media; picture-in-picture"
           tabIndex={-1}
@@ -1376,79 +1583,37 @@ export default function BioCard({
 
       {/* ── Floating Mobile-First Card Frame ── */}
       <div
-        className={`relative z-10 flex flex-col justify-between card-frame w-full ${widthClass} ${
-          theme.specialty?.cardBackground
-            ? 'my-auto overflow-hidden'
+        className={`relative z-10 flex flex-col card-frame w-full ${widthClass} ${
+          hasCardSpecialty
+            ? (isPreview ? 'max-h-full overflow-y-auto no-scrollbar my-auto' : 'my-auto')
             : (isPreview
-                ? 'h-full p-5 overflow-y-auto no-scrollbar'
-                : 'min-h-screen pt-16 px-4 pb-4 sm:pt-20 sm:px-5 sm:pb-5 md:pt-8 md:my-10 md:min-h-0 md:px-6 md:pb-8')
+                ? 'h-full p-4 overflow-y-auto no-scrollbar'
+                : 'min-h-screen pt-12 px-4 pb-4 sm:pt-16 sm:px-5 sm:pb-5 md:pt-6 md:my-6 md:min-h-0 md:px-6 md:pb-6')
         }`}
         style={cardStyle}
       >
         <DecorationLayer decorations={activeDecorations} blobColorLeft="#ffffff" blobColorRight="#ffffff" />
 
-        {/* ── Clay Top Row (Creator badge + share/menu icons) ── */}
-        {(theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay') && (
-          <div className="relative z-[3] flex justify-between items-center mb-2">
-            <div style={{
-              background: '#ffffff',
-              color: '#2f6fed',
-              fontWeight: 700,
-              fontSize: '15px',
-              padding: '9px 20px',
-              borderRadius: '20px',
-              boxShadow: '0 4px 10px rgba(120,124,134,0.18)',
-            }}>
-              Creator
-            </div>
-            <div className="flex gap-[10px]">
-              <div style={{
-                width: 38, height: 38, background: '#ffffff', borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 10px rgba(120,124,134,0.18)', color: '#20242e',
-              }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                  <line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/>
-                </svg>
-              </div>
-              <div style={{
-                width: 38, height: 38, background: '#ffffff', borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 10px rgba(120,124,134,0.18)', color: '#20242e',
-              }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div>
           {/* ── Profile Section ── */}
           {(() => {
-            const headerLayout = (config.profile as any)?.headerLayout || 'classic'
-            const headerShape = (config.profile as any)?.headerShape || 'loop'
             const bannerImage = (config.profile as any)?.bannerImage || ''
+            const headerLayout = (config.profile as any)?.headerLayout || (bannerImage ? 'banner' : 'classic')
+            const headerShape = (config.profile as any)?.headerShape || 'loop'
 
             const avatarSrc = config.profile.avatar && config.profile.avatar !== 'user' ? config.profile.avatar : ''
             const hasImg = (src?: string) => Boolean(src && (src.startsWith('http') || src.startsWith('data:') || src.length > 10))
             const hasCardBg = Boolean(theme.specialty?.cardBackground)
 
-            // 1. HERO LAYOUT (Mobile Optimized)
+            // 1. HERO LAYOUT (Mobile Optimized - Seamless Full Bleed)
             if (headerLayout === 'hero') {
               return (
-                <div className="mb-6 sm:mb-8 relative h-[280px] sm:h-[340px] rounded-3xl overflow-hidden flex flex-col justify-end p-4 sm:p-6 text-center shadow-md">
+                <div className="-mt-4 -mx-4 mb-6 relative h-[300px] sm:h-[360px] rounded-t-[inherit] overflow-hidden flex flex-col justify-end p-4 sm:p-6 text-center">
                   {hasImg(avatarSrc) ? (
                     <img
                       src={avatarSrc}
                       alt="hero avatar"
                       className="absolute inset-0 w-full h-full object-cover"
-                      style={{
-                        maskImage: 'linear-gradient(to bottom, black 50%, rgba(0,0,0,0.8) 75%, transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(to bottom, black 50%, rgba(0,0,0,0.8) 75%, transparent 100%)'
-                      }}
                     />
                   ) : (
                     <div
@@ -1457,23 +1622,24 @@ export default function BioCard({
                         background: c.backgroundGradient
                           ? `linear-gradient(${c.backgroundGradient.direction || '135deg'}, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})`
                           : c.backgroundMesh || `linear-gradient(135deg, ${c.background || '#0f172a'}, ${c.accent || '#4f46e5'})`,
-                        maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
-                        WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
                       }}
                     >
                       {(config.profile.title || '?')[0].toUpperCase()}
                     </div>
                   )}
 
+                  {/* Gradient Overlay for Seamless Legibility */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+
                   {/* Overlaid Title & Bio */}
                   <div className="relative z-10 text-center pb-2">
                     <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight text-white drop-shadow-md px-4"
-                      style={{ fontFamily: theme.fonts?.heading || 'sans-serif' }}>
+                      style={{ fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
                       {config.profile.title || 'Your Name'}
                     </h1>
                     {config.profile.bio && (
                       <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto text-white/95 drop-shadow-sm px-4"
-                        style={{ fontFamily: theme.fonts?.body || 'sans-serif' }}>
+                        style={{ fontFamily: resolveFontFamily(theme.fonts?.body) }}>
                         {config.profile.bio}
                       </p>
                     )}
@@ -1487,12 +1653,12 @@ export default function BioCard({
               )
             }
 
-            // 2. BANNER LAYOUT (Mobile Optimized)
+            // 2. BANNER LAYOUT (Mobile Optimized - Bezel-Less Full Bleed)
             if (headerLayout === 'banner') {
               return (
-                <div className="text-center mb-6 sm:mb-8">
+                <div className="text-center mb-6 sm:mb-8 -mt-4 -mx-4">
                   {/* Banner strip */}
-                  <div className="h-32 sm:h-40 relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center rounded-t-3xl">
+                  <div className="w-full h-32 sm:h-40 relative bg-slate-200 border-b border-white/20 shadow-sm overflow-hidden flex items-center justify-center rounded-t-[inherit]">
                     {hasImg(bannerImage) ? (
                       <img src={bannerImage} alt="banner" className="w-full h-full object-cover" />
                     ) : (
@@ -1529,13 +1695,13 @@ export default function BioCard({
                   </div>
 
                   <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight px-4"
-                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'sans-serif' }}>
+                    style={{ color: c.profileText, fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
                     {config.profile.title || 'Your Name'}
                   </h1>
 
                   {config.profile.bio && (
                     <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
-                      style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'sans-serif', opacity: 0.9 }}>
+                      style={{ color: c.profileBio, fontFamily: resolveFontFamily(theme.fonts?.body), opacity: 0.9 }}>
                       {config.profile.bio}
                     </p>
                   )}
@@ -1552,7 +1718,7 @@ export default function BioCard({
                 headerShape === 'burst' ? '30% 70% 70% 30% / 50% 30% 70% 50%' : '36px'
 
               return (
-                <div className="text-center mb-6 sm:mb-8">
+                <div className="w-full text-center mb-6 sm:mb-8">
                   <div className="mb-3 sm:mb-4 flex justify-center">
                     <div
                       className="w-36 h-28 sm:w-44 sm:h-36 overflow-hidden shadow-xl flex items-center justify-center relative transition-all duration-300 border-4 border-white/40"
@@ -1572,13 +1738,13 @@ export default function BioCard({
                   </div>
 
                   <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight px-4"
-                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'sans-serif' }}>
+                    style={{ color: c.profileText, fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
                     {config.profile.title || 'Your Name'}
                   </h1>
 
                   {config.profile.bio && (
                     <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
-                      style={{ color: c.profileBio, fontFamily: theme.fonts?.body || 'sans-serif', opacity: 0.9 }}>
+                      style={{ color: c.profileBio, fontFamily: resolveFontFamily(theme.fonts?.body), opacity: 0.9 }}>
                       {config.profile.bio}
                     </p>
                   )}
@@ -1587,42 +1753,33 @@ export default function BioCard({
             }
 
             // 5. CLASSIC LAYOUT (DEFAULT - Mobile Optimized)
-            const isClay = theme.buttonStyle?.style === 'clay'
-
             return (
-              <div className={`text-center relative z-10 ${isClay ? 'mb-0' : 'mb-4 sm:mb-6'}`}>
-
+              <div className="w-full text-center relative z-10 mb-4 sm:mb-6">
                 {/* Avatar */}
-                <div className={`${isClay ? 'w-[150px] h-[150px] p-[6px] bg-white shadow-[0_10px_24px_rgba(120,124,134,0.25)] mt-[18px] mb-[18px]' : 'w-24 h-24 sm:w-28 sm:h-28 my-4'} rounded-full mx-auto transition-all`}>
+                <div className="w-24 h-24 sm:w-28 sm:h-28 my-3 rounded-full mx-auto overflow-hidden shadow-md border-2 border-white/80">
                   {hasImg(avatarSrc) ? (
                     <img src={avatarSrc} alt="avatar" className="w-full h-full rounded-full object-cover" />
                   ) : (
                     <div className="w-full h-full rounded-full flex items-center justify-center overflow-hidden"
-                      style={{ background: isClay ? 'linear-gradient(145deg,#2b2f3a,#454b5c)' : `linear-gradient(135deg, ${c.accent || c.buttonDefault || '#2f6fed'}, ${c.buttonDefault || '#161821'})` }}>
-                      {isClay ? (
-                        <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '72%', height: '72%', color: '#c9cdd6' }}>
-                          <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.5h19.6v-2.5c0-3.3-6.5-4.9-9.8-4.9z"/>
-                        </svg>
-                      ) : (
-                        <span className="text-3xl sm:text-4xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
-                          {(config.profile.title || '?')[0].toUpperCase()}
-                        </span>
-                      )}
+                      style={{ background: `linear-gradient(135deg, ${c.accent || c.buttonDefault || '#2f6fed'}, ${c.buttonDefault || '#161821'})` }}>
+                      <span className="text-3xl sm:text-4xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
+                        {(config.profile.title || '?')[0].toUpperCase()}
+                      </span>
                     </div>
                   )}
                 </div>
 
                 {/* Name & Verified Badge */}
-                <div className={`flex items-center justify-center ${isClay ? 'gap-[8px]' : 'gap-1.5'} px-4 mt-1`}>
+                <div className="flex items-center justify-center gap-1.5 px-4 mt-1">
                   <h1
-                    className={`${isClay ? 'text-[30px] font-[800] tracking-[-0.3px]' : 'text-xl sm:text-2xl font-bold'} leading-tight`}
-                    style={{ color: c.profileText, fontFamily: theme.fonts?.heading || 'sans-serif' }}
+                    className="text-xl sm:text-2xl font-bold leading-tight"
+                    style={{ color: c.profileText, fontFamily: resolveFontFamily(theme.fonts?.heading) }}
                   >
                     {config.profile.title || 'Your Name'}
                   </h1>
-                  {(isClay || Boolean((config.profile as any)?.isVerified)) && (
-                    <div className={`${isClay ? 'w-6 h-6' : 'w-5 h-5'} bg-[#2f6fed] rounded-full flex items-center justify-center text-white flex-shrink-0 ml-[2px]`} title="Verified">
-                      <Check size={isClay ? 14 : 12} strokeWidth={3} />
+                  {Boolean((config.profile as any)?.isVerified) && (
+                    <div className="w-5 h-5 bg-[#2f6fed] rounded-full flex items-center justify-center text-white flex-shrink-0" title="Verified">
+                      <Check size={12} strokeWidth={3} />
                     </div>
                   )}
                 </div>
@@ -1630,16 +1787,11 @@ export default function BioCard({
                 {/* Bio */}
                 {config.profile.bio && (
                   <p
-                    className="max-w-xs mx-auto px-4"
+                    className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4 mt-1.5"
                     style={{
-                      color: isClay ? '#6b7280' : c.profileBio,
-                      fontFamily: theme.fonts?.body || 'sans-serif',
-                      fontSize: isClay ? '16.5px' : undefined,
-                      fontWeight: isClay ? 500 : undefined,
-                      lineHeight: isClay ? 1.45 : undefined,
-                      marginTop: isClay ? '10px' : '8px',
-                      textAlign: 'center',
-                      opacity: isClay ? 1 : 0.9,
+                      color: c.profileBio,
+                      fontFamily: resolveFontFamily(theme.fonts?.body),
+                      opacity: 0.9,
                     }}
                   >
                     {config.profile.bio}
@@ -1658,7 +1810,7 @@ export default function BioCard({
 
           {/* ── Social Icons (Top Position) ── */}
           {hasSocials && (config.socialIconPosition || 'top') === 'top' && (
-            <div className={`flex justify-center items-center flex-wrap relative z-10 ${(theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay') ? 'gap-[14px] mt-[24px] mb-[26px] px-4' : 'gap-3.5 mb-6 px-4'}`}>
+            <div className="flex justify-center items-center flex-wrap relative z-10 gap-3.5 mb-6 px-4">
               {allSocialItems.map(({ platform, url }) => {
                 if (!url) return null
                 const Icon = PLATFORM_ICONS[platform]
@@ -1677,19 +1829,29 @@ export default function BioCard({
                     className={
                       isClay
                         ? "w-12 h-12 rounded-[16px] flex items-center justify-center transition-all hover:-translate-y-0.5"
-                        : "w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
+                        : (isWood
+                            ? "w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 hover:-translate-y-0.5 active:scale-95 shadow-[0_3px_8px_rgba(0,0,0,0.3),_inset_0_1px_1px_rgba(255,255,255,0.4)] border border-amber-950/25"
+                            : "w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90")
                     }
-                    style={isClay
-                      ? {
-                          backgroundColor: '#eef0f3',
-                          color: claySocialColor,
-                          boxShadow: '5px 5px 10px rgba(163,168,178,0.45), -5px -5px 10px rgba(255,255,255,0.9)',
-                        }
-                      : { backgroundColor: 'rgba(255,255,255,0.15)', color: c.profileText }
+                    style={
+                      isClay
+                        ? {
+                            backgroundColor: '#eef0f3',
+                            color: claySocialColor,
+                            boxShadow: '5px 5px 10px rgba(163,168,178,0.45), -5px -5px 10px rgba(255,255,255,0.9)',
+                          }
+                        : (isWood
+                            ? {
+                                backgroundImage: 'url(/wallpapers/wood-button.webp)',
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                color: '#2B1F16',
+                              }
+                            : { backgroundColor: 'rgba(255,255,255,0.15)', color: c.profileText })
                     }
                     title={platform}
                   >
-                    <Icon size={isClay ? 22 : 16} />
+                    <Icon size={isClay ? 22 : (isWood ? 18 : 16)} />
                   </a>
                 )
               })}
@@ -1774,14 +1936,27 @@ export default function BioCard({
                   href={ensureAbsoluteUrl(url)} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
-                  style={{ 
-                    backgroundColor: 'rgba(255,255,255,0.15)',
-                    color: c.profileText
-                  }}
+                  className={
+                    isWood
+                      ? "w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 hover:-translate-y-0.5 active:scale-95 shadow-[0_3px_8px_rgba(0,0,0,0.3),_inset_0_1px_1px_rgba(255,255,255,0.4)] border border-amber-950/25"
+                      : "w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 hover:opacity-90"
+                  }
+                  style={
+                    isWood
+                      ? {
+                          backgroundImage: 'url(/wallpapers/wood-button.webp)',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          color: '#2B1F16',
+                        }
+                      : { 
+                          backgroundColor: 'rgba(255,255,255,0.15)',
+                          color: c.profileText
+                        }
+                  }
                   title={platform}
                 >
-                  <Icon size={16} />
+                  <Icon size={isWood ? 18 : 16} />
                 </a>
               )
             })}
@@ -1795,7 +1970,8 @@ export default function BioCard({
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full max-w-[340px] py-3.5 px-6 rounded-full bg-white text-slate-950 font-extrabold text-sm text-center shadow-lg hover:bg-slate-50 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer block border border-slate-200/60"
+            style={btnStyle}
+            className="w-full max-w-[340px] py-3.5 px-6 font-extrabold text-sm text-center hover:scale-[1.02] active:scale-95 transition-all cursor-pointer block"
           >
             Join {(config.profile as any)?.handle || config.profile.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'satvikpatel8373'} on BioLink
           </a>
@@ -2002,6 +2178,7 @@ export default function BioCard({
             <div className="w-full aspect-video bg-black relative">
               <iframe
                 src={`${getEmbedIframeUrl(activeVideoModal.embedUrl || activeVideoModal.url || '')}?autoplay=1${activeVideoModal.videoMute ? '&mute=1' : ''}`}
+                title={activeVideoModal.text || 'Video Embed Modal'}
                 className="w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -2118,6 +2295,13 @@ export default function BioCard({
           </div>
         </div>
       )}
+
+      {/* ── MUSIC BOTTOM SHEET MODAL (Linktree Official UI - Screenshot Match) ── */}
+      {/* ── MUSIC BOTTOM SHEET MODAL ── */}
+      <MusicSheetModal
+        link={activeMusicSheetLink}
+        onClose={() => setActiveMusicSheetLink(null)}
+      />
 
       {/* Keyframe for sheet slide-up */}
       <style>{`

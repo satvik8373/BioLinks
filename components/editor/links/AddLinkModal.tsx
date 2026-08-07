@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { gsap } from 'gsap'
 import { 
   X, Search, Sparkles, ShoppingBag, Video, Phone, Calendar, Type, 
-  Globe, Layout, ImageIcon, Upload, Asterisk, ChevronRight, ArrowRight
+  Globe, Layout, ImageIcon, Upload, Asterisk, ChevronRight, ArrowRight, Music
 } from 'lucide-react'
 import { LinkItem } from '@/lib/types/link'
 import { detectPlatformFromUrl } from '@/lib/detectPlatform'
@@ -26,20 +26,21 @@ interface CoreBlockOption {
 }
 
 const CORE_BLOCKS: CoreBlockOption[] = [
-  { id: 'link',      label: 'Link',       description: 'Add any URL button with smart platform auto-detection', bg: 'bg-indigo-600', Icon: Globe,       type: 'link' },
-  { id: 'header',    label: 'Header',     description: 'Section heading to organize your page',                 bg: 'bg-slate-700',  Icon: Layout,      type: 'header' },
-  { id: 'text',      label: 'Text',       description: 'Add body text, announcements, or bio notes',            bg: 'bg-slate-500',  Icon: Type,        type: 'text' },
-  { id: 'video',     label: 'Video',      description: 'Embed playable YouTube, TikTok, or Vimeo video',         bg: 'bg-red-600',    Icon: Video,       type: 'video', platform: 'youtube' },
-  { id: 'form',      label: 'Form',       description: 'Collect emails, feedback, survey & waitlist signups',    bg: 'bg-purple-600', Icon: Type,        type: 'form' },
-  { id: 'contact',   label: 'Contact',    description: 'Email, phone, WhatsApp, or Telegram chat link',          bg: 'bg-sky-500',    Icon: Phone,       type: 'contact' },
-  { id: 'file',      label: 'File',       description: 'Share Google Drive docs, PDFs, & file downloads',       bg: 'bg-blue-600',   Icon: Upload,      type: 'link', platform: 'google-drive' },
-  { id: 'embed',     label: 'Embed',      description: 'Embed Spotify, SoundCloud, or custom web iFrames',       bg: 'bg-pink-600',   Icon: Sparkles,    type: 'music', platform: 'spotify' },
-  { id: 'gallery',   label: 'Gallery',    description: 'Showcase photo gallery slider with multiple images',    bg: 'bg-amber-600',  Icon: ImageIcon,   type: 'gallery' },
-  { id: 'divider',   label: 'Divider',    description: 'Add a subtle visual separator line',                    bg: 'bg-slate-400',  Icon: Asterisk,    type: 'text' },
-  { id: 'store',     label: 'Store',      description: 'Sell products & digital downloads with pricing', bg: 'bg-purple-700', Icon: ShoppingBag, type: 'shop' },
-  { id: 'donation',  label: 'Donation',   description: 'Accept tips, coffee donations & one-time payments',     bg: 'bg-emerald-500',Icon: ShoppingBag, type: 'payment' },
-  { id: 'countdown', label: 'Countdown',  description: 'Display countdown timer for launches & events',         bg: 'bg-blue-700',   Icon: Calendar,    type: 'event' },
-  { id: 'rss',       label: 'RSS Feed',   description: 'Stream latest blog posts, news & RSS updates',           bg: 'bg-orange-500', Icon: Globe,       type: 'link' },
+  { id: 'link',      label: 'Link',            description: 'Add any URL button with smart platform auto-detection', bg: 'bg-indigo-600', Icon: Globe,       type: 'link' },
+  { id: 'music',     label: 'Music (Spotify)', description: 'Display Spotify audio player & multi-platform streaming services', bg: 'bg-emerald-600', Icon: Music, type: 'music', platform: 'spotify' },
+  { id: 'header',    label: 'Header',          description: 'Section heading to organize your page',                 bg: 'bg-slate-700',  Icon: Layout,      type: 'header' },
+  { id: 'text',      label: 'Text',            description: 'Add body text, announcements, or bio notes',            bg: 'bg-slate-500',  Icon: Type,        type: 'text' },
+  { id: 'video',     label: 'Video',           description: 'Embed playable YouTube, TikTok, or Vimeo video',         bg: 'bg-red-600',    Icon: Video,       type: 'video', platform: 'youtube' },
+  { id: 'form',      label: 'Form',            description: 'Collect emails, feedback, survey & waitlist signups',    bg: 'bg-purple-600', Icon: Type,        type: 'form' },
+  { id: 'contact',   label: 'Contact',         description: 'Email, phone, WhatsApp, or Telegram chat link',          bg: 'bg-sky-500',    Icon: Phone,       type: 'contact' },
+  { id: 'file',      label: 'File',            description: 'Share Google Drive docs, PDFs, & file downloads',       bg: 'bg-blue-600',   Icon: Upload,      type: 'link', platform: 'google-drive' },
+  { id: 'embed',     label: 'Embed',           description: 'Embed Spotify, SoundCloud, or custom web iFrames',       bg: 'bg-pink-600',   Icon: Sparkles,    type: 'music', platform: 'spotify' },
+  { id: 'gallery',   label: 'Gallery',         description: 'Showcase photo gallery slider with multiple images',    bg: 'bg-amber-600',  Icon: ImageIcon,   type: 'gallery' },
+  { id: 'divider',   label: 'Divider',         description: 'Add a subtle visual separator line',                    bg: 'bg-slate-400',  Icon: Asterisk,    type: 'text' },
+  { id: 'store',     label: 'Store',           description: 'Sell products & digital downloads with pricing',         bg: 'bg-purple-700', Icon: ShoppingBag, type: 'shop' },
+  { id: 'donation',  label: 'Donation',        description: 'Accept tips, coffee donations & one-time payments',     bg: 'bg-emerald-500',Icon: ShoppingBag, type: 'payment' },
+  { id: 'countdown', label: 'Countdown',       description: 'Display countdown timer for launches & events',         bg: 'bg-blue-700',   Icon: Calendar,    type: 'event' },
+  { id: 'rss',       label: 'RSS Feed',        description: 'Stream latest blog posts, news & RSS updates',           bg: 'bg-orange-500', Icon: Globe,       type: 'link' },
 ]
 
 export default function AddLinkModal({ onClose, onAdd }: AddLinkModalProps) {

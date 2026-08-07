@@ -51,6 +51,20 @@ export interface LinkItem {
   // Video / YouTube Settings
   videoClickOption?: 'display_video' | 'open_youtube' | 'open_latest' | 'display_latest'
   videoMute?: boolean
+
+  // Music & Streaming Settings
+  musicClickOption?:
+    | 'display_services_preview'
+    | 'display_services'
+    | 'display_spotify'
+    | 'direct_url'
+  streamingServices?: Array<{
+    id: string
+    name: string
+    platformKey: string
+    url?: string
+    isVisible: boolean
+  }>
   price?: string
   currency?: string
   originalPrice?: string

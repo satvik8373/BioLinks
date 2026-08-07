@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { UserPlus, Mail, Lock, User, AlertCircle, Sparkles } from 'lucide-react'
-import { auth, googleProvider, githubProvider } from '@/lib/firebase'
-import { saveUserProfile } from '@/lib/storage'
+import { auth, googleProvider, githubProvider } from '@/lib/firebase-auth'
+import { saveUserProfile } from '@/lib/userProfile'
 import { signInWithPopup, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 
 export default function SignUpPage() {

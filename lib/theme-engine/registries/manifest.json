@@ -13,8 +13,8 @@
     "shadow": ["shadow-none", "shadow-soft", "shadow-md", "shadow-lg", "shadow-xl", "shadow-glass", "shadow-clay", "shadow-hard"],
     "layout": ["layout-centered", "layout-hero", "layout-banner", "layout-shape", "layout-wide", "layout-compact"],
     "variants": {
-      "button": ["button-soft", "button-filled", "button-glass", "button-clay", "button-outline"],
-      "card": ["card-flat", "card-elevated", "card-glass", "card-outline"],
+      "button": ["button-soft", "button-filled", "button-glass", "button-clay", "button-outline", "button-wood", "button-carved", "button-raised", "button-leather"],
+      "card": ["card-flat", "card-elevated", "card-glass", "card-outline", "card-wood"],
       "avatar": ["avatar-circle", "avatar-rounded", "avatar-square"],
       "badge": ["badge-soft", "badge-filled", "badge-glass", "badge-outline"],
       "social": ["social-rounded", "social-circle", "social-square", "social-glass", "social-clay", "social-outline"]

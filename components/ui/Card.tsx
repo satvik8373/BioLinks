@@ -33,6 +33,7 @@ export default function Card({
   accent,
   padding = 'md',
 }: CardProps) {
+  const interactive = typeof onClick === 'function'
   return (
     <div
       className={clsx(
@@ -43,6 +44,9 @@ export default function Card({
         className
       )}
       onClick={onClick}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() } } : undefined}
     >
       {children}
     </div>

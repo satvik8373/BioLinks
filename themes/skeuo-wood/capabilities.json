@@ -1,0 +1,9 @@
+{
+  "supportsVideoBackground": false,
+  "supportsGlass": false,
+  "supportsClay": false,
+  "supportsParticles": false,
+  "supportsLottie": false,
+  "supportsCustomCSS": true,
+  "supportsMusicPlayer": true
+}

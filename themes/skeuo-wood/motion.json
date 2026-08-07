@@ -1,0 +1,14 @@
+{
+  "wallpapers": [
+    {
+      "effect": "lift",
+      "duration": 200,
+      "preview": "light-wood-thumb.webp",
+      "path": "wallpapers/light-wood.webp"
+    }
+  ],
+  "decorations": [
+    { "id": "leaf", "type": "svg" },
+    { "id": "wood-pattern", "type": "pattern" }
+  ]
+}

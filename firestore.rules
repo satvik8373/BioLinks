@@ -7,31 +7,26 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Usernames Collection
+    match /usernames/{handle} {
+      allow read, write: if true;
+    }
+
     // Profile drafts & published documents
     match /profiles/{userId}/{docType}/{document} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
     
     // User Documents & Cards Subcollection
     match /users/{userId} {
       allow read, write: if true;
       
-      match /cards/{cardId} {
-        allow read, write: if true;
-      }
-      
       match /{document=**} {
         allow read, write: if true;
       }
     }
     
-    // Test collection
-    match /test/{document=**} {
-      allow read, write: if true;
-    }
-
-    // Wildcard fallback for development
+    // Wildcard fallback
     match /{document=**} {
       allow read, write: if true;
     }

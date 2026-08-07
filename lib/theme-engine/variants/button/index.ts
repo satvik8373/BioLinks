@@ -5,7 +5,7 @@
 export interface ButtonVariantSpec {
   id: string
   name: string
-  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft'
+  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft' | 'wood' | 'carved' | 'raised' | 'leather'
   radius: string
   shadow: string
   borderWidth: number
@@ -67,12 +67,56 @@ export const BUTTON_SOFT: ButtonVariantSpec = {
   states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
 }
 
+export const BUTTON_WOOD: ButtonVariantSpec = {
+  id: 'button-wood',
+  name: 'Wood Plank Button',
+  variant: 'wood',
+  radius: 'radius-md',
+  shadow: 'shadow-soft',
+  borderWidth: 1,
+  states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+}
+
+export const BUTTON_CARVED: ButtonVariantSpec = {
+  id: 'button-carved',
+  name: 'Carved Inset Wood Button',
+  variant: 'carved',
+  radius: 'radius-md',
+  shadow: 'shadow-none',
+  borderWidth: 0,
+  states: { hover: 'none', active: 'scale', focus: 'ring', disabled: 'opacity' }
+}
+
+export const BUTTON_RAISED: ButtonVariantSpec = {
+  id: 'button-raised',
+  name: 'Extruded Wood Button',
+  variant: 'raised',
+  radius: 'radius-md',
+  shadow: 'shadow-md',
+  borderWidth: 1,
+  states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+}
+
+export const BUTTON_LEATHER: ButtonVariantSpec = {
+  id: 'button-leather',
+  name: 'Leather Stitched Button',
+  variant: 'leather',
+  radius: 'radius-md',
+  shadow: 'shadow-soft',
+  borderWidth: 1,
+  states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+}
+
 export const BUTTON_VARIANTS: Record<string, ButtonVariantSpec> = {
   'button-filled': BUTTON_FILLED,
   'button-glass': BUTTON_GLASS,
   'button-clay': BUTTON_CLAY,
   'button-outline': BUTTON_OUTLINE,
-  'button-soft': BUTTON_SOFT
+  'button-soft': BUTTON_SOFT,
+  'button-wood': BUTTON_WOOD,
+  'button-carved': BUTTON_CARVED,
+  'button-raised': BUTTON_RAISED,
+  'button-leather': BUTTON_LEATHER
 }
 
 export function resolveButtonVariant(input: any): ButtonVariantSpec {
@@ -83,7 +127,11 @@ export function resolveButtonVariant(input: any): ButtonVariantSpec {
     const baseSpec = BUTTON_VARIANTS[key] || BUTTON_VARIANTS[variantId]
     if (baseSpec) {
       if (typeof input === 'object' && input !== null) {
-        return { ...baseSpec, ...input }
+        return { 
+          ...baseSpec, 
+          ...input,
+          variant: baseSpec.variant // Keep the resolved base variant (e.g., 'clay', 'wood')
+        }
       }
       return baseSpec
     }

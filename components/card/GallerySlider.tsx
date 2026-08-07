@@ -37,34 +37,53 @@ export default function GallerySlider({
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
 
   const backdropRef = useRef<HTMLDivElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
-  const mainImageRef = useRef<HTMLImageElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const heroImageRef = useRef<HTMLImageElement>(null)
+  const captionRef = useRef<HTMLDivElement>(null)
   const photoListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMounted(true)
+    if (typeof document !== 'undefined') {
+      const phonePreviewEl = document.getElementById('bio-phone-preview')
+      setPortalTarget(phonePreviewEl || document.body)
+    }
   }, [])
 
-  useEffect(() => {
-    if (currentIndex >= photos.length && photos.length > 0) {
-      setCurrentIndex(0)
-    }
-  }, [photos.length, currentIndex])
+  const activeIndex = currentIndex >= photos.length ? 0 : currentIndex
 
-  // GSAP Image Transition on Slide Change
+  // Smooth GSAP Horizontal Right-to-Left Slide Animation
   useEffect(() => {
-    if (mainImageRef.current) {
+    if (trackRef.current) {
+      gsap.to(trackRef.current, {
+        xPercent: -100 * activeIndex,
+        duration: 0.55,
+        ease: 'power2.out',
+      })
+    }
+    if (heroImageRef.current) {
+      gsap.killTweensOf(heroImageRef.current)
       gsap.fromTo(
-        mainImageRef.current,
-        { opacity: 0.6, scale: 1.03 },
-        { opacity: 1, scale: 1, duration: 0.4, ease: 'power2.out' }
+        heroImageRef.current,
+        { opacity: 0.3, scale: 1.04 },
+        { opacity: 1, scale: 1, duration: 0.45, ease: 'power2.out' }
       )
     }
-  }, [currentIndex])
+    if (captionRef.current) {
+      gsap.killTweensOf(captionRef.current)
+      gsap.fromTo(
+        captionRef.current,
+        { y: 10, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out' }
+      )
+    }
+  }, [activeIndex])
 
-  // Auto-slide transition every 4 seconds — pauses when modal is open
+  // Auto-slide transition every 4 seconds (pause when modal open)
   useEffect(() => {
     if (photos.length <= 1 || isModalOpen) return
     const timer = setInterval(() => {
@@ -92,8 +111,8 @@ export default function GallerySlider({
       if (photoListRef.current?.children) {
         tl.fromTo(
           Array.from(photoListRef.current.children),
-          { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.3, stagger: 0.05, ease: 'power2.out' },
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.35, stagger: 0.06, ease: 'power2.out' },
           '-=0.15'
         )
       }
@@ -138,19 +157,13 @@ export default function GallerySlider({
   }
 
   const rawRadius = btnStyle?.borderRadius ?? 16
-  let cleanRadius = 16
-  if (typeof rawRadius === 'number') {
-    cleanRadius = Math.min(rawRadius, 20)
-  } else if (typeof rawRadius === 'string') {
-    const parsed = parseInt(rawRadius, 10)
-    cleanRadius = isNaN(parsed) ? 16 : Math.min(parsed, 20)
-  }
-  const frameRadiusPx = `${cleanRadius}px`
+  const frameRadiusPx = typeof rawRadius === 'number' ? `${rawRadius}px` : String(rawRadius || '20px')
 
   const frameStyle: React.CSSProperties = {
     borderRadius: frameRadiusPx,
-    border: btnStyle?.border ?? '1px solid rgba(255, 255, 255, 0.35)',
-    boxShadow: btnStyle?.boxShadow !== 'none' ? btnStyle?.boxShadow : '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
+    border: btnStyle?.border && btnStyle.border !== 'none' ? btnStyle.border : 'none',
+    boxShadow: btnStyle?.boxShadow && btnStyle.boxShadow !== 'none' ? btnStyle.boxShadow : '0 10px 25px -5px rgba(0, 0, 0, 0.25)',
+    backgroundColor: btnStyle?.backgroundColor || 'rgba(0, 0, 0, 0.4)',
     backdropFilter: btnStyle?.backdropFilter,
     WebkitBackdropFilter: (btnStyle as any)?.WebkitBackdropFilter,
   }
@@ -168,7 +181,7 @@ export default function GallerySlider({
     )
   }
 
-  const currentPhoto = photos[currentIndex] || photos[0]
+  const currentPhoto = photos[activeIndex] || photos[0]
 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -191,22 +204,19 @@ export default function GallerySlider({
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="w-full mt-2 py-3 px-4 bg-white/95 hover:bg-white text-slate-900 font-extrabold text-xs rounded-2xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border border-white/50 group/cta select-none"
+        className="w-full py-3 px-4 flex items-center justify-center gap-2 text-xs font-extrabold transition-all cursor-pointer select-none bg-black/10 hover:bg-black/20 border-t border-white/10"
+        style={{ color: btnStyle?.color || 'currentColor' }}
       >
         <span>{ctaLabel || 'Visit Gallery Link'}</span>
-        <ExternalLink className="w-3.5 h-3.5 text-purple-600 group-hover/cta:translate-x-0.5 transition-transform" />
+        <ExternalLink className="w-3.5 h-3.5" style={{ color: btnStyle?.color || 'currentColor' }} />
       </a>
     )
   }
 
   const renderFloatingModal = () => {
-    if (!isModalOpen || !mounted) return null
+    if (!isModalOpen || !mounted || !portalTarget) return null
 
-    const phonePreviewEl = typeof document !== 'undefined' ? document.getElementById('bio-phone-preview') : null
-    const targetEl = phonePreviewEl || (typeof document !== 'undefined' ? document.body : null)
-    if (!targetEl) return null
-
-    const isMockup = Boolean(phonePreviewEl)
+    const isMockup = portalTarget.id === 'bio-phone-preview'
 
     return createPortal(
       <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 font-sans select-none ${isMockup ? 'absolute' : ''}`}>
@@ -278,26 +288,25 @@ export default function GallerySlider({
           </div>
         </div>
       </div>,
-      targetEl
+      portalTarget
     )
   }
 
   // ── 1. GRID LAYOUT ──
   if (layout === 'grid') {
     return (
-      <div className={`w-full mb-3 space-y-2 ${animClasses}`}>
+      <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
         {title && (
-          <p className="font-extrabold text-xs text-white/90 text-left px-1 drop-shadow-xs">
+          <p className="font-extrabold text-xs text-white/90 text-left px-3 pt-3 pb-1 drop-shadow-xs">
             {title}
           </p>
         )}
-        <div className={`grid ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+        <div className={`grid ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-2 p-2`}>
           {photos.map((photo, idx) => (
             <div
               key={photo.id || idx}
               onClick={openModal}
-              style={{ borderRadius: frameRadiusPx }}
-              className="group relative aspect-square overflow-hidden shadow-md border border-white/20 bg-black/20 cursor-pointer"
+              className="group relative aspect-square overflow-hidden rounded-xl shadow-md border border-white/20 bg-black/20 cursor-pointer"
             >
               <img
                 src={photo.url}
@@ -322,22 +331,21 @@ export default function GallerySlider({
   // ── 2. CARD STACK LAYOUT ──
   if (layout === 'stack') {
     return (
-      <div className={`w-full mb-3 space-y-2 ${animClasses}`}>
+      <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col p-2 ${animClasses}`}>
         {title && (
-          <p className="font-extrabold text-xs text-white/90 text-left px-1 drop-shadow-xs">
+          <p className="font-extrabold text-xs text-white/90 text-left px-1 pb-1 drop-shadow-xs">
             {title}
           </p>
         )}
         <div
           onClick={(e) => {
-            // Cycle stack slide first, open lightbox on double tap or button
             setCurrentIndex((prev) => (prev + 1) % photos.length)
             openModal(e)
           }}
           className={`relative w-full cursor-pointer select-none ${compact ? 'h-[130px]' : 'aspect-video'}`}
         >
           {photos.slice(0, 3).map((_, i) => {
-            const actualIdx = (currentIndex + i) % photos.length
+            const actualIdx = (activeIndex + i) % photos.length
             const photoItem = photos[actualIdx]
             const zIndex = 30 - i * 10
             const scale = 1 - i * 0.05
@@ -347,12 +355,12 @@ export default function GallerySlider({
               <div
                 key={photoItem.id || actualIdx}
                 style={{
-                  ...frameStyle,
                   zIndex,
                   transform: `translateY(${translateY}px) scale(${scale})`,
                   opacity: 1 - i * 0.2,
+                  borderRadius: frameRadiusPx,
                 }}
-                className="absolute inset-0 overflow-hidden bg-black/40 transition-all duration-500 ease-out"
+                className="absolute inset-0 overflow-hidden bg-black/40 border border-white/20 transition-all duration-500 ease-out"
               >
                 <img
                   src={photoItem.url}
@@ -366,7 +374,7 @@ export default function GallerySlider({
                     <p className="font-extrabold text-white text-xs truncate drop-shadow-md">
                       {photoItem.title || title || 'Photo Deck'}
                     </p>
-                    <p className="text-[9px] text-white/70">Tap to cycle photos ({currentIndex + 1}/{photos.length}) →</p>
+                    <p className="text-[9px] text-white/70">Tap to cycle photos ({activeIndex + 1}/{photos.length}) →</p>
                   </div>
                 )}
               </div>
@@ -383,22 +391,22 @@ export default function GallerySlider({
   // ── 3. HERO SHOWCASE LAYOUT ──
   if (layout === 'hero') {
     return (
-      <div className={`w-full mb-3 space-y-2 ${animClasses}`}>
+      <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
         {/* Featured Hero Photo */}
         <div
           onClick={openModal}
-          style={frameStyle}
           className={`relative w-full overflow-hidden bg-black/40 cursor-pointer ${compact ? 'h-[130px]' : 'aspect-video'}`}
         >
           <img
+            ref={heroImageRef}
             key={currentPhoto.url}
             src={currentPhoto.url}
             alt={currentPhoto.title || title || 'Hero image'}
-            className="w-full h-full object-cover transition-all duration-500"
+            className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
 
-          <div className="absolute bottom-2.5 left-3 right-3 text-left pointer-events-none">
+          <div ref={captionRef} className="absolute bottom-2.5 left-3 right-3 text-left pointer-events-none">
             <p className="font-extrabold text-white text-xs leading-tight drop-shadow-md truncate">
               {currentPhoto.title || title || 'Featured Showcase'}
             </p>
@@ -412,7 +420,7 @@ export default function GallerySlider({
 
         {/* Thumbnail Selector Row */}
         {photos.length > 1 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto p-2 no-scrollbar select-none">
             {photos.map((p, idx) => (
               <button
                 key={p.id || idx}
@@ -422,9 +430,8 @@ export default function GallerySlider({
                   e.stopPropagation()
                   setCurrentIndex(idx)
                 }}
-                style={{ borderRadius: frameRadiusPx }}
-                className={`w-10 h-10 overflow-hidden flex-shrink-0 border-2 transition-all cursor-pointer ${
-                  idx === currentIndex
+                className={`w-10 h-10 overflow-hidden rounded-xl flex-shrink-0 border-2 transition-all cursor-pointer ${
+                  idx === activeIndex
                     ? 'border-white scale-105 shadow-md ring-2 ring-purple-500/50'
                     : 'border-white/30 opacity-60 hover:opacity-100'
                 }`}
@@ -441,30 +448,39 @@ export default function GallerySlider({
     )
   }
 
-  // ── 4. DEFAULT SLIDER (CAROUSEL) LAYOUT ──
+  // ── 4. DEFAULT SLIDER (HORIZONTAL GSAP TRACK RIGHT-TO-LEFT) LAYOUT ──
   return (
-    <div className={`w-full mb-3 space-y-1.5 ${animClasses}`}>
+    <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
       {title && (
-        <p className="font-extrabold text-xs text-white/90 text-left px-1 drop-shadow-xs">
+        <p className="font-extrabold text-xs text-white/90 text-left px-3 pt-2.5 pb-0.5 drop-shadow-xs">
           {title}
         </p>
       )}
       <div
         onClick={openModal}
-        style={frameStyle}
         className={`group relative w-full overflow-hidden bg-black/40 cursor-pointer ${
           compact ? 'h-[130px]' : 'aspect-video'
         }`}
       >
-        <img
-          ref={mainImageRef}
-          key={currentPhoto.url + '_' + currentIndex}
-          src={currentPhoto.url}
-          alt={currentPhoto.title || title || 'Gallery image'}
-          className="w-full h-full object-cover"
-        />
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30 pointer-events-none" />
+        {/* Horizontal Sliding Track (GSAP animated right-to-left) */}
+        <div
+          ref={trackRef}
+          className="flex w-full h-full will-change-transform"
+        >
+          {photos.map((photo, idx) => (
+            <div
+              key={photo.id || idx}
+              className="relative w-full h-full min-w-full flex-shrink-0 overflow-hidden"
+            >
+              <img
+                src={photo.url}
+                alt={photo.title || title || `Slide ${idx + 1}`}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30 pointer-events-none" />
+            </div>
+          ))}
+        </div>
 
         {/* Left/Right Arrows for Desktop */}
         {photos.length > 1 && (
@@ -489,7 +505,7 @@ export default function GallerySlider({
         )}
 
         {/* Bottom Info & Title */}
-        <div className="absolute bottom-3 left-3 right-3 z-10 text-left pointer-events-none pr-8 pb-3">
+        <div ref={captionRef} className="absolute bottom-3 left-3 right-3 z-10 text-left pointer-events-none pr-8 pb-3">
           {(currentPhoto.title || title) && (
             <p className="font-extrabold text-white text-xs leading-tight drop-shadow-md truncate">
               {currentPhoto.title || title}
@@ -515,7 +531,7 @@ export default function GallerySlider({
                   setCurrentIndex(idx)
                 }}
                 className={`transition-all duration-300 rounded-full cursor-pointer ${
-                  idx === currentIndex
+                  idx === activeIndex
                     ? 'w-4 h-1.5 bg-white shadow-md'
                     : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80'
                 }`}

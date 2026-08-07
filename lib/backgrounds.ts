@@ -191,7 +191,7 @@ export const BACKGROUND_PRESETS: Record<string, BackgroundPreset> = {
     id: 'neumorphic-clay',
     name: 'Neumorphic Soft Clay',
     type: 'mesh',
-    value: '#e9eaee',
+    value: '#FFFFFF',
     blur: 0,
     opacity: 1
   },

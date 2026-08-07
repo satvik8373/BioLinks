@@ -1,0 +1,18 @@
+{
+  "header": {
+    "variant": "classic",
+    "alignment": "center",
+    "maxHeight": 160
+  },
+  "profile": {
+    "position": "center"
+  },
+  "links": {
+    "layout": "stack",
+    "spacing": "comfortable"
+  },
+  "social": {
+    "position": "bottom"
+  },
+  "width": "normal"
+}

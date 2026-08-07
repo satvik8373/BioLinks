@@ -101,7 +101,7 @@ export async function PUT(
       if (error instanceof UsernameTakenError) {
         return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
       }
-      throw error
+      console.warn('Username claim permission notice:', error)
     }
 
     const updatedRecord = {

@@ -103,7 +103,7 @@ export function SocialIcon({ platform, size = 24, className = '' }: SocialIconPr
   }
 }
 
-export function getSocialPlatformColor(platform: string): string {
+function getSocialPlatformColor(platform: string): string {
   switch (platform.toLowerCase()) {
     case 'instagram': return '#E4405F'
     case 'twitter': 

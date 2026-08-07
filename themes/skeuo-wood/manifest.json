@@ -1,0 +1,15 @@
+{
+  "packageVersion": "2.1.0",
+  "id": "skeuo-wood",
+  "entry": "config.json",
+  "files": {
+    "config": "config.json",
+    "tokens": "tokens.json",
+    "editor": "editor.json",
+    "capabilities": "capabilities.json",
+    "motion": "motion.json",
+    "layout": "layout.json"
+  },
+  "styles": [],
+  "components": []
+}

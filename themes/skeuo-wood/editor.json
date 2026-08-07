@@ -1,0 +1,17 @@
+{
+  "wallpaper": {
+    "enabled": true,
+    "types": ["image", "wood", "pattern"]
+  },
+  "buttons": {
+    "enabled": true,
+    "variants": ["wood", "outline", "carved"],
+    "radius": true,
+    "shadow": true,
+    "icon": true
+  },
+  "typography": {
+    "enabled": true,
+    "customFonts": true
+  }
+}

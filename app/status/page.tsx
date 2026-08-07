@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Rocket, CheckCircle, Palette, Zap, BarChart3, Target, Flame } from 'lucide-react'
 
 export default function StatusPage() {
@@ -71,18 +72,18 @@ export default function StatusPage() {
         <div className="mt-12 text-center">
           <h2 className="text-2xl font-bold mb-6">QUICK ACCESS</h2>
           <div className="flex flex-wrap justify-center gap-4">
-            <a href="/" className="px-6 py-3 bg-neo-black text-neo-white border-4 border-neo-black font-bold hover:bg-neo-gray transition-colors">
+            <Link href="/" className="px-6 py-3 bg-neo-black text-neo-white border-4 border-neo-black font-bold hover:bg-neo-gray transition-colors">
               HOME
-            </a>
-            <a href="/create" className="px-6 py-3 bg-neo-yellow text-neo-black border-4 border-neo-black font-bold hover:bg-yellow-300 transition-colors">
+            </Link>
+            <Link href="/create" className="px-6 py-3 bg-neo-yellow text-neo-black border-4 border-neo-black font-bold hover:bg-yellow-300 transition-colors">
               CREATE
-            </a>
-            <a href="/my-cards" className="px-6 py-3 bg-neo-pink text-neo-black border-4 border-neo-black font-bold hover:bg-pink-300 transition-colors">
+            </Link>
+            <Link href="/my-cards" className="px-6 py-3 bg-neo-pink text-neo-black border-4 border-neo-black font-bold hover:bg-pink-300 transition-colors">
               MY CARDS
-            </a>
-            <a href="/test-editor" className="px-6 py-3 bg-neo-cyan text-neo-black border-4 border-neo-black font-bold hover:bg-cyan-300 transition-colors">
+            </Link>
+            <Link href="/test-editor" className="px-6 py-3 bg-neo-cyan text-neo-black border-4 border-neo-black font-bold hover:bg-cyan-300 transition-colors">
               TEST EDITOR
-            </a>
+            </Link>
           </div>
         </div>
 

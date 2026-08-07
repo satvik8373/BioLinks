@@ -64,8 +64,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyThemeToCSSVariables(next)
   }, [])
 
+  const contextValue = React.useMemo(() => ({
+    theme,
+    draftTheme,
+    setThemeById,
+    applyTheme,
+    applyDraftTheme
+  }), [theme, draftTheme, setThemeById, applyTheme, applyDraftTheme])
+
   return (
-    <ThemeContext.Provider value={{ theme, draftTheme, setThemeById, applyTheme, applyDraftTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   )

@@ -38,6 +38,7 @@ export default function ThemeSelector({
     { id: 'gradient', label: 'Gradient', icon: '🌈' },
     { id: 'clay', label: 'Clay', icon: '🎭' },
     { id: 'luxury', label: 'Luxury', icon: '👑' },
+    { id: 'skeuomorphic', label: 'Skeuomorphic', icon: '🪵' },
   ]
 
   const filteredThemes = activeCategory === 'all' 
@@ -157,7 +158,10 @@ function ThemeCard({ theme, isSelected, isLoading, onSelect, showProBadge }: The
   useEffect(() => {
     // Load theme config to get preview color
     fetch(`/themes/${theme.id}/config.json`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error()
+        return res.json()
+      })
       .then(config => {
         setPreviewColor(config.colors.background)
       })

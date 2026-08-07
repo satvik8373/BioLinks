@@ -14,7 +14,10 @@ import { ServiceIcon } from '@/components/icons/ServiceIcons'
 import SocialFields from './renderers/SocialFields'
 import ShopFields from './renderers/ShopFields'
 import GalleryBlockEditor from '@/components/editor/blocks/GalleryBlockEditor'
+import MusicBlockEditor from '@/components/editor/blocks/MusicBlockEditor'
 import { uploadImageToFirebase } from '@/lib/firebaseStorage'
+import MediaLibraryModal from '@/components/modals/MediaLibraryModal'
+import { saveMediaToLibrary } from '@/lib/mediaLibrary'
 
 interface LinkItemCardProps {
   link: LinkItem
@@ -39,7 +42,7 @@ interface LinkItemCardProps {
   onDragEnd?: () => void
 }
 
-export function detectPlatformFromUrl(url: string): { icon: string; title: string; type: LinkType } | null {
+function detectPlatformFromUrl(url: string): { icon: string; title: string; type: LinkType } | null {
   if (!url || typeof url !== 'string') return null
   const lowerUrl = url.toLowerCase().trim()
 
@@ -127,6 +130,7 @@ export default function LinkItemCard({
 }: LinkItemCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false)
   const [showUrlFallback, setShowUrlFallback] = useState(false)
   const [activeDrawer, setActiveDrawer] = useState<'settings' | 'layout' | 'thumbnail' | 'schedule' | 'lock'>('settings')
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -195,17 +199,29 @@ export default function LinkItemCard({
     }
 
     setIsUploading(true)
-    try {
-      const firebaseUrl = await uploadImageToFirebase(file, 'thumbnails')
-      if (firebaseUrl) {
-        handleFieldChange('thumbnail', firebaseUrl)
+    // Instant UI update using FileReader base64
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string
+      if (dataUrl) {
+        saveMediaToLibrary(dataUrl, file.name)
+        handleFieldChange('thumbnail', dataUrl)
       }
-    } catch (err) {
-      console.error('Failed to upload thumbnail to Firebase Storage:', err)
-      alert('Failed to upload thumbnail file')
-    } finally {
-      setIsUploading(false)
+
+      // Cloudinary upload in background
+      try {
+        const firebaseUrl = await uploadImageToFirebase(file, 'thumbnails')
+        if (firebaseUrl) {
+          saveMediaToLibrary(firebaseUrl, file.name)
+          handleFieldChange('thumbnail', firebaseUrl)
+        }
+      } catch (err) {
+        console.warn('Cloud storage upload warning (data URL active):', err)
+      } finally {
+        setIsUploading(false)
+      }
     }
+    reader.readAsDataURL(file)
   }
 
   const handleFieldChange = (field: keyof LinkItem, value: any) => {
@@ -522,15 +538,22 @@ export default function LinkItemCard({
                       {/* Change Button */}
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-3 bg-[#7800ff] hover:bg-[#6800e0] text-white font-extrabold text-sm rounded-full shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowMediaLibrary(true)
+                        }}
+                        className="w-full py-3 bg-[#7800ff] hover:bg-[#6800e0] text-white font-extrabold text-sm rounded-full shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                       >
-                        Change
+                        <ImageIcon className="w-4 h-4" />
+                        Choose from Library / Change
                       </button>
                       {/* Remove Button */}
                       <button
                         type="button"
-                        onClick={() => handleFieldChange('thumbnail', undefined)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleFieldChange('thumbnail', undefined)
+                        }}
                         className="w-full py-3 border border-gray-300 hover:border-red-400 hover:bg-red-50 text-gray-800 font-bold text-sm rounded-full transition-all cursor-pointer"
                       >
                         Remove
@@ -544,10 +567,14 @@ export default function LinkItemCard({
                     </p>
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-full py-3.5 bg-[#7800ff] hover:bg-[#6800e0] text-white font-extrabold text-sm rounded-full shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowMediaLibrary(true)
+                      }}
+                      className="w-full py-3.5 bg-[#7800ff] hover:bg-[#6800e0] text-white font-extrabold text-sm rounded-full shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                     >
-                      Set Thumbnail
+                      <ImageIcon className="w-4 h-4" />
+                      Set Thumbnail / Media Library
                     </button>
                   </div>
                 )}
@@ -774,11 +801,17 @@ export default function LinkItemCard({
             {/* ── TAB 1: LINK SETTINGS ── */}
             {activeDrawer === 'settings' && (
               <div className="space-y-4">
-                {/* ── LINK SETTINGS / GALLERY BLOCK EDITOR ── */}
+                {/* ── LINK SETTINGS / GALLERY BLOCK / MUSIC BLOCK ── */}
                 {link.type === 'gallery' ? (
                   <GalleryBlockEditor
                     link={link}
                     onUpdate={onUpdate}
+                  />
+                ) : link.type === 'music' || (link.url && (link.url.includes('spotify.com') || link.url.includes('soundcloud.com') || link.url.includes('music.apple.com'))) ? (
+                  <MusicBlockEditor
+                    link={link}
+                    onUpdate={onUpdate}
+                    onClose={onToggleExpand}
                   />
                 ) : (
                   <div>
@@ -1212,19 +1245,27 @@ export default function LinkItemCard({
                               <h5 className="text-base font-extrabold text-slate-900 leading-tight">Featured</h5>
                             </div>
 
-                            {/* Linktree Featured Card Banner Mockup */}
-                            <div className="w-full sm:w-72 h-36 rounded-2xl bg-gradient-to-br from-[#0d1322] via-[#151c2e] to-[#1e1435] p-3.5 flex flex-col justify-between text-white border border-slate-700/80 shadow-sm relative overflow-hidden">
-                              <div className="flex flex-col items-center justify-center h-full gap-1 my-auto">
-                                <Sparkles className="w-5 h-5 text-purple-400" />
-                                <span className="text-[11px] font-semibold text-slate-400">Featured Showcase Banner</span>
-                              </div>
-                              <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs font-bold text-white">
+                             {/* Linktree Featured Card Banner Mockup */}
+                            <div className="w-full sm:w-72 h-36 rounded-2xl bg-gradient-to-br from-[#0d1322] via-[#151c2e] to-[#1e1435] p-3.5 flex flex-col justify-between text-white border border-slate-700/80 shadow-sm relative overflow-hidden group">
+                              {link.thumbnail ? (
+                                <img
+                                  src={link.thumbnail}
+                                  alt="Featured Thumbnail"
+                                  className="w-full h-full object-cover absolute inset-0 z-0"
+                                />
+                              ) : (
+                                <div className="flex flex-col items-center justify-center h-full gap-1 my-auto z-10">
+                                  <Sparkles className="w-5 h-5 text-purple-400" />
+                                  <span className="text-[11px] font-semibold text-slate-400">Featured Showcase Banner</span>
+                                </div>
+                              )}
+                              <div className="relative z-10 flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs font-bold text-white bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 -mx-3.5 -mb-3.5 mt-auto">
                                 <span className="truncate">{link.text || 'Follow on Instagram'}</span>
                                 <span>&rarr;</span>
                               </div>
                             </div>
 
-                            {/* Upload Featured Thumbnail Dashed Button */}
+                            {/* Upload / Change / Remove Featured Thumbnail */}
                             <input
                               type="file"
                               ref={fileInputRef}
@@ -1234,16 +1275,31 @@ export default function LinkItemCard({
                                 if (e.target.files?.[0]) handleFileUpload(e.target.files[0])
                               }}
                             />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                fileInputRef.current?.click()
-                              }}
-                              className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-2xl text-xs font-extrabold text-slate-800 flex items-center justify-center transition-colors cursor-pointer bg-slate-50/50 hover:bg-purple-50/30"
-                            >
-                              Upload Featured Thumbnail Image
-                            </button>
+                            <div className="flex items-center gap-2 w-full">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setShowMediaLibrary(true)
+                                }}
+                                className="flex-1 py-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-2xl text-xs font-extrabold text-slate-800 flex items-center justify-center transition-colors cursor-pointer bg-slate-50/50 hover:bg-purple-50/30"
+                              >
+                                {isUploading ? 'Uploading...' : link.thumbnail ? 'Change Featured Image (Library)' : 'Choose from Library / Upload Image'}
+                              </button>
+                              {link.thumbnail && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleFieldChange('thumbnail', undefined)
+                                  }}
+                                  className="py-3 px-3 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold transition-colors cursor-pointer"
+                                  title="Remove thumbnail"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1255,6 +1311,17 @@ export default function LinkItemCard({
           </div>
         </div>
       </div>
+
+      {/* Media Library Modal */}
+      {showMediaLibrary && (
+        <MediaLibraryModal
+          onClose={() => setShowMediaLibrary(false)}
+          onSelectImage={(url) => {
+            saveMediaToLibrary(url)
+            handleFieldChange('thumbnail', url)
+          }}
+        />
+      )}
     </div>
   )
 }

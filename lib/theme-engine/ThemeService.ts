@@ -28,7 +28,7 @@ export interface ThemeConfig {
   namespace?: string
   order?: number
   extends?: string
-  category: 'minimal' | 'glass' | 'clay' | 'luxury' | 'gradient' | 'custom'
+  category: 'minimal' | 'glass' | 'clay' | 'luxury' | 'gradient' | 'custom' | 'skeuomorphic'
   license?: { type: 'free' | 'pro' | 'marketplace' | 'community' }
   compatibility?: { minVersion?: string }
   preview?: { thumbnail?: string; cover?: string }

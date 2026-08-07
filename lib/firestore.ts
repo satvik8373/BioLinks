@@ -158,8 +158,8 @@ export async function incrementViews(cardId: string) {
     
     return { success: true }
   } catch (error: any) {
-    console.error('Error incrementing views:', error)
-    throw new Error(`Failed to increment views: ${error.message}`)
+    console.warn('Analytics notice (views):', error?.message || error)
+    return { success: false }
   }
 }
 
@@ -177,7 +177,7 @@ export async function incrementClicks(cardId: string) {
     
     return { success: true }
   } catch (error: any) {
-    console.error('Error incrementing clicks:', error)
-    throw new Error(`Failed to increment clicks: ${error.message}`)
+    console.warn('Analytics notice (clicks):', error?.message || error)
+    return { success: false }
   }
 }
