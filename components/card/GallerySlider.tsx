@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Image as ImageIcon, Share2, X, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { Image as ImageIcon, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import { gsap } from 'gsap'
+import MusicSheetModal from '@/components/modals/MusicSheetModal'
 
 interface PhotoItem {
   id?: string
@@ -35,16 +36,12 @@ export default function GallerySlider({
 }: GallerySliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
 
-  const backdropRef = useRef<HTMLDivElement>(null)
-  const modalRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const heroImageRef = useRef<HTMLImageElement>(null)
   const captionRef = useRef<HTMLDivElement>(null)
-  const photoListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -92,56 +89,12 @@ export default function GallerySlider({
     return () => clearInterval(timer)
   }, [photos.length, isModalOpen])
 
-  // GSAP Open Modal Animation
-  useEffect(() => {
-    if (isModalOpen && backdropRef.current && modalRef.current) {
-      const tl = gsap.timeline()
-      tl.fromTo(
-        backdropRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.3, ease: 'power2.out' }
-      )
-      tl.fromTo(
-        modalRef.current,
-        { y: '100%', scale: 0.95, opacity: 0 },
-        { y: '0%', scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(1.05)' },
-        '-=0.2'
-      )
-
-      if (photoListRef.current?.children) {
-        tl.fromTo(
-          Array.from(photoListRef.current.children),
-          { opacity: 0, y: 20 },
-          { opacity: 1, y: 0, duration: 0.35, stagger: 0.06, ease: 'power2.out' },
-          '-=0.15'
-        )
-      }
-    }
-  }, [isModalOpen])
-
   const openModal = (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault()
       e.stopPropagation()
     }
     setIsModalOpen(true)
-  }
-
-  const closeModal = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
-    if (backdropRef.current && modalRef.current) {
-      const tl = gsap.timeline({
-        onComplete: () => setIsModalOpen(false),
-      })
-      tl.to(modalRef.current, { y: '100%', scale: 0.95, opacity: 0, duration: 0.28, ease: 'power3.in' })
-      tl.to(backdropRef.current, { opacity: 0, duration: 0.2, ease: 'power2.in' }, '-=0.15')
-    } else {
-      setIsModalOpen(false)
-    }
   }
 
   const prevSlide = (e: React.MouseEvent) => {
@@ -183,19 +136,6 @@ export default function GallerySlider({
 
   const currentPhoto = photos[activeIndex] || photos[0]
 
-  const handleShare = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (typeof window === 'undefined') return
-    if (navigator.share) {
-      navigator.share({ title: title || 'Gallery', url: window.location.href }).catch(() => {})
-    } else {
-      navigator.clipboard?.writeText(window.location.href)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
   const renderCtaButton = () => {
     if (!ctaUrl) return null
     return (
@@ -216,78 +156,18 @@ export default function GallerySlider({
   const renderFloatingModal = () => {
     if (!isModalOpen || !mounted || !portalTarget) return null
 
-    const isMockup = portalTarget.id === 'bio-phone-preview'
-
     return createPortal(
-      <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 font-sans select-none ${isMockup ? 'absolute' : ''}`}>
-        {/* Backdrop */}
-        <div
-          ref={backdropRef}
-          onClick={closeModal}
-          className="absolute inset-0 bg-black/75 backdrop-blur-md cursor-pointer"
-        />
-
-        {/* Floating Sheet Drawer Modal */}
-        <div
-          ref={modalRef}
-          className="relative w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-[28px] overflow-hidden shadow-2xl z-10 flex flex-col max-h-[85vh] border border-slate-200"
-        >
-          {/* Top Drag Handle */}
-          <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-2.5 flex-shrink-0" />
-
-          {/* Modal Header */}
-          <div className="pt-2 pb-3 px-5 text-center border-b border-slate-100 flex-shrink-0 bg-white shadow-2xs">
-            <h3 className="font-extrabold text-sm text-slate-900 leading-tight truncate">
-              {title || 'Gallery'}
-            </h3>
-            <div className="flex items-center justify-center gap-1 text-[11px] text-slate-500 font-medium mt-0.5">
-              <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-              <span>Gallery · {photos.length} photo{photos.length === 1 ? '' : 's'}</span>
-            </div>
-          </div>
-
-          {/* Scrollable Photos List */}
-          <div ref={photoListRef} className="flex-1 overflow-y-auto p-3.5 space-y-3.5 bg-slate-50/60 no-scrollbar touch-pan-y">
-            {photos.map((photo, i) => (
-              <div key={photo.id || i} className="space-y-1.5">
-                <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-sm bg-slate-900 border border-slate-200/80 relative group">
-                  <img src={photo.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold rounded-full">
-                    {i + 1} / {photos.length}
-                  </span>
-                </div>
-                {(photo.title || photo.description) && (
-                  <div className="px-1 text-left">
-                    {photo.title && <h4 className="font-extrabold text-xs text-slate-900">{photo.title}</h4>}
-                    {photo.description && <p className="text-[10px] text-slate-500 mt-0.5">{photo.description}</p>}
-                  </div>
-                )}
-              </div>
-            ))}
-            {renderCtaButton()}
-          </div>
-
-          {/* Floating Actions */}
-          <div className="absolute bottom-3.5 right-3.5 z-50 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleShare}
-              className="w-10 h-10 rounded-full bg-white text-slate-800 flex items-center justify-center shadow-lg border border-slate-200/80 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
-              title={copied ? 'Copied link!' : 'Share gallery'}
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={closeModal}
-              className="w-10 h-10 rounded-full bg-white text-slate-800 flex items-center justify-center shadow-xl border border-slate-200/80 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
-              title="Close gallery"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>,
+      <MusicSheetModal
+        link={{
+          type: 'gallery',
+          text: title || 'Photo Gallery',
+          description: `Gallery · ${photos.length} photo${photos.length === 1 ? '' : 's'}`,
+          galleryPhotos: photos,
+          url: ctaUrl,
+          ctaLabel: ctaLabel,
+        }}
+        onClose={() => setIsModalOpen(false)}
+      />,
       portalTarget
     )
   }
@@ -296,11 +176,6 @@ export default function GallerySlider({
   if (layout === 'grid') {
     return (
       <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
-        {title && (
-          <p className="font-extrabold text-xs text-white/90 text-left px-3 pt-3 pb-1 drop-shadow-xs">
-            {title}
-          </p>
-        )}
         <div className={`grid ${photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-2 p-2`}>
           {photos.map((photo, idx) => (
             <div
@@ -332,11 +207,6 @@ export default function GallerySlider({
   if (layout === 'stack') {
     return (
       <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col p-2 ${animClasses}`}>
-        {title && (
-          <p className="font-extrabold text-xs text-white/90 text-left px-1 pb-1 drop-shadow-xs">
-            {title}
-          </p>
-        )}
         <div
           onClick={(e) => {
             setCurrentIndex((prev) => (prev + 1) % photos.length)
@@ -451,11 +321,6 @@ export default function GallerySlider({
   // ── 4. DEFAULT SLIDER (HORIZONTAL GSAP TRACK RIGHT-TO-LEFT) LAYOUT ──
   return (
     <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
-      {title && (
-        <p className="font-extrabold text-xs text-white/90 text-left px-3 pt-2.5 pb-0.5 drop-shadow-xs">
-          {title}
-        </p>
-      )}
       <div
         onClick={openModal}
         className={`group relative w-full overflow-hidden bg-black/40 cursor-pointer ${

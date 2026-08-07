@@ -2,90 +2,95 @@
 
 import React from 'react'
 import { LinkItem } from '@/lib/types/link'
+import {
+  BlockEditorContainer,
+  BlockFieldLabel,
+  BlockSelect,
+} from './BlockEditorContainer'
+import Input from '@/components/ui/Input'
 
 interface BlockEditorProps {
   link: LinkItem
   updateLink: (id: string, field: string, value: any) => void
 }
 
+const CURRENCIES = ['$', '€', '£', '¥', '₹', '₩']
+
 export default function DonationBlockEditor({ link, updateLink }: BlockEditorProps) {
   return (
-    <div className="space-y-5 text-left">
-      <div className="space-y-1">
-        <h3 className="text-base font-bold text-gray-900">Payment & Support</h3>
-        <p className="text-xs text-gray-500">Collect tips, donations, or payment link support.</p>
-      </div>
+    <BlockEditorContainer
+      title="Payment & support"
+      description="Collect tips, donations, or payment link support."
+    >
+      <div className="space-y-4">
+        {/* Provider */}
+        <div>
+          <BlockFieldLabel
+            label="Payment Provider"
+            hint="Select service integration."
+          />
+          <BlockSelect
+            value={link.paymentType || 'stripe'}
+            onChange={(v) => updateLink(link.id, 'paymentType', v)}
+          >
+            <option value="stripe">Stripe Payment Link</option>
+            <option value="paypal">PayPal.me</option>
+            <option value="tip">Buy Me a Coffee / Tip Jar</option>
+            <option value="venmo">Venmo</option>
+            <option value="cashapp">Cash App</option>
+            <option value="donation">One-time Donation</option>
+          </BlockSelect>
+        </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-bold text-gray-900">
-          Payment Provider
-        </label>
-        <p className="text-xs text-gray-500 mb-1.5">Select service integration.</p>
-        <select
-          value={link.paymentType || 'stripe'}
-          onChange={e => updateLink(link.id, 'paymentType', e.target.value)}
-          className="w-full bg-gray-50 border border-gray-200/90 rounded-2xl px-4 py-3.5 text-xs font-semibold text-gray-900 outline-none focus:bg-white focus:ring-2 focus:ring-black cursor-pointer transition-all"
-        >
-          <option value="stripe">Stripe Payment Link</option>
-          <option value="paypal">PayPal.me</option>
-          <option value="tip">Buy Me a Coffee / Tip Jar</option>
-          <option value="venmo">Venmo</option>
-          <option value="cashapp">Cash App</option>
-          <option value="donation">One-time Donation</option>
-        </select>
-      </div>
+        {/* Payment URL */}
+        <div>
+          <BlockFieldLabel
+            label="Payment URL"
+            hint="Destination link to payment checkout."
+          />
+          <Input
+            type="url"
+            value={link.url || ''}
+            onChange={(e) => updateLink(link.id, 'url', e.target.value)}
+            placeholder="https://buy.stripe.com/... or paypal.me/..."
+          />
+        </div>
 
-      <div className="space-y-1">
-        <label className="block text-sm font-bold text-gray-900">
-          Payment URL
-        </label>
-        <p className="text-xs text-gray-500 mb-1.5">Destination link to payment checkout.</p>
-        <input
-          type="url"
-          value={link.url || ''}
-          onChange={e => updateLink(link.id, 'url', e.target.value)}
-          placeholder="https://buy.stripe.com/... or paypal.me/..."
-          className="w-full bg-gray-50 border border-gray-200/90 rounded-2xl px-4 py-3.5 text-xs font-mono text-gray-900 outline-none focus:bg-white focus:ring-2 focus:ring-black transition-all"
-        />
-      </div>
+        {/* Amount & subtitle row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <BlockFieldLabel label="Suggested Amount" hint="Currency & amount" />
+            <div className="flex">
+              <select
+                value={link.paymentCurrency || '$'}
+                onChange={(e) => updateLink(link.id, 'paymentCurrency', e.target.value)}
+                className="px-3 py-3 text-sm font-bold border border-r-0 border-slate-200 rounded-l-2xl bg-white focus:outline-none cursor-pointer text-slate-800 focus:border-brand-600 transition-all"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={link.paymentAmount || ''}
+                onChange={(e) => updateLink(link.id, 'paymentAmount', e.target.value)}
+                placeholder="5.00"
+                className="flex-1 px-3 py-3 text-sm border border-slate-200 rounded-r-2xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition-all font-semibold text-slate-900 placeholder:text-slate-400"
+              />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="block text-sm font-bold text-gray-900">
-            Suggested Amount
-          </label>
-          <p className="text-xs text-gray-500 mb-1.5">Currency & amount</p>
-          <div className="flex">
-            <select
-              value={link.paymentCurrency || '$'}
-              onChange={e => updateLink(link.id, 'paymentCurrency', e.target.value)}
-              className="px-3 py-3 text-xs font-bold border border-r-0 border-gray-200/90 rounded-l-2xl bg-gray-50 focus:outline-none cursor-pointer"
-            >
-              {['$','€','£','¥','₹','₩'].map(c => <option key={c}>{c}</option>)}
-            </select>
-            <input
-              type="number"
-              value={link.paymentAmount || ''}
-              onChange={e => updateLink(link.id, 'paymentAmount', e.target.value)}
-              placeholder="5.00"
-              className="flex-1 px-3 py-3 text-xs border border-gray-200/90 rounded-r-2xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all font-semibold"
+          <div>
+            <BlockFieldLabel label="Button Subtitle" hint="Brief description" />
+            <Input
+              type="text"
+              value={link.description || ''}
+              onChange={(e) => updateLink(link.id, 'description', e.target.value)}
+              placeholder="Support my work"
             />
           </div>
         </div>
-        <div className="space-y-1">
-          <label className="block text-sm font-bold text-gray-900">
-            Button Subtitle
-          </label>
-          <p className="text-xs text-gray-500 mb-1.5">Brief description</p>
-          <input
-            type="text"
-            value={link.description || ''}
-            onChange={e => updateLink(link.id, 'description', e.target.value)}
-            placeholder="Support my work"
-            className="w-full bg-gray-50 border border-gray-200/90 rounded-2xl px-4 py-3 text-xs text-gray-900 outline-none focus:bg-white focus:ring-2 focus:ring-black transition-all"
-          />
-        </div>
       </div>
-    </div>
+    </BlockEditorContainer>
   )
 }

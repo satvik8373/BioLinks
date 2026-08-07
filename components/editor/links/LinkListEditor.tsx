@@ -358,7 +358,7 @@ function SocialIconsManagementModal({
                   name="socialPos"
                   checked={(socialIconPosition || 'top') === 'top'}
                   onChange={() => onUpdateSocialPosition?.('top')}
-                  className="w-4 h-4 text-purple-600 accent-purple-600 focus:ring-purple-500 cursor-pointer"
+                  className="w-4 h-4 text-brand-600 accent-purple-600 focus:ring-brand-500 cursor-pointer"
                 />
                 <span className="text-xs font-extrabold text-slate-800">Top</span>
               </label>
@@ -369,7 +369,7 @@ function SocialIconsManagementModal({
                   name="socialPos"
                   checked={socialIconPosition === 'bottom'}
                   onChange={() => onUpdateSocialPosition?.('bottom')}
-                  className="w-4 h-4 text-purple-600 accent-purple-600 focus:ring-purple-500 cursor-pointer"
+                  className="w-4 h-4 text-brand-600 accent-purple-600 focus:ring-brand-500 cursor-pointer"
                 />
                 <span className="text-xs font-extrabold text-slate-800">Bottom</span>
               </label>
@@ -391,7 +391,7 @@ function SocialIconsManagementModal({
           <button
             type="button"
             onClick={onOpenAddModal}
-            className="px-5 py-2.5 text-xs font-extrabold text-white bg-purple-600 rounded-full hover:bg-purple-700 active:scale-95 transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+            className="px-5 py-2.5 text-xs font-extrabold text-white bg-brand-600 rounded-full hover:bg-brand-700 active:scale-95 transition-all cursor-pointer shadow-md flex items-center gap-1.5"
             style={{ backgroundColor: '#7C3AED' }}
           >
             <Plus size={14} className="stroke-[3]" />
@@ -497,7 +497,7 @@ function DropLine({ visible }: { visible: boolean }) {
   return (
     <div
       className={`h-0.5 rounded-full mx-3 transition-all duration-100 ${
-        visible ? 'bg-violet-500 opacity-100 mb-2' : 'opacity-0 mb-0 h-0'
+        visible ? 'bg-brand-500 opacity-100 mb-2' : 'opacity-0 mb-0 h-0'
       }`}
     />
   )
@@ -568,13 +568,13 @@ function RootDropZone({ show }: { show: boolean }) {
       ref={setNodeRef}
       className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed text-xs font-medium transition-all duration-150 ${
         isOver
-          ? 'border-purple-400 bg-purple-50 text-purple-700 ring-2 ring-purple-400/20'
-          : 'border-gray-300 bg-transparent text-gray-400'
+          ? 'border-brand-400 bg-brand-50 text-brand-700 ring-2 ring-brand-400/20'
+          : 'border-slate-300 bg-transparent text-slate-400'
       }`}
     >
-      <div className={`w-full h-px rounded-full transition-colors ${isOver ? 'bg-purple-400' : 'bg-gray-300'}`} />
+      <div className={`w-full h-px rounded-full transition-colors ${isOver ? 'bg-brand-400' : 'bg-slate-300'}`} />
       <span className="whitespace-nowrap shrink-0">Remove from collection</span>
-      <div className={`w-full h-px rounded-full transition-colors ${isOver ? 'bg-purple-400' : 'bg-gray-300'}`} />
+      <div className={`w-full h-px rounded-full transition-colors ${isOver ? 'bg-brand-400' : 'bg-slate-300'}`} />
     </div>
   )
 }
@@ -656,8 +656,8 @@ function SortableCollectionContainer({
         style={{ opacity: isDragging ? 0 : 1 }}
         className={`rounded-[28px] p-5 space-y-4 border transition-all duration-150 ${
           isTargetedByDrag
-            ? 'bg-purple-50/70 border-purple-400 ring-2 ring-purple-400/20'
-            : 'bg-[#f6f6f4] border-gray-200 hover:border-gray-300'
+            ? 'bg-brand-50/70 border-brand-400 ring-2 ring-brand-400/20'
+            : 'bg-[#f6f6f4] border-slate-200 hover:border-slate-300'
         }`}
       >
         {/* Header row */}
@@ -667,7 +667,7 @@ function SortableCollectionContainer({
             <div
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-200/50 rounded-md transition-colors flex-shrink-0 touch-none"
+              className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-200/50 rounded-md transition-colors flex-shrink-0 touch-none"
               title="Drag to reorder collection"
             >
               <GripVertical className="w-4 h-4" />
@@ -679,8 +679,8 @@ function SortableCollectionContainer({
               onClick={() => setShowLayoutSelector(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 showLayoutSelector
-                  ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-600/30'
-                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-2xs'
+                  ? 'bg-brand-600 text-white shadow-sm ring-2 ring-brand-600/30'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs'
               }`}
             >
               <Layout className="w-3.5 h-3.5" />
@@ -689,7 +689,7 @@ function SortableCollectionContainer({
           </div>
 
           {/* Centered Title */}
-          <div className="flex items-center justify-center gap-1.5 font-bold text-sm text-gray-900 min-w-0 flex-1 text-center">
+          <div className="flex items-center justify-center gap-1.5 font-bold text-sm text-slate-900 min-w-0 flex-1 text-center">
             <span className="truncate">{header.groupTitle || header.text || 'Add collection title'}</span>
             <button
               type="button"
@@ -697,7 +697,7 @@ function SortableCollectionContainer({
                 const t = prompt('Collection name:', header.groupTitle || header.text || '')
                 if (t !== null) onUpdateLink({ ...header, groupTitle: t, text: t })
               }}
-              className="text-gray-400 hover:text-purple-600 p-0.5 rounded flex-shrink-0"
+              className="text-slate-400 hover:text-brand-600 p-0.5 rounded flex-shrink-0"
             >
               <Pencil className="w-3.5 h-3.5" />
             </button>
@@ -705,7 +705,7 @@ function SortableCollectionContainer({
 
           {/* Actions */}
           <div className="flex items-center gap-1.5">
-            <button onClick={() => onOpenAddModal(header.id)} className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-white rounded-full transition-colors" title="Add link">
+            <button onClick={() => onOpenAddModal(header.id)} className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-white rounded-full transition-colors" title="Add link">
               <Plus className="w-4 h-4" />
             </button>
 
@@ -713,17 +713,17 @@ function SortableCollectionContainer({
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen(v => !v)}
-                className={`p-1.5 rounded-full transition-colors ${menuOpen ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-800 hover:bg-white'}`}
+                className={`p-1.5 rounded-full transition-colors ${menuOpen ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
               >
                 <MoreHorizontal className="w-4 h-4" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
-                  <button onClick={handleUngroup} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left">
-                    <Ungroup className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50 overflow-hidden">
+                  <button onClick={handleUngroup} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left">
+                    <Ungroup className="w-4 h-4 text-slate-500 flex-shrink-0" />
                     <span>Ungroup</span>
                   </button>
-                  <div className="mx-3 border-t border-gray-100" />
+                  <div className="mx-3 border-t border-slate-100" />
                   <button onClick={handleDelete} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left">
                     <Trash2 className="w-4 h-4 flex-shrink-0" />
                     <span>Delete</span>
@@ -734,7 +734,7 @@ function SortableCollectionContainer({
 
             <button
               onClick={() => onToggleVisibility(header.id)}
-              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${header.isVisible ? 'bg-emerald-600' : 'bg-gray-300'}`}
+              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${header.isVisible ? 'bg-emerald-600' : 'bg-slate-300'}`}
             >
               <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${header.isVisible ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
@@ -743,8 +743,8 @@ function SortableCollectionContainer({
 
         {/* Layout Options Selector */}
         {showLayoutSelector && (
-          <div className="bg-white rounded-[24px] p-5 border border-gray-100 shadow-xs space-y-4 animate-fadeIn">
-            <h4 className="text-sm font-bold text-gray-900">Display as</h4>
+          <div className="bg-white rounded-[24px] p-5 border border-slate-100 shadow-xs space-y-4 animate-fadeIn">
+            <h4 className="text-sm font-bold text-slate-900">Display as</h4>
 
             {/* 4 Tile Options */}
             <div className="flex items-center gap-3">
@@ -761,13 +761,13 @@ function SortableCollectionContainer({
                     <div
                       className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all ${
                         isSelected
-                          ? 'border-2 border-black bg-gray-100/60 shadow-xs scale-[1.02]'
-                          : 'border border-transparent bg-gray-100/80 hover:bg-gray-200/70'
+                          ? 'border-2 border-black bg-slate-100/60 shadow-xs scale-[1.02]'
+                          : 'border border-transparent bg-slate-100/80 hover:bg-slate-200/70'
                       }`}
                     >
-                      <IconComponent className={`w-6 h-6 ${isSelected ? 'text-gray-900' : 'text-gray-600'}`} />
+                      <IconComponent className={`w-6 h-6 ${isSelected ? 'text-slate-900' : 'text-slate-600'}`} />
                     </div>
-                    <span className={`text-xs ${isSelected ? 'text-gray-900 font-bold' : 'text-gray-500 font-semibold'}`}>
+                    <span className={`text-xs ${isSelected ? 'text-slate-900 font-bold' : 'text-slate-500 font-semibold'}`}>
                       {opt.label}
                     </span>
                   </button>
@@ -776,8 +776,8 @@ function SortableCollectionContainer({
             </div>
 
             {/* Description Divider & Text */}
-            <div className="pt-3 border-t border-gray-100">
-              <p className="text-xs font-medium text-gray-500">
+            <div className="pt-3 border-t border-slate-100">
+              <p className="text-xs font-medium text-slate-500">
                 {LAYOUT_OPTIONS.find(o => o.id === selectedLayout)?.description}
               </p>
             </div>
@@ -788,13 +788,13 @@ function SortableCollectionContainer({
         {groupLinks.length === 0 ? (
           <div className={`text-center py-8 px-4 space-y-3 rounded-2xl border transition-all duration-150 ${
             isTargetedByDrag
-              ? 'bg-purple-100/60 border-2 border-dashed border-purple-400'
+              ? 'bg-brand-100/60 border-2 border-dashed border-brand-400'
               : 'border-transparent'
           }`}>
-            <p className={`text-sm font-medium ${isTargetedByDrag ? 'text-purple-900 font-semibold' : 'text-gray-500'}`}>
+            <p className={`text-sm font-medium ${isTargetedByDrag ? 'text-brand-900 font-semibold' : 'text-slate-500'}`}>
               {isTargetedByDrag ? 'Drop link here to add into collection' : 'Add a link or drag one into this collection.'}
             </p>
-            <button onClick={() => onOpenAddModal(header.id)} className="px-5 py-2 bg-white border border-gray-300 hover:border-gray-400 text-gray-800 font-semibold text-xs rounded-full transition-all">
+            <button onClick={() => onOpenAddModal(header.id)} className="px-5 py-2 bg-white border border-slate-300 hover:border-slate-400 text-slate-800 font-semibold text-xs rounded-full transition-all">
               Add link
             </button>
           </div>
@@ -1142,7 +1142,7 @@ export default function LinkListEditor({
             className="px-3.5 py-1.5 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
             style={{ background: '#FFFFFF', borderRadius: '12px', border: '1.5px solid rgba(148,163,184,0.35)', boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -2px 0 rgba(148,163,184,0.10), 0 3px 0 rgba(148,163,184,0.25), 0 4px 10px -2px rgba(15,23,42,0.06)' }}
           >
-            <FolderPlus className="w-3.5 h-3.5 text-violet-500" />
+            <FolderPlus className="w-3.5 h-3.5 text-brand-500" />
             <span>Add collection</span>
           </button>
           <button type="button" className="text-[11px] font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors cursor-pointer">
@@ -1161,19 +1161,19 @@ export default function LinkListEditor({
             style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.25), 0 3px 0 #4F46E5, 0 5px 14px rgba(124,58,237,0.35)' }}>
             <Plus className="w-4 h-4 text-white" />
           </div>
-          <span className="text-sm font-extrabold text-slate-700 tracking-tight group-hover:text-violet-700 transition-colors">Add Link or Feature</span>
+          <span className="text-sm font-extrabold text-slate-700 tracking-tight group-hover:text-brand-700 transition-colors">Add Link or Feature</span>
         </button>
 
         {/* Search */}
         {links.length > 3 && (
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 pointer-events-none" />
             <input
               type="text"
               value={filterQuery}
               onChange={e => setFilterQuery(e.target.value)}
               placeholder="Search your links..."
-              className="w-full bg-white border border-gray-200 focus:border-purple-400 rounded-xl pl-9 pr-3 py-1.5 text-xs text-gray-700 outline-none transition-all"
+              className="w-full bg-white border border-slate-200 focus:border-brand-400 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-700 outline-none transition-all"
             />
           </div>
         )}
@@ -1188,7 +1188,7 @@ export default function LinkListEditor({
               <div className="text-center py-14 clay-card-flat rounded-3xl flex flex-col items-center p-8">
                 <div className="w-14 h-14 rounded-3xl flex items-center justify-center mx-auto mb-4"
                   style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(99,102,241,0.08))', border: '1.5px solid rgba(124,58,237,0.15)', boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.8), 0 3px 0 rgba(124,58,237,0.12), 0 5px 16px rgba(124,58,237,0.10)' }}>
-                  <Sparkles className="w-6 h-6 text-violet-500" />
+                  <Sparkles className="w-6 h-6 text-brand-500" />
                 </div>
                 <h3 className="text-sm font-extrabold text-slate-800 tracking-tight">No links added yet</h3>
                 <p className="text-[11px] text-slate-400 mt-1.5 max-w-xs mx-auto font-medium">
@@ -1246,7 +1246,7 @@ export default function LinkListEditor({
         {/* Drag overlay */}
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
           {activeItem && (
-            <div className="shadow-xl rounded-3xl border border-violet-200 bg-white pointer-events-none" style={{ opacity: 0.9 }}>
+            <div className="shadow-xl rounded-3xl border border-brand-200 bg-white pointer-events-none" style={{ opacity: 0.9 }}>
               <LinkItemCard
                 link={activeItem}
                 index={0}

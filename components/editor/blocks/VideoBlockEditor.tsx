@@ -2,12 +2,19 @@
 
 import React from 'react'
 import { LinkItem } from '@/lib/types/link'
-import { BlockEditorContainer, BlockRadioOption } from './BlockEditorContainer'
+import { BlockEditorContainer, BlockFieldLabel, BlockRadioOption } from './BlockEditorContainer'
+import Input from '@/components/ui/Input'
 
 interface BlockEditorProps {
   link: LinkItem
   updateLink: (id: string, field: string, value: any) => void
 }
+
+const VIDEO_OPTIONS = [
+  { id: 'display_video',  label: 'Display video on my Linktree' },
+  { id: 'open_youtube',   label: 'Open video on YouTube / platform' },
+  { id: 'display_latest', label: "Display channel's latest video" },
+] as const
 
 export default function VideoBlockEditor({ link, updateLink }: BlockEditorProps) {
   const currentOption = link.videoClickOption || 'display_video'
@@ -18,15 +25,13 @@ export default function VideoBlockEditor({ link, updateLink }: BlockEditorProps)
       description="Embed YouTube, TikTok, or Vimeo videos on your Linktree."
     >
       <div className="space-y-4">
-        {/* Section 1: When a visitor clicks */}
+        {/* Click behaviour */}
         <div className="space-y-2">
-          <h4 className="text-sm font-bold text-gray-900">When a visitor clicks:</h4>
-          <div className="space-y-2">
-            {[
-              { id: 'display_video', label: 'Display video on my Linktree' },
-              { id: 'open_youtube', label: 'Open video on YouTube / platform' },
-              { id: 'display_latest', label: "Display channel's latest video" },
-            ].map((opt) => (
+          <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            When a visitor clicks:
+          </p>
+          <div className="space-y-1">
+            {VIDEO_OPTIONS.map((opt) => (
               <BlockRadioOption
                 key={opt.id}
                 selected={currentOption === opt.id}
@@ -38,18 +43,15 @@ export default function VideoBlockEditor({ link, updateLink }: BlockEditorProps)
           </div>
         </div>
 
-        {/* Section 2: Video Details */}
-        <div className="space-y-3 pt-3 border-t border-gray-100">
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-gray-900">Video Subtext (Optional)</label>
-            <input
-              type="text"
-              value={link.description || ''}
-              onChange={(e) => updateLink(link.id, 'description', e.target.value)}
-              placeholder="What is this video about?"
-              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-900 outline-none focus:border-purple-500 transition-all font-medium"
-            />
-          </div>
+        {/* Subtext */}
+        <div className="pt-3 border-t border-slate-100">
+          <BlockFieldLabel label="Video Subtext (Optional)" />
+          <Input
+            type="text"
+            value={link.description || ''}
+            onChange={(e) => updateLink(link.id, 'description', e.target.value)}
+            placeholder="What is this video about?"
+          />
         </div>
       </div>
     </BlockEditorContainer>

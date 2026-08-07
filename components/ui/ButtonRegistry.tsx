@@ -8,7 +8,7 @@ export interface BaseButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 
 export const FilledButton: React.FC<BaseButtonProps> = ({ children, className = '', style, ...props }) => (
   <button
-    className={`px-5 py-3 rounded-2xl font-semibold bg-blue-600 text-white shadow-md hover:bg-blue-700 transition-all ${className}`}
+    className={`px-5 py-3 rounded-2xl font-semibold bg-brand-600 text-white shadow-clay-btn hover:bg-brand-700 transition-all ${className}`}
     style={style}
     {...props}
   >
@@ -38,7 +38,7 @@ export const ClayButton: React.FC<BaseButtonProps> = ({ children, className = ''
 
 export const OutlineButton: React.FC<BaseButtonProps> = ({ children, className = '', style, ...props }) => (
   <button
-    className={`px-5 py-3 rounded-2xl font-semibold border-2 border-gray-300 dark:border-gray-700 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-all ${className}`}
+    className={`px-5 py-3 rounded-2xl font-semibold border-2 border-slate-300 text-slate-800 hover:bg-slate-100 transition-all ${className}`}
     style={style}
     {...props}
   >
@@ -48,7 +48,7 @@ export const OutlineButton: React.FC<BaseButtonProps> = ({ children, className =
 
 export const GradientButton: React.FC<BaseButtonProps> = ({ children, className = '', style, ...props }) => (
   <button
-    className={`px-5 py-3 rounded-2xl font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg hover:opacity-95 transition-all ${className}`}
+    className={`px-5 py-3 rounded-2xl font-semibold bg-gradient-to-r from-brand-500 to-brand-700 text-white shadow-clay-btn hover:opacity-95 transition-all ${className}`}
     style={style}
     {...props}
   >

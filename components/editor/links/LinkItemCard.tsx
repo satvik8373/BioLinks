@@ -18,6 +18,8 @@ import MusicBlockEditor from '@/components/editor/blocks/MusicBlockEditor'
 import { uploadImageToFirebase } from '@/lib/firebaseStorage'
 import MediaLibraryModal from '@/components/modals/MediaLibraryModal'
 import { saveMediaToLibrary } from '@/lib/mediaLibrary'
+import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
 
 interface LinkItemCardProps {
   link: LinkItem
@@ -263,9 +265,9 @@ export default function LinkItemCard({
       case 'event': return { bg: 'bg-amber-100 text-amber-800 border-amber-200', label: 'Event' }
       case 'payment': return { bg: 'bg-purple-100 text-purple-800 border-purple-200', label: 'Payment / Tip' }
       case 'booking': return { bg: 'bg-indigo-100 text-indigo-800 border-indigo-200', label: 'Booking' }
-      case 'header': return { bg: 'bg-gray-200 text-gray-800 border-gray-300', label: 'Header' }
+      case 'header': return { bg: 'bg-slate-200 text-slate-800 border-slate-300', label: 'Header' }
       case 'text': return { bg: 'bg-slate-100 text-slate-800 border-slate-200', label: 'Note' }
-      default: return { bg: 'bg-gray-100 text-gray-700 border-gray-200', label: 'Link' }
+      default: return { bg: 'bg-slate-100 text-slate-700 border-slate-200', label: 'Link' }
     }
   }
 
@@ -296,7 +298,7 @@ export default function LinkItemCard({
             {/* Drag Handle (dnd-kit) */}
             <div 
               {...(dragHandleProps as any)}
-              className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-600 p-0.5 rounded transition-colors flex-shrink-0 touch-none"
+              className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-600 p-0.5 rounded transition-colors flex-shrink-0 touch-none"
               title="Drag to reorder"
             >
               <GripVertical className="w-4 h-4" />
@@ -305,7 +307,7 @@ export default function LinkItemCard({
             {/* Title & URL Inline Editable */}
             <div className="flex flex-col flex-1 min-w-0">
               {/* Title Inline */}
-              <div className="flex items-center gap-1.5 group/edit text-sm font-bold text-gray-900">
+              <div className="flex items-center gap-1.5 group/edit text-sm font-bold text-slate-900">
                 {isEditingTitle ? (
                   <input
                     type="text"
@@ -314,23 +316,23 @@ export default function LinkItemCard({
                     onBlur={() => setIsEditingTitle(false)}
                     onKeyDown={e => { if (e.key === 'Enter') setIsEditingTitle(false) }}
                     autoFocus
-                    className="bg-gray-100 border border-gray-300 rounded px-2 py-0.5 text-sm font-bold text-gray-900 outline-none w-full"
+                    className="bg-slate-100 border border-slate-300 rounded px-2 py-0.5 text-sm font-bold text-slate-900 outline-none w-full focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
                   />
                 ) : (
-                  <div 
+                  <div
                     onClick={() => setIsEditingTitle(true)}
-                    className="flex items-center gap-1.5 cursor-pointer hover:text-purple-600 truncate"
+                    className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 truncate"
                   >
                     <span className="truncate">{link.text || 'Untitled Link'}</span>
-                    <Pencil className="w-3.5 h-3.5 text-gray-400 group-hover/edit:text-purple-600 flex-shrink-0 opacity-80" />
+                    <Pencil className="w-3.5 h-3.5 text-slate-400 group-hover/edit:text-brand-600 flex-shrink-0 opacity-80" />
                   </div>
                 )}
               </div>
 
               {/* URL Inline */}
               {link.type !== 'header' && link.type !== 'gallery' && (
-                <div className="flex items-center gap-1.5 group/url text-xs text-gray-500 mt-0.5">
-                  <span className="font-semibold text-gray-400">URL</span>
+                <div className="flex items-center gap-1.5 group/url text-xs text-slate-500 mt-0.5">
+                  <span className="font-semibold text-slate-400">URL</span>
                   {isEditingUrl ? (
                     <input
                       type="text"
@@ -339,15 +341,15 @@ export default function LinkItemCard({
                       onBlur={() => setIsEditingUrl(false)}
                       onKeyDown={e => { if (e.key === 'Enter') setIsEditingUrl(false) }}
                       autoFocus
-                      className="bg-gray-100 border border-gray-300 rounded px-2 py-0.5 text-xs text-gray-900 outline-none w-full"
+                      className="bg-slate-100 border border-slate-300 rounded px-2 py-0.5 text-xs text-slate-900 outline-none w-full focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
                     />
                   ) : (
-                    <div 
+                    <div
                       onClick={() => setIsEditingUrl(true)}
-                      className="flex items-center gap-1.5 cursor-pointer hover:text-purple-600 truncate"
+                      className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 truncate"
                     >
                       <span className="truncate">{link.url || 'Add URL'}</span>
-                      <Pencil className="w-3 h-3 text-gray-400 group-hover/url:text-purple-600 flex-shrink-0 opacity-80" />
+                      <Pencil className="w-3 h-3 text-slate-400 group-hover/url:text-brand-600 flex-shrink-0 opacity-80" />
                     </div>
                   )}
                 </div>
@@ -360,7 +362,7 @@ export default function LinkItemCard({
             <button
               onClick={onToggleVisibility}
               className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 cursor-pointer ${
-                link.isVisible ? 'bg-black' : 'bg-gray-200'
+                link.isVisible ? 'bg-slate-900' : 'bg-slate-200'
               }`}
               title={link.isVisible ? 'Enabled' : 'Disabled'}
             >
@@ -372,7 +374,7 @@ export default function LinkItemCard({
         </div>
 
         {/* Feature Toolbar Row: SVG Icon + Quick Action Icons + Analytics + Trash */}
-        <div className="flex items-center justify-between pt-1 border-t border-gray-100/80 text-gray-500">
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100/80 text-slate-500">
           <div className="flex items-center gap-3">
             {/* SVG Icon Pill */}
             <button
@@ -387,8 +389,8 @@ export default function LinkItemCard({
               }}
               className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center p-1.5 cursor-pointer ${
                 isExpanded && activeDrawer === 'settings'
-                  ? 'bg-purple-600 text-white shadow-2xs'
-                  : 'bg-purple-50 text-purple-600 border border-purple-100/80 hover:bg-purple-100'
+                  ? 'bg-brand-600 text-white shadow-clay-sm'
+                  : 'bg-brand-50 text-brand-600 border border-brand-100/80 hover:bg-brand-100'
               }`}
               title="Open Link Settings"
             >
@@ -396,20 +398,16 @@ export default function LinkItemCard({
             </button>
 
             {/* Quick Action Icons: Thumbnail (non-image only), Schedule Clock, Lock Gate, Analytics */}
-            <div className="flex items-center gap-1.5 text-gray-400">
+            <div className="flex items-center gap-1.5 text-slate-400">
               {/* Thumbnail Icon */}
                 <button
                   type="button"
                   onClick={() => {
-                    if (activeDrawer === 'thumbnail' && isExpanded) {
-                      onToggleExpand()
-                    } else {
-                      setActiveDrawer('thumbnail')
-                      if (!isExpanded) onToggleExpand()
-                    }
+                    if (activeDrawer === 'thumbnail' && isExpanded) { onToggleExpand() }
+                    else { setActiveDrawer('thumbnail'); if (!isExpanded) onToggleExpand() }
                   }}
                   className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    isExpanded && activeDrawer === 'thumbnail' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-purple-600 hover:bg-gray-100'
+                    isExpanded && activeDrawer === 'thumbnail' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-brand-600 hover:bg-slate-100'
                   }`}
                   title="Add Thumbnail"
                 >
@@ -423,7 +421,7 @@ export default function LinkItemCard({
                   if (!isExpanded) onToggleExpand()
                 }}
                 className={`p-1.5 rounded-lg transition-colors ${
-                  isExpanded && activeDrawer === 'schedule' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-purple-600 hover:bg-gray-100'
+                  isExpanded && activeDrawer === 'schedule' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-brand-600 hover:bg-slate-100'
                 }`}
                 title="Schedule Link"
               >
@@ -437,7 +435,7 @@ export default function LinkItemCard({
                   if (!isExpanded) onToggleExpand()
                 }}
                 className={`p-1.5 rounded-lg transition-colors ${
-                  isExpanded && activeDrawer === 'lock' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-purple-600 hover:bg-gray-100'
+                  isExpanded && activeDrawer === 'lock' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-brand-600 hover:bg-slate-100'
                 }`}
                 title="Lock this link"
               >
@@ -445,8 +443,8 @@ export default function LinkItemCard({
               </button>
 
               {/* 5. Analytics Counter */}
-              <div className="flex items-center gap-1 text-xs text-gray-500 font-medium pl-1.5">
-                <BarChart2 className="w-3.5 h-3.5 text-gray-400" />
+              <div className="flex items-center gap-1 text-xs text-slate-500 font-medium pl-1.5">
+                <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
                 <span>0 clicks</span>
               </div>
             </div>
@@ -455,7 +453,7 @@ export default function LinkItemCard({
           {/* Delete Trash Button */}
           <button
             onClick={onRemove}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
             title="Delete link"
           >
             <Trash2 className="w-4 h-4" />
@@ -480,7 +478,7 @@ export default function LinkItemCard({
                   onClick={() => setActiveDrawer('settings')}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     activeDrawer === 'settings'
-                      ? 'bg-white text-purple-700 shadow-2xs font-extrabold'
+                      ? 'bg-white text-brand-700 shadow-clay-sm font-extrabold'
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -491,7 +489,7 @@ export default function LinkItemCard({
                   onClick={() => setActiveDrawer('layout')}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     activeDrawer === 'layout'
-                      ? 'bg-white text-purple-700 shadow-2xs font-extrabold'
+                      ? 'bg-white text-brand-700 shadow-clay-sm font-extrabold'
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -530,7 +528,7 @@ export default function LinkItemCard({
                 {link.thumbnail ? (
                   <div className="flex items-center gap-4 text-left">
                     {/* Image Preview Box */}
-                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-black/10 border border-gray-200 flex-shrink-0 shadow-sm">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden bg-slate-900/10 border border-slate-200 flex-shrink-0 shadow-sm">
                       <img src={link.thumbnail} alt="" className="w-full h-full object-cover" />
                     </div>
                     
@@ -554,7 +552,7 @@ export default function LinkItemCard({
                           e.stopPropagation()
                           handleFieldChange('thumbnail', undefined)
                         }}
-                        className="w-full py-3 border border-gray-300 hover:border-red-400 hover:bg-red-50 text-gray-800 font-bold text-sm rounded-full transition-all cursor-pointer"
+                        className="w-full py-3 border border-slate-300 hover:border-rose-400 hover:bg-rose-50 text-slate-800 font-bold text-sm rounded-full transition-all cursor-pointer"
                       >
                         Remove
                       </button>
@@ -562,7 +560,7 @@ export default function LinkItemCard({
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <p className="text-sm font-semibold text-gray-700">
+                    <p className="text-sm font-semibold text-slate-700">
                       Add a Thumbnail or Icon to this Link.
                     </p>
                     <button
@@ -585,17 +583,17 @@ export default function LinkItemCard({
             {activeDrawer === 'lock' && (
               <div className="space-y-5 animate-fadeIn">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-base font-bold text-gray-900">
-                    <Lock className="w-5 h-5 text-gray-700" />
+                  <div className="flex items-center gap-2 text-base font-bold text-slate-900">
+                    <Lock className="w-5 h-5 text-slate-700" />
                     <h3>Lock this link</h3>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     Visitors can only access this link by fulfilling certain criteria.
                   </p>
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                     Link locked with:
                   </h4>
 
@@ -603,18 +601,18 @@ export default function LinkItemCard({
                   <div 
                     onClick={() => handleFieldChange('lockType', link.lockType === 'subscribe' ? undefined : 'subscribe')}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                      link.lockType === 'subscribe' ? 'border-purple-600 bg-purple-50/20' : 'border-gray-200 hover:border-gray-300'
+                      link.lockType === 'subscribe' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={link.lockType === 'subscribe'}
                       onChange={() => {}}
-                      className="mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="mt-0.5 rounded border-slate-300 accent-brand-600 focus:ring-2 focus:ring-brand-500/30"
                     />
                     <div>
-                      <h5 className="text-sm font-bold text-gray-900">Subscribe</h5>
-                      <p className="text-xs text-gray-500 mt-0.5">Require visitors to subscribe to your newsletter or email list to unlock.</p>
+                      <h5 className="text-sm font-bold text-slate-900">Subscribe</h5>
+                      <p className="text-xs text-slate-500 mt-0.5">Require visitors to subscribe to your newsletter or email list to unlock.</p>
                     </div>
                   </div>
 
@@ -622,25 +620,25 @@ export default function LinkItemCard({
                   <div 
                     onClick={() => handleFieldChange('lockType', link.lockType === 'code' ? undefined : 'code')}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                      link.lockType === 'code' ? 'border-purple-600 bg-purple-50/20' : 'border-gray-200 hover:border-gray-300'
+                      link.lockType === 'code' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={link.lockType === 'code'}
                       onChange={() => {}}
-                      className="mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="mt-0.5 rounded border-slate-300 accent-brand-600 focus:ring-2 focus:ring-brand-500/30"
                     />
                     <div className="flex-1">
-                      <h5 className="text-sm font-bold text-gray-900">Code</h5>
-                      <p className="text-xs text-gray-500 mt-0.5">Require visitors to enter an secret access code to unlock.</p>
+                      <h5 className="text-sm font-bold text-slate-900">Code</h5>
+                      <p className="text-xs text-slate-500 mt-0.5">Require visitors to enter an secret access code to unlock.</p>
                       {link.lockType === 'code' && (
                         <input
                           type="text"
                           value={link.lockValue || ''}
                           onChange={e => handleFieldChange('lockValue', e.target.value)}
                           placeholder="Enter passcode (e.g. SECRET123)"
-                          className="mt-2.5 w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-900 outline-none"
+                          className="mt-2.5 w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 outline-none"
                           onClick={e => e.stopPropagation()}
                         />
                       )}
@@ -651,25 +649,25 @@ export default function LinkItemCard({
                   <div 
                     onClick={() => handleFieldChange('lockType', link.lockType === 'password' ? undefined : 'password')}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                      link.lockType === 'password' ? 'border-purple-600 bg-purple-50/20' : 'border-gray-200 hover:border-gray-300'
+                      link.lockType === 'password' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={link.lockType === 'password'}
                       onChange={() => {}}
-                      className="mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="mt-0.5 rounded border-slate-300 accent-brand-600 focus:ring-2 focus:ring-brand-500/30"
                     />
                     <div className="flex-1">
-                      <h5 className="text-sm font-bold text-gray-900">Password</h5>
-                      <p className="text-xs text-gray-500 mt-0.5">Protect this link with a secret password.</p>
+                      <h5 className="text-sm font-bold text-slate-900">Password</h5>
+                      <p className="text-xs text-slate-500 mt-0.5">Protect this link with a secret password.</p>
                       {link.lockType === 'password' && (
                         <input
                           type="password"
                           value={link.lockValue || ''}
                           onChange={e => handleFieldChange('lockValue', e.target.value)}
                           placeholder="Set password..."
-                          className="mt-2.5 w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-900 outline-none"
+                          className="mt-2.5 w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 outline-none"
                           onClick={e => e.stopPropagation()}
                         />
                       )}
@@ -680,18 +678,18 @@ export default function LinkItemCard({
                   <div 
                     onClick={() => handleFieldChange('lockType', link.lockType === 'dob' ? undefined : 'dob')}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                      link.lockType === 'dob' ? 'border-purple-600 bg-purple-50/20' : 'border-gray-200 hover:border-gray-300'
+                      link.lockType === 'dob' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={link.lockType === 'dob'}
                       onChange={() => {}}
-                      className="mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="mt-0.5 rounded border-slate-300 accent-brand-600 focus:ring-2 focus:ring-brand-500/30"
                     />
                     <div>
-                      <h5 className="text-sm font-bold text-gray-900">Date of birth</h5>
-                      <p className="text-xs text-gray-500 mt-0.5">Require visitors to verify their age before accessing this link.</p>
+                      <h5 className="text-sm font-bold text-slate-900">Date of birth</h5>
+                      <p className="text-xs text-slate-500 mt-0.5">Require visitors to verify their age before accessing this link.</p>
                     </div>
                   </div>
 
@@ -699,18 +697,18 @@ export default function LinkItemCard({
                   <div 
                     onClick={() => handleFieldChange('lockType', link.lockType === 'sensitive' ? undefined : 'sensitive')}
                     className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                      link.lockType === 'sensitive' ? 'border-purple-600 bg-purple-50/20' : 'border-gray-200 hover:border-gray-300'
+                      link.lockType === 'sensitive' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={link.lockType === 'sensitive'}
                       onChange={() => {}}
-                      className="mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      className="mt-0.5 rounded border-slate-300 accent-brand-600 focus:ring-2 focus:ring-brand-500/30"
                     />
                     <div>
-                      <h5 className="text-sm font-bold text-gray-900">Sensitive content</h5>
-                      <p className="text-xs text-gray-500 mt-0.5">Show an 18+ sensitive content disclaimer prior to opening.</p>
+                      <h5 className="text-sm font-bold text-slate-900">Sensitive content</h5>
+                      <p className="text-xs text-slate-500 mt-0.5">Show an 18+ sensitive content disclaimer prior to opening.</p>
                     </div>
                   </div>
                 </div>
@@ -721,35 +719,35 @@ export default function LinkItemCard({
             {activeDrawer === 'schedule' && (
               <div className="space-y-5 animate-fadeIn">
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-gray-900">Schedule</h3>
-                  <p className="text-xs text-gray-500">
+                  <h3 className="text-base font-bold text-slate-900">Schedule</h3>
+                  <p className="text-xs text-slate-500">
                     Select the dates to show or hide this link on your Linktree.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-gray-700">Show link on</label>
-                    <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                      <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                    <label className="block text-xs font-bold text-slate-700">Show link on</label>
+                    <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
                       <input
                         type="datetime-local"
                         value={link.scheduleStart || ''}
                         onChange={e => handleFieldChange('scheduleStart', e.target.value)}
-                        className="bg-transparent text-xs text-gray-900 outline-none w-full font-medium"
+                        className="bg-transparent text-xs text-slate-900 outline-none w-full font-medium"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-gray-700">Hide link on</label>
-                    <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                      <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                    <label className="block text-xs font-bold text-slate-700">Hide link on</label>
+                    <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
                       <input
                         type="datetime-local"
                         value={link.scheduleEnd || ''}
                         onChange={e => handleFieldChange('scheduleEnd', e.target.value)}
-                        className="bg-transparent text-xs text-gray-900 outline-none w-full font-medium"
+                        className="bg-transparent text-xs text-slate-900 outline-none w-full font-medium"
                       />
                     </div>
                   </div>
@@ -761,22 +759,22 @@ export default function LinkItemCard({
                     id="scheduleNotify"
                     checked={link.scheduleNotify || false}
                     onChange={e => handleFieldChange('scheduleNotify', e.target.checked)}
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    className="rounded border-slate-300 accent-brand-600 focus:ring-2 focus:ring-brand-500/30"
                   />
-                  <label htmlFor="scheduleNotify" className="text-xs text-gray-700 font-medium cursor-pointer">
+                  <label htmlFor="scheduleNotify" className="text-xs text-slate-700 font-medium cursor-pointer">
                     Notify subscribers when link is added
                   </label>
                 </div>
 
                 <div className="space-y-1.5 pt-2">
-                  <label className="block text-xs font-bold text-gray-900">Time zone</label>
-                  <p className="text-[11px] text-gray-500">Choose a time zone.</p>
-                  <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                    <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <label className="block text-xs font-bold text-slate-900">Time zone</label>
+                  <p className="text-[11px] text-slate-500">Choose a time zone.</p>
+                  <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
                     <select
                       value={link.scheduleTimezone || '(GMT+5:30) New Delhi'}
                       onChange={e => handleFieldChange('scheduleTimezone', e.target.value)}
-                      className="bg-transparent text-xs text-gray-900 font-medium outline-none w-full cursor-pointer"
+                      className="bg-transparent text-xs text-slate-900 font-medium outline-none w-full cursor-pointer"
                     >
                       <option value="(GMT+5:30) New Delhi">(GMT+5:30) Chennai, Kolkata, Mumbai, New Delhi</option>
                       <option value="(GMT+0:00) London">(GMT+0:00) London, Dublin, Edinburgh</option>
@@ -792,7 +790,7 @@ export default function LinkItemCard({
                     handleFieldChange('isScheduled', true)
                     alert('Link schedule saved successfully!')
                   }}
-                  className="w-full py-3.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm rounded-full transition-colors mt-2"
+                  className="w-full py-3.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm rounded-full transition-colors mt-2"
                 >
                   Schedule
                 </button>
@@ -815,7 +813,7 @@ export default function LinkItemCard({
                   />
                 ) : (
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       Subtext / Description (Optional)
                     </label>
                     <input
@@ -823,39 +821,36 @@ export default function LinkItemCard({
                       value={link.description || ''}
                       onChange={e => handleFieldChange('description', e.target.value)}
                       placeholder="Short subtitle or note displayed under the title"
-                      className="w-full bg-white border border-gray-200 focus:border-purple-500 rounded-xl px-3 py-2 text-sm text-gray-900 outline-none transition-all"
+                      className="w-full bg-white border border-slate-200 focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none transition-all"
                     />
                   </div>
                 )}
 
                 {/* ── YOUTUBE / VIDEO LINK SETTINGS (Exact Match to Linktree Screenshot) ── */}
                 {(link.type === 'video' || (link.url || '').toLowerCase().includes('youtube') || (link.url || '').toLowerCase().includes('youtu.be')) && (
-                  <div className="space-y-5 animate-fadeIn pt-2 border-t border-gray-100 mt-3">
+                  <div className="space-y-5 animate-fadeIn pt-2 border-t border-slate-100 mt-3">
                     {/* Section 1: When a visitor clicks */}
                     <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-gray-900">When a visitor clicks:</h4>
+                      <h4 className="text-sm font-bold text-slate-900">When a visitor clicks:</h4>
                       
                       <div className="space-y-3">
                         {[
                           { id: 'display_video', label: 'Display my video on my Linktree' },
-                          { id: 'open_youtube', label: 'Open YouTube video' },
-                          { id: 'open_latest', label: "Open my channel's latest video" },
-                          { id: 'display_latest', label: "Display my channel's latest video" },
+                          { id: 'open_youtube',  label: 'Open video on YouTube / platform' },
+                          { id: 'open_latest',   label: "Open my channel's latest video" },
+                          { id: 'display_latest',label: "Display my channel's latest video" },
                         ].map((opt) => {
                           const selected = (link.videoClickOption || 'open_youtube') === opt.id
                           return (
-                            <label
-                              key={opt.id}
-                              className="flex items-center gap-3 cursor-pointer group py-1 select-none"
-                            >
+                            <label key={opt.id} className="flex items-center gap-3 cursor-pointer group py-1 select-none">
                               <input
                                 type="radio"
                                 name={`videoClickOption-${link.id}`}
                                 checked={selected}
                                 onChange={() => handleFieldChange('videoClickOption', opt.id)}
-                                className="w-5 h-5 text-black border-2 border-gray-300 focus:ring-black accent-black cursor-pointer"
+                                className="w-4 h-4 accent-brand-600 border-2 border-slate-300 focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
                               />
-                              <span className={`text-sm ${selected ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
+                              <span className={`text-sm ${selected ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
                                 {opt.label}
                               </span>
                             </label>
@@ -865,17 +860,17 @@ export default function LinkItemCard({
                     </div>
 
                     {/* Section 2: Display options */}
-                    <div className="space-y-3 pt-3 border-t border-gray-100">
-                      <h4 className="text-sm font-bold text-gray-900">Display options</h4>
+                    <div className="space-y-3 pt-3 border-t border-slate-100">
+                      <h4 className="text-sm font-bold text-slate-900">Display options</h4>
                       
                       <label className="flex items-center gap-3 cursor-pointer group select-none">
                         <input
                           type="checkbox"
                           checked={link.videoMute || false}
                           onChange={(e) => handleFieldChange('videoMute', e.target.checked)}
-                          className="w-5 h-5 text-black border-2 border-gray-300 rounded focus:ring-black accent-black cursor-pointer"
+                          className="w-4 h-4 accent-brand-600 border-2 border-slate-300 rounded focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
                         />
-                        <span className="text-sm font-semibold text-gray-900">Mute video</span>
+                        <span className="text-sm font-semibold text-slate-900">Mute video</span>
                       </label>
                     </div>
                   </div>
@@ -893,18 +888,18 @@ export default function LinkItemCard({
 
                 {/* CONTACT TYPE FIELDS */}
                 {link.type === 'contact' && (
-                  <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
-                      <Phone className="w-4 h-4 text-blue-600" />
+                  <div className="bg-sky-50/60 border border-sky-200/80 rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-sky-900">
+                      <Phone className="w-4 h-4 text-sky-600" />
                       <span>Contact Direct Trigger</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Contact Type</label>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Contact Type</label>
                         <select
                           value={link.contactType || 'email'}
                           onChange={e => handleFieldChange('contactType', e.target.value)}
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20"
                         >
                           <option value="email">Email Address</option>
                           <option value="phone">Phone Call</option>
@@ -913,19 +908,15 @@ export default function LinkItemCard({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
                           Value ({link.contactType || 'email'})
                         </label>
                         <input
                           type="text"
                           value={link.contactValue || ''}
                           onChange={e => handleFieldChange('contactValue', e.target.value)}
-                          placeholder={
-                            link.contactType === 'phone' ? '+1234567890' :
-                            link.contactType === 'whatsapp' ? '+1234567890' :
-                            link.contactType === 'telegram' ? '@username' : 'you@example.com'
-                          }
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
+                          placeholder={link.contactType === 'phone' ? '+1234567890' : link.contactType === 'whatsapp' ? '+1234567890' : link.contactType === 'telegram' ? '@username' : 'you@example.com'}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20"
                         />
                       </div>
                     </div>
@@ -941,33 +932,16 @@ export default function LinkItemCard({
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Event Date</label>
-                        <input
-                          type="date"
-                          value={link.eventDate || ''}
-                          onChange={e => handleFieldChange('eventDate', e.target.value)}
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none"
-                        />
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Event Date</label>
+                        <input type="date" value={link.eventDate || ''} onChange={e => handleFieldChange('eventDate', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Event Time</label>
-                        <input
-                          type="text"
-                          value={link.eventTime || ''}
-                          onChange={e => handleFieldChange('eventTime', e.target.value)}
-                          placeholder="8:00 PM EST"
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
-                        />
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Event Time</label>
+                        <input type="text" value={link.eventTime || ''} onChange={e => handleFieldChange('eventTime', e.target.value)} placeholder="8:00 PM EST" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Location / Venue</label>
-                        <input
-                          type="text"
-                          value={link.eventLocation || ''}
-                          onChange={e => handleFieldChange('eventLocation', e.target.value)}
-                          placeholder="New York, NY"
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
-                        />
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Location / Venue</label>
+                        <input type="text" value={link.eventLocation || ''} onChange={e => handleFieldChange('eventLocation', e.target.value)} placeholder="New York, NY" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
                       </div>
                     </div>
                   </div>
@@ -975,19 +949,15 @@ export default function LinkItemCard({
 
                 {/* PAYMENT TYPE FIELDS */}
                 {link.type === 'payment' && (
-                  <div className="bg-purple-50/60 border border-purple-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
-                      <DollarSign className="w-4 h-4 text-purple-600" />
+                  <div className="bg-brand-50/60 border border-brand-200/80 rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
+                      <DollarSign className="w-4 h-4 text-brand-600" />
                       <span>Monetization & Tip Jar</span>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Payment Service</label>
-                        <select
-                          value={link.paymentType || 'tip'}
-                          onChange={e => handleFieldChange('paymentType', e.target.value)}
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 outline-none"
-                        >
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Service</label>
+                        <select value={link.paymentType || 'tip'} onChange={e => handleFieldChange('paymentType', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20">
                           <option value="tip">Tip Jar / Coffee</option>
                           <option value="stripe">Stripe Checkout</option>
                           <option value="paypal">PayPal</option>
@@ -996,24 +966,12 @@ export default function LinkItemCard({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Suggested Amount</label>
-                        <input
-                          type="text"
-                          value={link.paymentAmount || ''}
-                          onChange={e => handleFieldChange('paymentAmount', e.target.value)}
-                          placeholder="5.00"
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
-                        />
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Suggested Amount</label>
+                        <input type="text" value={link.paymentAmount || ''} onChange={e => handleFieldChange('paymentAmount', e.target.value)} placeholder="5.00" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Currency</label>
-                        <input
-                          type="text"
-                          value={link.paymentCurrency || '$'}
-                          onChange={e => handleFieldChange('paymentCurrency', e.target.value)}
-                          placeholder="$"
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
-                        />
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Currency</label>
+                        <input type="text" value={link.paymentCurrency || '$'} onChange={e => handleFieldChange('paymentCurrency', e.target.value)} placeholder="$" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
                       </div>
                     </div>
                   </div>
@@ -1021,33 +979,23 @@ export default function LinkItemCard({
 
                 {/* BOOKING TYPE FIELDS */}
                 {link.type === 'booking' && (
-                  <div className="bg-indigo-50/60 border border-indigo-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
-                      <Clock className="w-4 h-4 text-indigo-600" />
+                  <div className="bg-brand-50/60 border border-brand-200/80 rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
+                      <Clock className="w-4 h-4 text-brand-600" />
                       <span>Appointment Booking Settings</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Provider</label>
-                        <select
-                          value={link.bookingProvider || 'calendly'}
-                          onChange={e => handleFieldChange('bookingProvider', e.target.value)}
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
-                        >
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Provider</label>
+                        <select value={link.bookingProvider || 'calendly'} onChange={e => handleFieldChange('bookingProvider', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20">
                           <option value="calendly">Calendly</option>
                           <option value="cal.com">Cal.com</option>
                           <option value="acuity">Acuity Scheduling</option>
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-gray-700 mb-1">Duration</label>
-                        <input
-                          type="text"
-                          value={link.bookingDuration || '30 mins'}
-                          onChange={e => handleFieldChange('bookingDuration', e.target.value)}
-                          placeholder="30 mins"
-                          className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 outline-none"
-                        />
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Duration</label>
+                        <input type="text" value={link.bookingDuration || '30 mins'} onChange={e => handleFieldChange('bookingDuration', e.target.value)} placeholder="30 mins" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
                       </div>
                     </div>
                   </div>
@@ -1061,10 +1009,10 @@ export default function LinkItemCard({
                 {link.type === 'gallery' ? (
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-gray-900">
+                      <h4 className="text-sm font-bold text-slate-900">
                         Choose a display layout for your gallery
                       </h4>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         Select how your photo gallery is rendered to your page visitors.
                       </p>
                     </div>

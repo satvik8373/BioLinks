@@ -8,6 +8,12 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Semantic surface aliases (resolved at build time via CSS vars) ──
+        surface:      'var(--app-surface)',
+        'app-border': 'var(--app-border)',
+        'text-base':  'var(--app-text-primary)',
+        'text-muted': 'var(--app-text-secondary)',
+        'app-primary':'var(--app-primary)',
         // Official Premium Palette: Slate / Violet-Indigo
         brand: {
           50:  '#F5F3FF',
