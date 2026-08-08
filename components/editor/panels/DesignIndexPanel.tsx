@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Avatar from '@/components/ui/Avatar'
-import { Zap, ChevronRight, Sticker, Asterisk } from 'lucide-react'
+import { Zap, ChevronRight, Sticker, Asterisk, Sparkles } from 'lucide-react'
 
 interface Props {
   config: any
@@ -201,6 +201,20 @@ export default function DesignIndexPanel({
         thumbnail={
           <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-700">
             <Asterisk className="w-5 h-5" />
+          </div>
+        }
+      />
+
+      {/* ── 8. Welcome Splash Screen ── */}
+      <DesignRow
+        id="splash"
+        label="Welcome Splash Screen"
+        summary={config.splashScreen?.enabled ? 'Active' : 'Disabled'}
+        showZap={true}
+        onNavigate={onNavigate}
+        thumbnail={
+          <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
+            <Sparkles className="w-5 h-5" />
           </div>
         }
       />

@@ -4,9 +4,10 @@ import React from 'react'
 import Select from '@/components/ui/Select'
 import Textarea from '@/components/ui/Textarea'
 import Label from '@/components/ui/Label'
+import Toggle, { Switch } from '@/components/ui/Toggle'
 
 // ─── Re-export atoms so block editors can import from one place ───────────────
-export { Select as BlockSelect, Textarea as BlockTextarea }
+export { Select as BlockSelect, Textarea as BlockTextarea, Toggle as BlockToggle, Switch as BlockSwitch }
 
 // ─── BlockFieldLabel — thin wrapper around Label atom ────────────────────────
 export function BlockFieldLabel({ label, hint }: { label: string; hint?: string }) {

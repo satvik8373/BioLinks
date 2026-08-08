@@ -28,7 +28,7 @@ export default function TextBlockEditor({ link, updateLink }: BlockEditorProps) 
         <BlockTextarea
           rows={3}
           value={link.description || link.text || ''}
-          onChange={handleChange}
+          onChange={(e) => handleChange(e.target.value)}
           placeholder="Welcome to my official profile page! Check out my links below…"
         />
       </div>

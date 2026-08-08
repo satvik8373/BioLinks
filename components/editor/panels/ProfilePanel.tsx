@@ -6,6 +6,7 @@ import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Select from '@/components/ui/Select'
 import Toggle from '@/components/ui/Toggle'
+import Button from '@/components/ui/Button'
 import { ArrowLeft, Upload, Pencil, Image as ImageIcon, Plus, Zap } from 'lucide-react'
 
 const compressImage = (file: File, maxDim = 800, quality = 0.85): Promise<string> =>
@@ -68,9 +69,9 @@ export default function ProfilePanel({ config, updateConfig, onBack }: Props) {
       {/* Header */}
       <div className="flex items-center gap-2">
         {onBack && (
-          <button onClick={onBack} className="p-1 rounded-lg hover:bg-slate-100 text-slate-900 transition-colors cursor-pointer">
+          <Button variant="ghost" size="icon" onClick={onBack}>
             <ArrowLeft className="w-5 h-5 stroke-[2]" />
-          </button>
+          </Button>
         )}
         <h1 className="text-xl md:text-2xl font-bold text-slate-900">Header</h1>
       </div>
@@ -138,22 +139,25 @@ export default function ProfilePanel({ config, updateConfig, onBack }: Props) {
       <div className="flex items-center justify-between py-2 border-t border-slate-100">
         <label className="text-sm font-bold text-slate-900">Profile image</label>
         <div className="flex items-center gap-3">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => avatarRef.current?.click()}
-            className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-[16px] flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-clay-sm cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" /> Upload image
-          </button>
+          </Button>
           <div className="relative group">
             <div onClick={() => avatarRef.current?.click()} className="w-14 h-14 rounded-full overflow-hidden cursor-pointer">
               <Avatar src={config.profile.avatar} size="lg" />
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="icon"
               onClick={() => avatarRef.current?.click()}
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-white border border-slate-200 rounded-full flex items-center justify-center shadow-clay-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+              className="absolute -bottom-1 -right-1 w-7 h-7 shadow-clay-sm"
             >
               <Pencil className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -163,12 +167,13 @@ export default function ProfilePanel({ config, updateConfig, onBack }: Props) {
         <div className="flex items-center justify-between py-2 border-t border-slate-100">
           <label className="text-sm font-bold text-slate-900">Banner image</label>
           <div className="flex items-center gap-3">
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => bannerRef.current?.click()}
-              className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-[16px] flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-clay-sm cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" /> Upload banner
-            </button>
+            </Button>
             <div
               onClick={() => bannerRef.current?.click()}
               className="w-14 h-14 rounded-[18px] bg-slate-100 border border-slate-200 flex items-center justify-center cursor-pointer hover:bg-slate-200 transition-colors relative overflow-hidden shadow-clay-sm"

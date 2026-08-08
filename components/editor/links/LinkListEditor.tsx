@@ -36,7 +36,9 @@ import {
   SpotifyIcon, GitHubIcon, LinkedInIcon, DiscordIcon, EmailIcon
 } from '@/components/icons/ServiceIcons'
 import { LinkItem, formatSocialUrl } from '@/lib/types/link'
+import Toggle from '@/components/ui/Toggle'
 import LinkItemCard from './LinkItemCard'
+import Button from '@/components/ui/Button'
 
 interface SocialPlatformSpec {
   id: string
@@ -87,21 +89,13 @@ function AddSocialIconModal({
       <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-5 animate-scale-up">
         {/* Title Bar: ← Add [Platform] icon ✕ */}
         <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="icon" onClick={onBack} title="Back">
             <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
-          </button>
+          </Button>
           <h3 className="text-base font-extrabold text-slate-900">Add {platform.name} icon</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} title="Close">
             <X className="w-4 h-4 stroke-[2.5]" />
-          </button>
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-1">
@@ -121,13 +115,16 @@ function AddSocialIconModal({
           </div>
 
           {/* Action button */}
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="lg"
+            shape="pill"
+            fullWidth
             disabled={!usernameInput.trim()}
-            className="w-full py-3.5 rounded-full text-sm font-extrabold transition-all shadow-sm active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed bg-slate-900 hover:bg-black text-white cursor-pointer"
           >
             Add
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -155,21 +152,13 @@ function AddSocialIconSearchModal({
       <div className="bg-white rounded-[28px] p-6 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-4 animate-scale-up max-h-[85vh] flex flex-col">
         {/* Header: < Add social icon X */}
         <div className="flex items-center justify-between flex-shrink-0">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="icon" onClick={onBack} title="Back">
             <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
-          </button>
+          </Button>
           <h3 className="text-base font-extrabold text-slate-900">Add social icon</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} title="Close">
             <X className="w-4 h-4 stroke-[2.5]" />
-          </button>
+          </Button>
         </div>
 
         {/* Search Bar (Rounded pill bg-slate-100) */}
@@ -242,13 +231,9 @@ function SocialIconsManagementModal({
         <div className="flex items-center justify-between flex-shrink-0">
           <div />
           <h3 className="text-base font-extrabold text-slate-900">Social icons</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} title="Close">
             <X className="w-4 h-4 stroke-[2.5]" />
-          </button>
+          </Button>
         </div>
 
         <div className="overflow-y-auto space-y-5 flex-1 pr-1 scrollbar-none">
@@ -281,26 +266,28 @@ function SocialIconsManagementModal({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => {
                             setEditingPlatform(isEditing ? null : platform)
                             setEditUrlInput(url)
                           }}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/80 transition-colors cursor-pointer"
                           title="Edit link"
                         >
                           <Pencil size={13} />
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
                           type="button"
+                          variant="danger"
+                          size="icon"
                           onClick={() => onRemoveSocialLink?.(platform)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                           title="Delete social icon"
                         >
                           <Trash2 size={13} />
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -319,8 +306,10 @@ function SocialIconsManagementModal({
                           placeholder={`Enter ${platform} handle or URL`}
                           className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-slate-900"
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="xs"
                           onClick={() => {
                             if (editUrlInput.trim()) {
                               const formatted = formatSocialUrl(platform, editUrlInput.trim())
@@ -328,10 +317,9 @@ function SocialIconsManagementModal({
                             }
                             setEditingPlatform(null)
                           }}
-                          className="px-3 py-1.5 text-xs font-extrabold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all cursor-pointer"
                         >
                           Save
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -379,24 +367,27 @@ function SocialIconsManagementModal({
 
         {/* Footer Buttons (Screenshot 4) */}
         <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 flex-shrink-0">
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
+            shape="pill"
             onClick={onClose}
-            className="px-4 py-2.5 text-xs font-extrabold text-slate-700 bg-white border border-slate-200 rounded-full hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5"
           >
-            <BarChart2 size={13} className="text-slate-500" />
-            <span>See insights</span>
-          </button>
+            <BarChart2 size={13} />
+            See insights
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="sm"
+            shape="pill"
             onClick={onOpenAddModal}
-            className="px-5 py-2.5 text-xs font-extrabold text-white bg-brand-600 rounded-full hover:bg-brand-700 active:scale-95 transition-all cursor-pointer shadow-md flex items-center gap-1.5"
-            style={{ backgroundColor: '#7C3AED' }}
           >
             <Plus size={14} className="stroke-[3]" />
-            <span>Add social icon</span>
-          </button>
+            Add social icon
+          </Button>
         </div>
       </div>
     </div>
@@ -674,18 +665,16 @@ function SortableCollectionContainer({
             </div>
 
             {/* Layout button */}
-            <button
+            <Button
               type="button"
+              variant={showLayoutSelector ? 'primary' : 'secondary'}
+              size="xs"
+              shape="pill"
               onClick={() => setShowLayoutSelector(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                showLayoutSelector
-                  ? 'bg-brand-600 text-white shadow-sm ring-2 ring-brand-600/30'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs'
-              }`}
             >
               <Layout className="w-3.5 h-3.5" />
-              <span>Layout</span>
-            </button>
+              Layout
+            </Button>
           </div>
 
           {/* Centered Title */}
@@ -705,18 +694,25 @@ function SortableCollectionContainer({
 
           {/* Actions */}
           <div className="flex items-center gap-1.5">
-            <button onClick={() => onOpenAddModal(header.id)} className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-white rounded-full transition-colors" title="Add link">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenAddModal(header.id)}
+              title="Add link"
+            >
               <Plus className="w-4 h-4" />
-            </button>
+            </Button>
 
             {/* 3-dot menu */}
             <div ref={menuRef} className="relative">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setMenuOpen(v => !v)}
-                className={`p-1.5 rounded-full transition-colors ${menuOpen ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-white'}`}
+                className={menuOpen ? 'bg-slate-100 text-slate-900' : ''}
               >
                 <MoreHorizontal className="w-4 h-4" />
-              </button>
+              </Button>
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-50 overflow-hidden">
                   <button onClick={handleUngroup} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left">
@@ -732,12 +728,12 @@ function SortableCollectionContainer({
               )}
             </div>
 
-            <button
-              onClick={() => onToggleVisibility(header.id)}
-              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${header.isVisible ? 'bg-emerald-600' : 'bg-slate-300'}`}
-            >
-              <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${header.isVisible ? 'translate-x-5' : 'translate-x-0'}`} />
-            </button>
+            <Toggle
+              checked={header.isVisible}
+              onChange={() => onToggleVisibility(header.id)}
+              variant="dark"
+              size="md"
+            />
           </div>
         </div>
 
@@ -794,9 +790,14 @@ function SortableCollectionContainer({
             <p className={`text-sm font-medium ${isTargetedByDrag ? 'text-brand-900 font-semibold' : 'text-slate-500'}`}>
               {isTargetedByDrag ? 'Drop link here to add into collection' : 'Add a link or drag one into this collection.'}
             </p>
-            <button onClick={() => onOpenAddModal(header.id)} className="px-5 py-2 bg-white border border-slate-300 hover:border-slate-400 text-slate-800 font-semibold text-xs rounded-full transition-all">
+            <Button
+              variant="secondary"
+              size="xs"
+              shape="pill"
+              onClick={() => onOpenAddModal(header.id)}
+            >
               Add link
-            </button>
+            </Button>
           </div>
         ) : (
           <SortableContext items={groupLinks.map(l => l.id)} strategy={verticalListSortingStrategy}>
@@ -1123,46 +1124,49 @@ export default function LinkListEditor({
               })}
 
               {/* Edit Pencil Button */}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setIsSocialManagementOpen(true)}
-                className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200/90 text-slate-600 flex items-center justify-center hover:bg-slate-200 hover:text-slate-900 transition-all cursor-pointer"
                 title="Manage social icons"
               >
                 <Pencil size={13} />
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
         {/* Top action bar */}
         <div className="flex items-center justify-between pt-1">
-          <button
+          <Button
+            variant="secondary"
+            size="xs"
+            shape="rounded"
             onClick={onAddCollection}
-            className="px-3.5 py-1.5 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-            style={{ background: '#FFFFFF', borderRadius: '12px', border: '1.5px solid rgba(148,163,184,0.35)', boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -2px 0 rgba(148,163,184,0.10), 0 3px 0 rgba(148,163,184,0.25), 0 4px 10px -2px rgba(15,23,42,0.06)' }}
+            style={{ boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -2px 0 rgba(148,163,184,0.10), 0 3px 0 rgba(148,163,184,0.25), 0 4px 10px -2px rgba(15,23,42,0.06)' }}
           >
             <FolderPlus className="w-3.5 h-3.5 text-brand-500" />
-            <span>Add collection</span>
-          </button>
-          <button type="button" className="text-[11px] font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors cursor-pointer">
+            Add collection
+          </Button>
+          <Button type="button" variant="ghost" size="xs" className="text-slate-400 hover:text-slate-600">
             <Archive className="w-3 h-3" />
-            <span>View archive</span>
+            View archive
             <ChevronRight className="w-3 h-3" />
-          </button>
+          </Button>
         </div>
 
         {/* Add Link CTA */}
-        <button
+        <Button
+          variant="primary"
+          size="lg"
+          shape="pill"
+          fullWidth
           onClick={() => onOpenAddModal()}
-          className="w-full py-4 clay-add-btn flex items-center justify-center gap-3 group"
         >
-          <div className="w-8 h-8 rounded-2xl flex items-center justify-center transition-all"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.25), 0 3px 0 #4F46E5, 0 5px 14px rgba(124,58,237,0.35)' }}>
-            <Plus className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-sm font-extrabold text-slate-700 tracking-tight group-hover:text-brand-700 transition-colors">Add Link or Feature</span>
-        </button>
+          <Plus className="w-4 h-4 stroke-[3]" />
+          Add Link or Feature
+        </Button>
 
         {/* Search */}
         {links.length > 3 && (
@@ -1194,10 +1198,15 @@ export default function LinkListEditor({
                 <p className="text-[11px] text-slate-400 mt-1.5 max-w-xs mx-auto font-medium">
                   Click "Add Link or Feature" above or create a collection.
                 </p>
-                <button onClick={() => onOpenAddModal()} className="mt-5 px-5 py-2.5 text-white text-xs font-extrabold tracking-tight"
-                  style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', borderRadius: '12px', boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.25), 0 3px 0 #4F46E5, 0 6px 16px rgba(124,58,237,0.30)' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  shape="pill"
+                  onClick={() => onOpenAddModal()}
+                  style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.25), 0 3px 0 #4F46E5, 0 6px 16px rgba(124,58,237,0.30)' }}
+                >
                   Add First Link
-                </button>
+                </Button>
               </div>
             )}
 

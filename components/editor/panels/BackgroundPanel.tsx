@@ -9,6 +9,7 @@ import { uploadWallpaperFile } from '@/lib/storage'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Textarea from '@/components/ui/Textarea'
+import Button from '@/components/ui/Button'
 
 interface Props {
   config: any
@@ -133,9 +134,9 @@ export default function BackgroundPanel({ config, updateConfig, onBack }: Props)
     <div className="space-y-6">
       {/* Back */}
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer">
-          <ArrowLeft className="w-5 h-5 text-slate-800" />
-        </button>
+        <Button variant="ghost" size="icon" onClick={onBack} title="Back">
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
         <h2 className="text-xl font-bold text-slate-900">Wallpaper</h2>
       </div>
 
@@ -247,7 +248,11 @@ export default function BackgroundPanel({ config, updateConfig, onBack }: Props)
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-semibold text-slate-800">Wallpaper Image Link</label>
-              {imageUrl && <button onClick={() => handleImageUrl('')} className="text-xs font-semibold text-rose-500 hover:underline cursor-pointer">Clear</button>}
+              {imageUrl && (
+                <Button variant="danger" size="xs" onClick={() => handleImageUrl('')}>
+                  Clear
+                </Button>
+              )}
             </div>
             <Input
               type="text"
@@ -256,9 +261,9 @@ export default function BackgroundPanel({ config, updateConfig, onBack }: Props)
               placeholder="https://example.com/image.jpg"
             />
             <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageFile} />
-            <button onClick={() => imageInputRef.current?.click()} className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 transition-colors cursor-pointer">
-              <Upload className="w-4 h-4 text-slate-500" /> Upload Image File
-            </button>
+            <Button variant="outline" size="sm" fullWidth onClick={() => imageInputRef.current?.click()}>
+              <Upload className="w-4 h-4" /> Upload Image File
+            </Button>
           </div>
         )}
 
@@ -274,21 +279,23 @@ export default function BackgroundPanel({ config, updateConfig, onBack }: Props)
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                     <span className="text-xs font-bold text-slate-800 truncate">Video Active</span>
                   </div>
-                  <button onClick={clearVideo} className="text-xs font-semibold text-rose-500 hover:underline flex items-center gap-1 cursor-pointer">
+                  <Button variant="danger" size="xs" onClick={clearVideo}>
                     <Trash2 className="w-3.5 h-3.5" /> Remove
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => videoInputRef.current?.click()}
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
                 disabled={videoState === 'uploading'}
-                className="w-full py-3 border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                onClick={() => videoInputRef.current?.click()}
               >
                 {videoState === 'uploading'
                   ? <><Loader2 className="w-4 h-4 text-brand-600 animate-spin" /> Uploading… {videoProgress}%</>
-                  : <><Upload className="w-4 h-4 text-slate-500" /> Upload MP4 / WebM Video</>}
-              </button>
+                  : <><Upload className="w-4 h-4" /> Upload MP4 / WebM Video</>}
+              </Button>
             )}
             {uploadError && (
               <div className="flex items-center gap-2 text-xs text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">

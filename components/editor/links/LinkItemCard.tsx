@@ -18,8 +18,12 @@ import MusicBlockEditor from '@/components/editor/blocks/MusicBlockEditor'
 import { uploadImageToFirebase } from '@/lib/firebaseStorage'
 import MediaLibraryModal from '@/components/modals/MediaLibraryModal'
 import { saveMediaToLibrary } from '@/lib/mediaLibrary'
+import Toggle from '@/components/ui/Toggle'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import Label from '@/components/ui/Label'
+import Button from '@/components/ui/Button'
+import { BlockEditorContainer } from '@/components/editor/blocks/BlockEditorContainer'
 
 interface LinkItemCardProps {
   link: LinkItem
@@ -359,26 +363,26 @@ export default function LinkItemCard({
 
           {/* Top Right: ON/OFF Toggle Switch */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={onToggleVisibility}
-              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-0.5 cursor-pointer ${
-                link.isVisible ? 'bg-slate-900' : 'bg-slate-200'
-              }`}
+            <Toggle
+              checked={link.isVisible}
+              onChange={onToggleVisibility}
+              variant="dark"
+              size="md"
               title={link.isVisible ? 'Enabled' : 'Disabled'}
-            >
-              <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
-                link.isVisible ? 'translate-x-5' : 'translate-x-0'
-              }`} />
-            </button>
+            />
           </div>
         </div>
 
-        {/* Feature Toolbar Row: SVG Icon + Quick Action Icons + Analytics + Trash */}
-        <div className="flex items-center justify-between pt-1 border-t border-slate-100/80 text-slate-500">
-          <div className="flex items-center gap-3">
-            {/* SVG Icon Pill */}
-            <button
+        {/* Feature Toolbar Row: Icon + Action Tabs + Analytics + Trash */}
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
+
+          <div className="flex items-center gap-2">
+
+            {/* Link-type icon — opens settings drawer */}
+            <Button
               type="button"
+              variant={isExpanded && activeDrawer === 'settings' ? 'primary' : 'ghost'}
+              size="icon-lg"
               onClick={() => {
                 if (activeDrawer === 'settings' && isExpanded) {
                   onToggleExpand()
@@ -387,77 +391,74 @@ export default function LinkItemCard({
                   if (!isExpanded) onToggleExpand()
                 }
               }}
-              className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center p-1.5 cursor-pointer ${
-                isExpanded && activeDrawer === 'settings'
-                  ? 'bg-brand-600 text-white shadow-clay-sm'
-                  : 'bg-brand-50 text-brand-600 border border-brand-100/80 hover:bg-brand-100'
-              }`}
-              title="Open Link Settings"
+              title="Link settings"
             >
               <ServiceIcon iconId={activeIconKey} size={18} />
-            </button>
+            </Button>
 
-            {/* Quick Action Icons: Thumbnail (non-image only), Schedule Clock, Lock Gate, Analytics */}
-            <div className="flex items-center gap-1.5 text-slate-400">
-              {/* Thumbnail Icon */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeDrawer === 'thumbnail' && isExpanded) { onToggleExpand() }
-                    else { setActiveDrawer('thumbnail'); if (!isExpanded) onToggleExpand() }
-                  }}
-                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                    isExpanded && activeDrawer === 'thumbnail' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-brand-600 hover:bg-slate-100'
-                  }`}
-                  title="Add Thumbnail"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
+            {/* Action icon row */}
+            <div className="flex items-center gap-0.5">
 
-              {/* 3. Schedule Clock Icon */}
-              <button
+              {/* Thumbnail */}
+              <Button
+                type="button"
+                variant={isExpanded && activeDrawer === 'thumbnail' ? 'primary' : 'ghost'}
+                size="icon"
+                onClick={() => {
+                  if (activeDrawer === 'thumbnail' && isExpanded) { onToggleExpand() }
+                  else { setActiveDrawer('thumbnail'); if (!isExpanded) onToggleExpand() }
+                }}
+                title="Thumbnail"
+              >
+                <ImageIcon className="w-4 h-4" />
+              </Button>
+
+              {/* Schedule */}
+              <Button
+                type="button"
+                variant={isExpanded && activeDrawer === 'schedule' ? 'primary' : 'ghost'}
+                size="icon"
                 onClick={() => {
                   setActiveDrawer('schedule')
                   if (!isExpanded) onToggleExpand()
                 }}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isExpanded && activeDrawer === 'schedule' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-brand-600 hover:bg-slate-100'
-                }`}
-                title="Schedule Link"
+                title="Schedule"
               >
                 <Clock className="w-4 h-4" />
-              </button>
+              </Button>
 
-              {/* 4. Lock Gate Icon */}
-              <button
+              {/* Lock */}
+              <Button
+                type="button"
+                variant={isExpanded && activeDrawer === 'lock' ? 'primary' : 'ghost'}
+                size="icon"
                 onClick={() => {
                   setActiveDrawer('lock')
                   if (!isExpanded) onToggleExpand()
                 }}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  isExpanded && activeDrawer === 'lock' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-brand-600 hover:bg-slate-100'
-                }`}
-                title="Lock this link"
+                title="Lock / gate"
               >
                 <Lock className="w-4 h-4" />
-              </button>
+              </Button>
 
-              {/* 5. Analytics Counter */}
-              <div className="flex items-center gap-1 text-xs text-slate-500 font-medium pl-1.5">
-                <BarChart2 className="w-3.5 h-3.5 text-slate-400" />
+              {/* Analytics */}
+              <div className="flex items-center gap-1 px-2 text-xs text-slate-400 font-medium">
+                <BarChart2 className="w-3.5 h-3.5" />
                 <span>0 clicks</span>
               </div>
+
             </div>
           </div>
 
-          {/* Delete Trash Button */}
-          <button
+          {/* Delete */}
+          <Button
+            variant="danger"
+            size="icon"
             onClick={onRemove}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
             title="Delete link"
           >
             <Trash2 className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -473,38 +474,33 @@ export default function LinkItemCard({
           {(activeDrawer === 'settings' || activeDrawer === 'layout') && (
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
               <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200/60">
-                <button
+                <Button
                   type="button"
+                  variant={activeDrawer === 'settings' ? 'secondary' : 'ghost'}
+                  size="xs"
                   onClick={() => setActiveDrawer('settings')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    activeDrawer === 'settings'
-                      ? 'bg-white text-brand-700 shadow-clay-sm font-extrabold'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
                 >
                   Link Settings
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant={activeDrawer === 'layout' ? 'secondary' : 'ghost'}
+                  size="xs"
                   onClick={() => setActiveDrawer('layout')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    activeDrawer === 'layout'
-                      ? 'bg-white text-brand-700 shadow-clay-sm font-extrabold'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
                 >
                   Layout
-                </button>
+                </Button>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onToggleExpand}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                 title="Close drawer"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           )}
 
@@ -534,28 +530,34 @@ export default function LinkItemCard({
                     
                     <div className="flex-1 space-y-2">
                       {/* Change Button */}
-                      <button
+                      <Button
                         type="button"
+                        variant="primary"
+                        size="lg"
+                        shape="pill"
+                        fullWidth
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowMediaLibrary(true)
                         }}
-                        className="w-full py-3 bg-[#7800ff] hover:bg-[#6800e0] text-white font-extrabold text-sm rounded-full shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                       >
                         <ImageIcon className="w-4 h-4" />
                         Choose from Library / Change
-                      </button>
+                      </Button>
                       {/* Remove Button */}
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="lg"
+                        shape="pill"
+                        fullWidth
                         onClick={(e) => {
                           e.stopPropagation()
                           handleFieldChange('thumbnail', undefined)
                         }}
-                        className="w-full py-3 border border-slate-300 hover:border-rose-400 hover:bg-rose-50 text-slate-800 font-bold text-sm rounded-full transition-all cursor-pointer"
                       >
                         Remove
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -563,17 +565,20 @@ export default function LinkItemCard({
                     <p className="text-sm font-semibold text-slate-700">
                       Add a Thumbnail or Icon to this Link.
                     </p>
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="lg"
+                      shape="pill"
+                      fullWidth
                       onClick={(e) => {
                         e.stopPropagation()
                         setShowMediaLibrary(true)
                       }}
-                      className="w-full py-3.5 bg-[#7800ff] hover:bg-[#6800e0] text-white font-extrabold text-sm rounded-full shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2"
                     >
                       <ImageIcon className="w-4 h-4" />
                       Set Thumbnail / Media Library
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -784,16 +789,20 @@ export default function LinkItemCard({
                   </div>
                 </div>
 
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="lg"
+                  shape="pill"
+                  fullWidth
                   onClick={() => {
                     handleFieldChange('isScheduled', true)
                     alert('Link schedule saved successfully!')
                   }}
-                  className="w-full py-3.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm rounded-full transition-colors mt-2"
+                  className="mt-2"
                 >
                   Schedule
-                </button>
+                </Button>
               </div>
             )}
             {/* ── TAB 1: LINK SETTINGS ── */}
@@ -808,72 +817,58 @@ export default function LinkItemCard({
                 ) : link.type === 'music' || (link.url && (link.url.includes('spotify.com') || link.url.includes('soundcloud.com') || link.url.includes('music.apple.com'))) ? (
                   <MusicBlockEditor
                     link={link}
-                    onUpdate={onUpdate}
-                    onClose={onToggleExpand}
+                    updateLink={(id, field, value) => handleFieldChange(field as keyof LinkItem, value)}
                   />
                 ) : (
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Subtext / Description (Optional)
-                    </label>
-                    <input
+                    <Input
+                      label="Subtext / Description (Optional)"
                       type="text"
                       value={link.description || ''}
                       onChange={e => handleFieldChange('description', e.target.value)}
                       placeholder="Short subtitle or note displayed under the title"
-                      className="w-full bg-white border border-slate-200 focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 rounded-xl px-3 py-2 text-sm text-slate-900 outline-none transition-all"
                     />
                   </div>
                 )}
 
-                {/* ── YOUTUBE / VIDEO LINK SETTINGS (Exact Match to Linktree Screenshot) ── */}
+                {/* ── YOUTUBE / VIDEO LINK SETTINGS ── */}
                 {(link.type === 'video' || (link.url || '').toLowerCase().includes('youtube') || (link.url || '').toLowerCase().includes('youtu.be')) && (
-                  <div className="space-y-5 animate-fadeIn pt-2 border-t border-slate-100 mt-3">
-                    {/* Section 1: When a visitor clicks */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-slate-900">When a visitor clicks:</h4>
-                      
-                      <div className="space-y-3">
-                        {[
-                          { id: 'display_video', label: 'Display my video on my Linktree' },
-                          { id: 'open_youtube',  label: 'Open video on YouTube / platform' },
-                          { id: 'open_latest',   label: "Open my channel's latest video" },
-                          { id: 'display_latest',label: "Display my channel's latest video" },
-                        ].map((opt) => {
-                          const selected = (link.videoClickOption || 'open_youtube') === opt.id
-                          return (
-                            <label key={opt.id} className="flex items-center gap-3 cursor-pointer group py-1 select-none">
-                              <input
-                                type="radio"
-                                name={`videoClickOption-${link.id}`}
-                                checked={selected}
-                                onChange={() => handleFieldChange('videoClickOption', opt.id)}
-                                className="w-4 h-4 accent-brand-600 border-2 border-slate-300 focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
-                              />
-                              <span className={`text-sm ${selected ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
-                                {opt.label}
-                              </span>
-                            </label>
-                          )
-                        })}
-                      </div>
+                  <BlockEditorContainer title="Video settings" description="Control how visitors interact with this video link.">
+                    <div className="space-y-1">
+                      {[
+                        { id: 'display_video',  label: 'Display my video on my Linktree' },
+                        { id: 'open_youtube',   label: 'Open video on YouTube / platform' },
+                        { id: 'open_latest',    label: "Open my channel's latest video" },
+                        { id: 'display_latest', label: "Display my channel's latest video" },
+                      ].map((opt) => {
+                        const selected = (link.videoClickOption || 'open_youtube') === opt.id
+                        return (
+                          <label key={opt.id} className="flex items-center gap-3 cursor-pointer py-1 select-none">
+                            <input
+                              type="radio"
+                              name={`videoClickOption-${link.id}`}
+                              checked={selected}
+                              onChange={() => handleFieldChange('videoClickOption', opt.id)}
+                              className="w-4 h-4 accent-brand-600 cursor-pointer"
+                            />
+                            <span className={`text-sm ${selected ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                              {opt.label}
+                            </span>
+                          </label>
+                        )
+                      })}
                     </div>
 
-                    {/* Section 2: Display options */}
-                    <div className="space-y-3 pt-3 border-t border-slate-100">
-                      <h4 className="text-sm font-bold text-slate-900">Display options</h4>
-                      
-                      <label className="flex items-center gap-3 cursor-pointer group select-none">
-                        <input
-                          type="checkbox"
-                          checked={link.videoMute || false}
-                          onChange={(e) => handleFieldChange('videoMute', e.target.checked)}
-                          className="w-4 h-4 accent-brand-600 border-2 border-slate-300 rounded focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
-                        />
-                        <span className="text-sm font-semibold text-slate-900">Mute video</span>
-                      </label>
-                    </div>
-                  </div>
+                    <label className="flex items-center gap-3 cursor-pointer select-none pt-2 border-t border-slate-100">
+                      <input
+                        type="checkbox"
+                        checked={link.videoMute || false}
+                        onChange={(e) => handleFieldChange('videoMute', e.target.checked)}
+                        className="w-4 h-4 accent-brand-600 rounded cursor-pointer"
+                      />
+                      <span className="text-sm font-semibold text-slate-800">Mute video by default</span>
+                    </label>
+                  </BlockEditorContainer>
                 )}
 
                 {/* SOCIAL CHANNEL FIELDS */}
@@ -887,118 +882,84 @@ export default function LinkItemCard({
                 )}
 
                 {/* CONTACT TYPE FIELDS */}
-                {link.type === 'contact' && (
-                  <div className="bg-sky-50/60 border border-sky-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-sky-900">
-                      <Phone className="w-4 h-4 text-sky-600" />
-                      <span>Contact Direct Trigger</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Contact Type</label>
-                        <select
-                          value={link.contactType || 'email'}
-                          onChange={e => handleFieldChange('contactType', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20"
-                        >
-                          <option value="email">Email Address</option>
-                          <option value="phone">Phone Call</option>
-                          <option value="whatsapp">WhatsApp Chat</option>
-                          <option value="telegram">Telegram</option>
-                        </select>
+                {link.type === 'contact' && (() => {
+                  const contactType = link.contactType || 'email'
+                  const CONTACT_OPTIONS = [
+                    { id: 'email',    label: 'Email',    placeholder: 'you@example.com' },
+                    { id: 'phone',    label: 'Phone',    placeholder: '+1 234 567 8900' },
+                    { id: 'whatsapp', label: 'WhatsApp', placeholder: '+1 234 567 8900' },
+                    { id: 'telegram', label: 'Telegram', placeholder: '@username' },
+                  ]
+                  const active = CONTACT_OPTIONS.find(o => o.id === contactType) || CONTACT_OPTIONS[0]
+                  return (
+                    <BlockEditorContainer title="Contact trigger" description="Choose how visitors reach you when they tap this link.">
+                      {/* Type pill row */}
+                      <div className="space-y-1.5">
+                        <Label>Contact Type</Label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {CONTACT_OPTIONS.map((opt) => (
+                            <Button
+                              key={opt.id}
+                              type="button"
+                              variant={contactType === opt.id ? 'primary' : 'secondary'}
+                              size="xs"
+                              shape="pill"
+                              onClick={() => handleFieldChange('contactType', opt.id)}
+                            >
+                              {opt.label}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Value ({link.contactType || 'email'})
-                        </label>
-                        <input
-                          type="text"
-                          value={link.contactValue || ''}
-                          onChange={e => handleFieldChange('contactValue', e.target.value)}
-                          placeholder={link.contactType === 'phone' ? '+1234567890' : link.contactType === 'whatsapp' ? '+1234567890' : link.contactType === 'telegram' ? '@username' : 'you@example.com'}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                      {/* Value */}
+                      <Input
+                        label={`${active.label} Value`}
+                        type={contactType === 'email' ? 'email' : 'text'}
+                        value={link.contactValue || ''}
+                        onChange={e => handleFieldChange('contactValue', e.target.value)}
+                        placeholder={active.placeholder}
+                      />
+                    </BlockEditorContainer>
+                  )
+                })()}
 
                 {/* EVENT TYPE FIELDS */}
                 {link.type === 'event' && (
-                  <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                      <Calendar className="w-4 h-4 text-amber-600" />
-                      <span>Event & Ticket Details</span>
+                  <BlockEditorContainer title="Event & RSVP" description="Promote your event and link to tickets or registration.">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Event Date" type="date" value={link.eventDate || ''} onChange={e => handleFieldChange('eventDate', e.target.value)} />
+                      <Input label="Event Time" type="text" value={link.eventTime || ''} onChange={e => handleFieldChange('eventTime', e.target.value)} placeholder="8:00 PM EST" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Event Date</label>
-                        <input type="date" value={link.eventDate || ''} onChange={e => handleFieldChange('eventDate', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Event Time</label>
-                        <input type="text" value={link.eventTime || ''} onChange={e => handleFieldChange('eventTime', e.target.value)} placeholder="8:00 PM EST" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Location / Venue</label>
-                        <input type="text" value={link.eventLocation || ''} onChange={e => handleFieldChange('eventLocation', e.target.value)} placeholder="New York, NY" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
-                      </div>
-                    </div>
-                  </div>
+                    <Input label="Venue / Location" type="text" value={link.eventLocation || ''} onChange={e => handleFieldChange('eventLocation', e.target.value)} placeholder="New York, NY or Zoom link" />
+                  </BlockEditorContainer>
                 )}
 
                 {/* PAYMENT TYPE FIELDS */}
                 {link.type === 'payment' && (
-                  <div className="bg-brand-50/60 border border-brand-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
-                      <DollarSign className="w-4 h-4 text-brand-600" />
-                      <span>Monetization & Tip Jar</span>
+                  <BlockEditorContainer title="Payment & tip jar" description="Accept tips, donations, or payment links.">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Suggested Amount" type="number" value={link.paymentAmount || ''} onChange={e => handleFieldChange('paymentAmount', e.target.value)} placeholder="5.00" />
+                      <Input label="Currency" type="text" value={link.paymentCurrency || '$'} onChange={e => handleFieldChange('paymentCurrency', e.target.value)} placeholder="$" />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Service</label>
-                        <select value={link.paymentType || 'tip'} onChange={e => handleFieldChange('paymentType', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20">
-                          <option value="tip">Tip Jar / Coffee</option>
-                          <option value="stripe">Stripe Checkout</option>
-                          <option value="paypal">PayPal</option>
-                          <option value="venmo">Venmo</option>
-                          <option value="cashapp">Cash App</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Suggested Amount</label>
-                        <input type="text" value={link.paymentAmount || ''} onChange={e => handleFieldChange('paymentAmount', e.target.value)} placeholder="5.00" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Currency</label>
-                        <input type="text" value={link.paymentCurrency || '$'} onChange={e => handleFieldChange('paymentCurrency', e.target.value)} placeholder="$" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
-                      </div>
-                    </div>
-                  </div>
+                  </BlockEditorContainer>
                 )}
 
                 {/* BOOKING TYPE FIELDS */}
                 {link.type === 'booking' && (
-                  <div className="bg-brand-50/60 border border-brand-200/80 rounded-xl p-3.5 space-y-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
-                      <Clock className="w-4 h-4 text-brand-600" />
-                      <span>Appointment Booking Settings</span>
-                    </div>
+                  <BlockEditorContainer title="Appointment booking" description="Let visitors schedule time with you directly.">
                     <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Provider</label>
-                        <select value={link.bookingProvider || 'calendly'} onChange={e => handleFieldChange('bookingProvider', e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20">
-                          <option value="calendly">Calendly</option>
-                          <option value="cal.com">Cal.com</option>
-                          <option value="acuity">Acuity Scheduling</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Duration</label>
-                        <input type="text" value={link.bookingDuration || '30 mins'} onChange={e => handleFieldChange('bookingDuration', e.target.value)} placeholder="30 mins" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20" />
-                      </div>
+                      <Select
+                        label="Provider"
+                        value={link.bookingProvider || 'calendly'}
+                        onChange={(e) => handleFieldChange('bookingProvider', e.target.value)}
+                      >
+                        <option value="calendly">Calendly</option>
+                        <option value="cal.com">Cal.com</option>
+                        <option value="acuity">Acuity Scheduling</option>
+                      </Select>
+                      <Input label="Duration" type="text" value={link.bookingDuration || '30 mins'} onChange={e => handleFieldChange('bookingDuration', e.target.value)} placeholder="30 mins" />
                     </div>
-                  </div>
+                  </BlockEditorContainer>
                 )}
               </div>
             )}
@@ -1224,28 +1185,31 @@ export default function LinkItemCard({
                               }}
                             />
                             <div className="flex items-center gap-2 w-full">
-                              <button
+                              <Button
                                 type="button"
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setShowMediaLibrary(true)
                                 }}
-                                className="flex-1 py-3 border-2 border-dashed border-slate-300 hover:border-purple-500 rounded-2xl text-xs font-extrabold text-slate-800 flex items-center justify-center transition-colors cursor-pointer bg-slate-50/50 hover:bg-purple-50/30"
                               >
                                 {isUploading ? 'Uploading...' : link.thumbnail ? 'Change Featured Image (Library)' : 'Choose from Library / Upload Image'}
-                              </button>
+                              </Button>
                               {link.thumbnail && (
-                                <button
+                                <Button
                                   type="button"
+                                  variant="danger"
+                                  size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     handleFieldChange('thumbnail', undefined)
                                   }}
-                                  className="py-3 px-3 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold transition-colors cursor-pointer"
                                   title="Remove thumbnail"
                                 >
                                   Remove
-                                </button>
+                                </Button>
                               )}
                             </div>
                           </div>

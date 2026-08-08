@@ -49,6 +49,7 @@ import {
   RotateCcw,
   Undo2,
   Redo2,
+  Loader2,
   User,
   ShoppingBag,
   Instagram,
@@ -70,11 +71,17 @@ import {
   Video,
 } from 'lucide-react'
 import WallpaperPanel from '@/components/editor/wallpaper/WallpaperPanel'
+import UnsavedChangesBar from '@/components/editor/UnsavedChangesBar'
 import DesignIndexPanel from '@/components/editor/panels/DesignIndexPanel'
 import ThemesPanel from '@/components/editor/panels/ThemesPanel'
 import ProfilePanel from '@/components/editor/panels/ProfilePanel'
 import SocialMediaPanel from '@/components/editor/panels/SocialMediaPanel'
 import FontsPanel from '@/components/editor/panels/FontsPanel'
+import ButtonsPanel from '@/components/editor/panels/ButtonsPanel'
+import ColorsPanel from '@/components/editor/panels/ColorsPanel'
+import StickersPanel from '@/components/editor/panels/StickersPanel'
+import FooterPanel from '@/components/editor/panels/FooterPanel'
+import SplashScreenPanel from '@/components/editor/panels/SplashScreenPanel'
 
 interface LinkItem {
   id: string
@@ -162,8 +169,10 @@ export default function EditorPage() {
   // ── Zustand Draft Store ──
   const config = useDraftStore(s => s.config)
   const loading = useDraftStore(s => s.isLoading)
-  const isDirty = useDraftStore(s => s.isDirty)
-  const lastSavedAt = useDraftStore(s => s.lastSavedAt)
+  const isDirty        = useDraftStore(s => s.isDirty)
+  const lastSavedAt    = useDraftStore(s => s.lastSavedAt)
+  const storeIsSaving  = useDraftStore(s => s.isSaving)
+  const saveError      = useDraftStore(s => s.saveError)
   const storeUpdate = useDraftStore(s => s.update)
   const storeBatchUpdate = useDraftStore(s => s.batchUpdate)
   const storeUndo = useDraftStore(s => s.undo)
@@ -174,7 +183,24 @@ export default function EditorPage() {
   const canRedo = useCanRedo()
 
   // ── Local UI state (not persisted) ──
-  const [activeTab, setActiveTab] = useState<'links' | 'appearance' | 'profile' | 'background' | 'fonts' | 'buttons' | 'colors' | 'settings' | 'social' | 'shop' | 'seo' | 'analytics' | 'themes'>('links')
+  const [activeTab, setActiveTab] = useState<
+    | 'links'
+    | 'appearance'
+    | 'profile'
+    | 'background'
+    | 'fonts'
+    | 'buttons'
+    | 'colors'
+    | 'settings'
+    | 'social'
+    | 'shop'
+    | 'seo'
+    | 'analytics'
+    | 'themes'
+    | 'stickers'
+    | 'footer'
+    | 'splash'
+  >('links')
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showAddLinkModal, setShowAddLinkModal] = useState(false)
@@ -195,9 +221,7 @@ export default function EditorPage() {
     setShowAddLinkModal(true)
   }
   const [isEditingHandle, setIsEditingHandle] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
-  const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [showSaveDropdown, setShowSaveDropdown] = useState(false)
   const [draftSavedToast, setDraftSavedToast] = useState('')
   const [handleDraft, setHandleDraft] = useState('')
@@ -364,6 +388,17 @@ export default function EditorPage() {
     })
   }, [router])
 
+  // Listen for interactive sticker dragging updates from preview iframe
+  useEffect(() => {
+    const handleWindowMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'UPDATE_CONFIG_STICKERS' && Array.isArray(event.data.stickers)) {
+        storeUpdate('stickers', event.data.stickers)
+      }
+    }
+    window.addEventListener('message', handleWindowMessage)
+    return () => window.removeEventListener('message', handleWindowMessage)
+  }, [storeUpdate])
+
   // updateConfig — thin wrapper around the Zustand store's update/batchUpdate.
   // Keeps the same API surface so all child components work unchanged.
   const updateConfig = (pathOrUpdates: string | Array<{ path: string; value: any }>, value?: any) => {
@@ -480,56 +515,33 @@ export default function EditorPage() {
 
   const saveDraftBioLink = async () => {
     if (!config) return
-    setIsSavingDraft(true)
-    setSaveError(null)
-    setDraftSavedToast('')
-
-    try {
-      await storeSaveDraftNow()
-      setDraftSavedToast('Draft saved successfully!')
-      setTimeout(() => setDraftSavedToast(''), 3500)
-    } catch (error: any) {
-      console.error('❌ Error saving draft:', error)
-      setSaveError(error.message || 'Failed to save draft.')
-    } finally {
-      setIsSavingDraft(false)
+    await storeSaveDraftNow()
+    const s = useDraftStore.getState()
+    if (!s.saveError) {
+      setDraftSavedToast('Saved!')
+      setTimeout(() => setDraftSavedToast(''), 3000)
     }
   }
 
   const publishBioLink = async () => {
     if (!config) return
-    
     setIsSaving(true)
-    setSaveError(null)
 
     try {
-      // Publish via Zustand store → Firestore draft → published + bioCards + cardStore
       const result = await storePublish()
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to publish your card.')
-      }
+      if (!result.success) throw new Error(result.error || 'Failed to publish.')
 
       const handleSlug = resolveCardKey(config.profile?.handle, config.profile?.title) || getAccountUsername() || 'user'
       localStorage.setItem('editorPreviewCardId', handleSlug)
       localStorage.setItem('activeBioCardId', handleSlug)
       setPreviewCardId(handleSlug)
 
-      const cardUrl = getCardPublicUrl(handleSlug)
-      console.log('✅ Card published successfully! Public URL:', cardUrl)
-      
-      try {
-        await navigator.clipboard.writeText(cardUrl)
-      } catch (clipErr) {
-        console.warn('Clipboard access denied, but publish succeeded')
-      }
-      
+      try { await navigator.clipboard.writeText(getCardPublicUrl(handleSlug)) } catch { /* no clipboard */ }
       setDraftSavedToast('Published! Public link copied.')
       setTimeout(() => setDraftSavedToast(''), 4000)
       setShowShareModal(true)
     } catch (error: any) {
-      console.error('❌ Error publishing bio link:', error)
-      setSaveError(error.message || 'Failed to publish your card. Please try again.')
+      console.error('❌ Error publishing:', error)
     } finally {
       setIsSaving(false)
     }
@@ -573,7 +585,7 @@ export default function EditorPage() {
   }
   const themeSummary = () => config.theme.name || 'Custom'
 
-  const isDesignTab = ['profile','themes','background','buttons','fonts','appearance','colors'].includes(activeTab)
+  const isDesignTab = ['profile','themes','background','buttons','fonts','appearance','colors','stickers','footer','splash'].includes(activeTab)
 
   return (
     <div className="h-screen flex flex-col md:flex-row overflow-hidden" style={{ background: 'linear-gradient(170deg, #EEF0F8 0%, #E8E9F5 60%, #EBE8F8 100%)' }}>
@@ -644,22 +656,53 @@ export default function EditorPage() {
           })}
         </nav>
 
-        {/* Bottom actions: Auto-save status & Share Page */}
+        {/* Bottom actions: Save + Share Page */}
         <div className="flex-shrink-0 p-3 space-y-2.5 relative" style={{ borderTop: '1.5px solid rgba(148,163,184,0.2)' }}>
-          {/* Auto-save status indicator */}
-          <div className="flex items-center justify-between px-1">
-            {isDirty ? (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span>Saving changes...</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                <Check className="w-3.5 h-3.5" />
-                <span>Auto-saved {lastSavedAt ? `at ${lastSavedAt}` : ''}</span>
-              </div>
+
+          {/* Save / Discard row */}
+          <div className="flex gap-2">
+            {/* Discard — only shown when dirty */}
+            {isDirty && (
+              <button
+                type="button"
+                onClick={() => useDraftStore.getState().discardChanges()}
+                disabled={storeIsSaving}
+                className="flex-1 py-2.5 px-3 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-rose-400 hover:text-rose-600 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Discard
+              </button>
             )}
+
+            {/* Save */}
+            <button
+              type="button"
+              onClick={saveDraftBioLink}
+              disabled={storeIsSaving || !isDirty}
+              className={`flex-1 py-2.5 px-3 text-xs font-extrabold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50 ${
+                isDirty
+                  ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-clay-sm'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              {storeIsSaving
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</>
+                : isDirty
+                  ? <><Save className="w-3.5 h-3.5" />Save</>
+                  : <><Check className="w-3.5 h-3.5" />{lastSavedAt ? `Saved ${lastSavedAt}` : 'Saved'}</>
+              }
+            </button>
           </div>
+
+          {/* Save error */}
+          {saveError && (
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
+              <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1.5">
+                <X className="w-3.5 h-3.5 flex-shrink-0" />
+                {saveError}
+              </p>
+            </div>
+          )}
 
           {/* Share Page Button */}
           <button
@@ -669,21 +712,11 @@ export default function EditorPage() {
               localStorage.setItem('editorPreviewCardId', handleSlug)
               setShowShareModal(true)
             }}
-            className="w-full py-2.5 px-3 text-white text-xs font-extrabold rounded-xl bg-slate-900 hover:bg-slate-800 shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+            className="w-full py-2.5 px-3 text-white text-xs font-extrabold rounded-xl bg-brand-600 hover:bg-brand-700 shadow-clay-btn flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>Share Page</span>
+            Share Page
           </button>
-
-          {/* Error Message */}
-          {saveError && (
-            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200">
-              <p className="text-[10px] font-bold text-rose-600 flex items-center gap-1.5">
-                <X className="w-3.5 h-3.5 flex-shrink-0" />
-                {saveError}
-              </p>
-            </div>
-          )}
 
           {/* Secondary links (Preview & Exit) */}
           <div className="flex gap-2 pt-0.5">
@@ -697,7 +730,7 @@ export default function EditorPage() {
               }}
               className="flex-1 py-2 px-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer clay-btn clay-btn-ghost hover:scale-105 active:scale-95"
             >
-              <Eye className="w-3.5 h-3.5" style={{ color: '#7C3AED' }} />
+              <Eye className="w-3.5 h-3.5 text-brand-600" />
               <span className="text-slate-700">Preview</span>
             </button>
             <button
@@ -725,8 +758,10 @@ export default function EditorPage() {
               <span className="text-xs font-bold text-slate-800 truncate block leading-tight">
                 {config.profile.title || 'My BioLink'}
               </span>
-              <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                {isDirty ? 'Saving...' : 'Auto-saved ✓'}
+              <span className={`text-[10px] font-semibold flex items-center gap-1 mt-0.5 ${
+                storeIsSaving ? 'text-amber-600' : isDirty ? 'text-amber-500' : 'text-emerald-600'
+              }`}>
+                {storeIsSaving ? 'Saving…' : isDirty ? '● Unsaved changes' : `✓ Saved${lastSavedAt ? ` ${lastSavedAt}` : ''}`}
               </span>
             </div>
           </div>
@@ -832,6 +867,9 @@ export default function EditorPage() {
                 {activeTab === 'buttons'    && <ButtonsPanel    config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
                 {activeTab === 'fonts'      && <FontsPanel      config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
                 {activeTab === 'colors'     && <ColorsPanel     config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
+                {activeTab === 'stickers'   && <StickersPanel   config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
+                {activeTab === 'footer'     && <FooterPanel     config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
+                {activeTab === 'splash'     && <SplashScreenPanel config={config} updateConfig={updateConfig} onBack={() => setActiveTab('appearance')} />}
               </div>
             )}
 
@@ -1658,276 +1696,7 @@ function BackgroundPanel({ config, updateConfig, onBack }: any) {
 
 
 
-// Buttons Panel Component
-function ButtonsPanel({ config, updateConfig, onBack }: any) {
-  const currentStyle = config.theme.buttonStyle.style ?? 'solid'
-  const currentRadius = config.theme.buttonStyle.borderRadius ?? 20
-  const currentShadow = config.theme.buttonStyle.shadowStyle ?? 'none'
-  const buttonColor = config.theme.colors.buttonDefault || '#D3D1C7'
-  const buttonTextColor = config.theme.colors.buttonText || '#39342C'
-
-  const buttonStyles = [
-    { id: 'solid', label: 'Solid', icon: '⬤' },
-    { id: 'glass', label: 'Glass', icon: '◐' },
-    { id: 'outline', label: 'Outline', icon: '○' },
-  ]
-
-  const cornerOptions = [
-    { radius: 0, icon: '▢' },
-    { radius: 8, icon: '▢' },
-    { radius: 16, icon: '▢' },
-    { radius: 50, icon: '▢' },
-  ]
-
-  const shadowOptions = [
-    { style: 'none', label: 'None' },
-    { style: 'soft', label: 'Soft' },
-    { style: 'strong', label: 'Strong' },
-    { style: 'hard', label: 'Hard' },
-  ]
-
-  return (
-    <div className="space-y-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-5 h-5 text-slate-700" />
-        </button>
-        <h2 className="text-2xl font-bold text-slate-900">Buttons</h2>
-      </div>
-
-      {/* Button style */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-slate-900">Button style</label>
-        <div className="grid grid-cols-3 gap-3">
-          {buttonStyles.map((style) => {
-            const isSelected = currentStyle === style.id
-            return (
-              <button
-                key={style.id}
-                onClick={() => updateConfig('theme.buttonStyle.style', style.id)}
-                className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer ${
-                  isSelected
-                    ? 'border-slate-900 bg-slate-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                {/* Selected indicator */}
-                {isSelected && (
-                  <div className="absolute top-3 right-3 w-5 h-5 bg-slate-900 rounded-full flex items-center justify-center">
-                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                  </div>
-                )}
-                
-                {/* Preview button */}
-                <div className="flex flex-col items-center gap-3 mb-2">
-                  <div
-                    className={`w-full h-10 rounded-full flex items-center justify-center text-xs font-semibold ${
-                      style.id === 'solid'
-                        ? 'bg-[#D3D1C7] text-[#39342C]'
-                        : style.id === 'glass'
-                        ? 'bg-white/40 backdrop-blur-sm border border-slate-200 text-slate-900'
-                        : 'bg-transparent border-2 border-slate-900 text-slate-900'
-                    }`}
-                  >
-                    {/* Empty preview */}
-                  </div>
-                </div>
-                
-                <div className="text-center text-sm font-medium text-slate-900">
-                  {style.label}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Corner roundness */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-slate-900">Corner roundness</label>
-        <div className="grid grid-cols-4 gap-2.5">
-          {[
-            { radius: 0, visual: 0 },
-            { radius: 8, visual: 8 },
-            { radius: 16, visual: 16 },
-            { radius: 50, visual: 9999 },
-          ].map((option, idx) => {
-            const isSelected = 
-              (option.radius === 0 && currentRadius === 0) ||
-              (option.radius === 8 && currentRadius > 0 && currentRadius <= 8) ||
-              (option.radius === 16 && currentRadius > 8 && currentRadius <= 20) ||
-              (option.radius === 50 && currentRadius > 20)
-            
-            return (
-              <button
-                key={option.radius}
-                onClick={() => updateConfig('theme.buttonStyle.borderRadius', option.radius)}
-                className={`p-3 rounded-xl border-2 transition-all cursor-pointer ${
-                  isSelected
-                    ? 'border-slate-900 bg-slate-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center justify-center h-10">
-                  <div
-                    className="w-12 h-8 bg-slate-900"
-                    style={{ borderRadius: option.visual === 9999 ? '9999px' : `${option.visual}px` }}
-                  />
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Button shadow */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-slate-900">Button shadow</label>
-        <div className="grid grid-cols-4 gap-2.5">
-          {shadowOptions.map((shadow) => {
-            const isSelected = currentShadow === shadow.style
-            return (
-              <button
-                key={shadow.style}
-                onClick={() => {
-                  updateConfig([
-                    { path: 'theme.buttonStyle.shadowStyle', value: shadow.style },
-                    { path: 'theme.buttonStyle.shadow', value: shadow.style !== 'none' },
-                  ])
-                }}
-                className={`py-3 px-3 rounded-xl border-2 transition-all text-center cursor-pointer ${
-                  isSelected
-                    ? 'border-slate-900 bg-slate-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <span className="text-sm font-medium text-slate-900">{shadow.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Button color */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-slate-900">Button color</label>
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <input
-              type="color"
-              value={buttonColor}
-              onChange={(e) => updateConfig('theme.colors.buttonDefault', e.target.value)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div
-              className="w-12 h-12 rounded-xl border-2 border-slate-200 cursor-pointer"
-              style={{ backgroundColor: buttonColor }}
-            />
-          </div>
-          <input
-            type="text"
-            value={buttonColor.toUpperCase()}
-            onChange={(e) => {
-              const value = e.target.value
-              if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
-                updateConfig('theme.colors.buttonDefault', value)
-              }
-            }}
-            className="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-900"
-            placeholder="#D3D1C7"
-          />
-        </div>
-      </div>
-
-      {/* Button text color */}
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold text-slate-900">Button text color</label>
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <input
-              type="color"
-              value={buttonTextColor}
-              onChange={(e) => updateConfig('theme.colors.buttonText', e.target.value)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div
-              className="w-12 h-12 rounded-xl border-2 border-slate-200 cursor-pointer"
-              style={{ backgroundColor: buttonTextColor }}
-            />
-          </div>
-          <input
-            type="text"
-            value={buttonTextColor.toUpperCase()}
-            onChange={(e) => {
-              const value = e.target.value
-              if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
-                updateConfig('theme.colors.buttonText', value)
-              }
-            }}
-            className="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:border-slate-900"
-            placeholder="#39342C"
-          />
-        </div>
-      </div>
-
-      {/* Animation Options */}
-      <div className="space-y-3 pt-3 border-t border-slate-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="block text-sm font-semibold text-slate-900">Button animations</label>
-            <p className="text-xs text-slate-500 mt-0.5">Add hover effects to your buttons</p>
-          </div>
-          <button
-            role="switch"
-            aria-checked={config.theme.buttonStyle?.enableAnimations ?? true}
-            onClick={() => updateConfig('theme.buttonStyle.enableAnimations', !(config.theme.buttonStyle?.enableAnimations ?? true))}
-            className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer flex-shrink-0 ${
-              (config.theme.buttonStyle?.enableAnimations ?? true) ? 'bg-slate-900' : 'bg-slate-300'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${
-                (config.theme.buttonStyle?.enableAnimations ?? true) ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-        
-        {/* Animation Style Selector */}
-        {(config.theme.buttonStyle?.enableAnimations ?? true) && (
-          <div className="grid grid-cols-4 gap-2.5 mt-3">
-            {[
-              { id: 'bounce', label: 'Bounce', icon: '↗' },
-              { id: 'pulse', label: 'Pulse', icon: '○' },
-              { id: 'wobble', label: 'Wobble', icon: '↻' },
-              { id: 'slide', label: 'Slide', icon: '→' },
-            ].map((anim) => {
-              const isSelected = (config.theme.buttonStyle?.animation ?? 'bounce') === anim.id
-              return (
-                <button
-                  key={anim.id}
-                  onClick={() => updateConfig('theme.buttonStyle.animation', anim.id)}
-                  className={`py-3 px-2 rounded-xl border-2 transition-all text-center cursor-pointer ${
-                    isSelected
-                      ? 'border-slate-900 bg-slate-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="text-lg mb-1">{anim.icon}</div>
-                  <span className="text-xs font-medium text-slate-900">{anim.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+// ButtonsPanel is imported from @/components/editor/panels/ButtonsPanel
 
 // Links Panel Component (Link management)
 // ── helper: pick the right SVG icon for a link row ────────────────────────
@@ -2307,122 +2076,7 @@ function LinksPanel({ config, onOpenAddModal, removeLink, toggleLinkVisibility, 
   )
 }
 
-// Colors Panel Component (Color customization)
-function ColorsPanel({ config, updateConfig }: any) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Colors</h2>
-        <p className="text-gray-600">Customize all colors for your page</p>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Background</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.background}
-            onChange={(e) => updateConfig('theme.colors.background', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.background}
-              onChange={(e) => updateConfig('theme.colors.background', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#FFFFFF"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Buttons</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.buttonDefault}
-            onChange={(e) => updateConfig('theme.colors.buttonDefault', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.buttonDefault}
-              onChange={(e) => updateConfig('theme.colors.buttonDefault', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#FFFFFF"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Button text</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.buttonText}
-            onChange={(e) => updateConfig('theme.colors.buttonText', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.buttonText}
-              onChange={(e) => updateConfig('theme.colors.buttonText', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#000000"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Page text</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.profileBio}
-            onChange={(e) => updateConfig('theme.colors.profileBio', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.profileBio}
-              onChange={(e) => updateConfig('theme.colors.profileBio', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#666666"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-gray-900 mb-3">Title text</label>
-        <div className="flex items-center space-x-3">
-          <input
-            type="color"
-            value={config.theme.colors.profileText}
-            onChange={(e) => updateConfig('theme.colors.profileText', e.target.value)}
-            className="w-16 h-16 rounded-lg border-2 border-gray-300 cursor-pointer"
-          />
-          <div className="flex-1">
-            <input
-              type="text"
-              value={config.theme.colors.profileText}
-              onChange={(e) => updateConfig('theme.colors.profileText', e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
-              placeholder="#000000"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+// ColorsPanel is imported from @/components/editor/panels/ColorsPanel
 
 // Settings Panel Component
 function SettingsPanel({ config, updateConfig }: any) {

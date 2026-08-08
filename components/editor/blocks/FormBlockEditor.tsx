@@ -6,6 +6,7 @@ import { LinkItem } from '@/lib/types/link'
 import {
   BlockEditorContainer,
   BlockFieldLabel,
+  BlockToggle,
 } from './BlockEditorContainer'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -128,21 +129,20 @@ export default function FormBlockEditor({ link, updateLink }: BlockEditorProps) 
             hint="Enable input fields for your form."
           />
           <div className="grid grid-cols-2 gap-2.5 bg-slate-50 border border-slate-200 rounded-2xl p-3.5">
-            {FIELD_TOGGLES.map(({ key, label, defaultOn }) => (
-              <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={
-                    (link as any)[key] !== undefined
-                      ? !!(link as any)[key]
-                      : defaultOn
-                  }
-                  onChange={(e) => updateLink(link.id, key, e.target.checked)}
-                  className="w-4 h-4 rounded accent-brand-600 cursor-pointer"
-                />
-                <span className="text-xs font-semibold text-slate-800">{label}</span>
-              </label>
-            ))}
+            {FIELD_TOGGLES.map(({ key, label, defaultOn }) => {
+              const isChecked = (link as any)[key] !== undefined ? !!(link as any)[key] : defaultOn
+              return (
+                <div key={key} className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-800">{label}</span>
+                  <BlockToggle
+                    size="sm"
+                    variant="brand"
+                    checked={isChecked}
+                    onChange={(v) => updateLink(link.id, key, v)}
+                  />
+                </div>
+              )
+            })}
           </div>
         </div>
 

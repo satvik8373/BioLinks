@@ -8,7 +8,7 @@ import {
   MessageCircle, Send, MapPin, Calendar, Music, Video,
   CheckCircle, AlertTriangle, XCircle, Globe, Share2, Sparkles,
   Copy, Check, X, QrCode, Image as ImageIcon, Link2, Lock, Play, ArrowLeft, ChevronRight,
-  MoreVertical, Briefcase
+  MoreVertical, Briefcase, ShieldCheck, Award, MousePointer, Pointer, ArrowDownRight
 } from 'lucide-react'
 import {
   InstagramIcon, TikTokIcon, YouTubeIcon, SpotifyIcon, TwitterIcon,
@@ -23,6 +23,8 @@ import LinkRenderer from '@/components/card/renderers/LinkRenderer'
 import ShopRenderer from '@/components/card/renderers/ShopRenderer'
 import ContactRenderer from '@/components/card/renderers/ContactRenderer'
 import DecorationLayer from '@/components/ui/DecorationLayer'
+import StickerCanvasLayer, { PlacedSticker } from '@/components/card/StickerCanvasLayer'
+import WelcomeSplashScreen from '@/components/ui/WelcomeSplashScreen'
 import MusicSheetModal from '@/components/modals/MusicSheetModal'
 
 
@@ -123,8 +125,20 @@ interface BioLinkConfig {
       enableAnimations?: boolean
     }
     fonts: { heading: string; body: string }
+    customFooterText?: string
+    hideFooterLogo?: boolean
   }
-  profile: { avatar: string; title: string; bio: string; location?: string; website?: string }
+  profile: {
+    avatar: string
+    title: string
+    bio: string
+    location?: string
+    website?: string
+    showBadge?: boolean
+    badgeType?: string
+    badgeText?: string
+    isVerified?: boolean
+  }
   links: LinkItem[]
   socialLinks: { [key: string]: string }
   socialIconPosition?: 'top' | 'bottom'
@@ -135,6 +149,46 @@ interface CardData {
   config: BioLinkConfig
   analytics: { views: number; clicks: number }
   createdAt: string
+}
+
+// ─── Profile Badge / Sticker Component ─────────────────────────────────────
+function ProfileBadge({ profile }: { profile: any }) {
+  const showBadge = profile?.showBadge || profile?.isVerified
+  if (!showBadge) return null
+
+  const badgeType = profile?.badgeType || 'verified'
+  const customText = profile?.badgeText
+
+  if (customText) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-500/15 text-blue-600 border border-blue-500/25 backdrop-blur-xs flex-shrink-0">
+        <ShieldCheck size={12} /> {customText}
+      </span>
+    )
+  }
+
+  if (badgeType === 'pro') {
+    return (
+      <div className="w-5 h-5 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-xs" title="PRO Creator">
+        <Sparkles size={11} strokeWidth={2.5} />
+      </div>
+    )
+  }
+
+  if (badgeType === 'featured') {
+    return (
+      <div className="w-5 h-5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-xs" title="Featured">
+        <Award size={11} strokeWidth={2.5} />
+      </div>
+    )
+  }
+
+  // Default verified check
+  return (
+    <div className="w-5 h-5 bg-[#2f6fed] rounded-full flex items-center justify-center text-white flex-shrink-0 shadow-xs" title="Verified">
+      <Check size={12} strokeWidth={3} />
+    </div>
+  )
 }
 
 // ─── Platform icons ───────────────────────────────────────────────────────
@@ -408,13 +462,15 @@ export interface BioCardProps {
   overrideConfig?: BioLinkConfig
   isPreview?: boolean
   hideQRCode?: boolean
+  onUpdateConfig?: (path: string, value: any) => void
 }
 
 export default function BioCard({ 
   cardId = 'default',
   overrideConfig,
   isPreview = false,
-  hideQRCode = false
+  hideQRCode = false,
+  onUpdateConfig
 }: BioCardProps) {
   const [mounted, setMounted] = useState(false)
   const [cardData, setCardData] = useState<CardData | null>(() => {
@@ -449,6 +505,24 @@ export default function BioCard({
     ctaUrl?: string
   } | null>(null)
   const [activeMusicSheetLink, setActiveMusicSheetLink] = useState<LinkItem | null>(null)
+  const [splashKey, setSplashKey] = useState(0)
+  const [isSplashActive, setIsSplashActive] = useState<boolean>(() => Boolean((cardData?.config as any)?.splashScreen?.enabled))
+
+  // Replay splash screen animation live in preview whenever splash settings change
+  const currentSplash = (cardData?.config as any)?.splashScreen
+  useEffect(() => {
+    if (currentSplash?.enabled) {
+      setIsSplashActive(true)
+      setSplashKey(prev => prev + 1)
+    } else {
+      setIsSplashActive(false)
+    }
+  }, [
+    currentSplash?.enabled,
+    currentSplash?.template,
+    currentSplash?.tagline,
+    currentSplash?.frequency,
+  ])
 
   const linksContainerRef = useRef<HTMLDivElement>(null)
 
@@ -1581,6 +1655,18 @@ export default function BioCard({
         }} />
       )}
 
+      {/* ── Welcome / Loading Splash Screen Intro Sequence ──
+           Rendered via React Portal into document.body so it covers the true
+           100vw × 100vh viewport — independent of any parent container,
+           overflow, border-radius, or stacking context.                   ── */}
+      <WelcomeSplashScreen
+        key={`splash_${splashKey}`}
+        splash={(config as any).splashScreen}
+        profile={config.profile}
+        isPreview={isPreview}
+        onFinish={() => setIsSplashActive(false)}
+      />
+
       {/* ── Floating Mobile-First Card Frame ── */}
       <div
         className={`relative z-10 flex flex-col card-frame w-full ${widthClass} ${
@@ -1593,6 +1679,22 @@ export default function BioCard({
         style={cardStyle}
       >
         <DecorationLayer decorations={activeDecorations} blobColorLeft="#ffffff" blobColorRight="#ffffff" />
+
+        {/* ── Interactive Floating Stickers Canvas Layer ── */}
+        <StickerCanvasLayer
+          stickers={(config as any).stickers || []}
+          onUpdateStickers={(updated) => {
+            setCardData((prev) => prev ? {
+              ...prev,
+              config: { ...prev.config, stickers: updated }
+            } : prev)
+            if (onUpdateConfig) onUpdateConfig('stickers', updated)
+            if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'UPDATE_CONFIG_STICKERS', stickers: updated }, '*')
+            }
+          }}
+          editable={true}
+        />
 
         <div>
           {/* ── Profile Section ── */}
@@ -1633,10 +1735,13 @@ export default function BioCard({
 
                   {/* Overlaid Title & Bio */}
                   <div className="relative z-10 text-center pb-2">
-                    <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight text-white drop-shadow-md px-4"
-                      style={{ fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
-                      {config.profile.title || 'Your Name'}
-                    </h1>
+                    <div className="flex items-center justify-center gap-1.5 px-4 mb-1">
+                      <h1 className="text-xl sm:text-2xl font-bold leading-tight text-white drop-shadow-md"
+                        style={{ fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
+                        {config.profile.title || 'Your Name'}
+                      </h1>
+                      <ProfileBadge profile={config.profile} />
+                    </div>
                     {config.profile.bio && (
                       <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto text-white/95 drop-shadow-sm px-4"
                         style={{ fontFamily: resolveFontFamily(theme.fonts?.body) }}>
@@ -1694,10 +1799,13 @@ export default function BioCard({
                     )}
                   </div>
 
-                  <h1 className="text-xl sm:text-2xl font-bold mb-1 leading-tight px-4"
-                    style={{ color: c.profileText, fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
-                    {config.profile.title || 'Your Name'}
-                  </h1>
+                  <div className="flex items-center justify-center gap-1.5 px-4 mb-1">
+                    <h1 className="text-xl sm:text-2xl font-bold leading-tight"
+                      style={{ color: c.profileText, fontFamily: resolveFontFamily(theme.fonts?.heading) }}>
+                      {config.profile.title || 'Your Name'}
+                    </h1>
+                    <ProfileBadge profile={config.profile} />
+                  </div>
 
                   {config.profile.bio && (
                     <p className="text-xs sm:text-sm leading-relaxed max-w-xs mx-auto px-4"
@@ -1777,11 +1885,7 @@ export default function BioCard({
                   >
                     {config.profile.title || 'Your Name'}
                   </h1>
-                  {Boolean((config.profile as any)?.isVerified) && (
-                    <div className="w-5 h-5 bg-[#2f6fed] rounded-full flex items-center justify-center text-white flex-shrink-0" title="Verified">
-                      <Check size={12} strokeWidth={3} />
-                    </div>
-                  )}
+                  <ProfileBadge profile={config.profile} />
                 </div>
 
                 {/* Bio */}
@@ -1964,17 +2068,26 @@ export default function BioCard({
         )}
 
         {/* ── Official Linktree Footer Section ── */}
-        <div className="w-full flex flex-col items-center gap-5 mt-8 mb-4 px-2 flex-shrink-0 z-20">
-          {/* Join CTA Pill Button */}
-          <a
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={btnStyle}
-            className="w-full max-w-[340px] py-3.5 px-6 font-extrabold text-sm text-center hover:scale-[1.02] active:scale-95 transition-all cursor-pointer block"
-          >
-            Join {(config.profile as any)?.handle || config.profile.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'satvikpatel8373'} on BioLink
-          </a>
+        <div className="w-full flex flex-col items-center gap-4 mt-8 mb-4 px-2 flex-shrink-0 z-20">
+          {/* Custom Footer Note (if configured in FooterPanel) */}
+          {config.theme?.customFooterText && (
+            <p className="text-xs font-semibold text-center opacity-85 px-4" style={{ color: c.profileBio || c.profileText }}>
+              {config.theme.customFooterText}
+            </p>
+          )}
+
+          {/* Join CTA Pill Button (hidden if hideFooterLogo is true) */}
+          {!(config.theme?.hideFooterLogo) && (
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={btnStyle}
+              className="w-full max-w-[340px] py-3.5 px-6 font-extrabold text-sm text-center hover:scale-[1.02] active:scale-95 transition-all cursor-pointer block"
+            >
+              Join {(config.profile as any)?.handle || config.profile.title?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'satvikpatel8373'} on BioLink
+            </a>
+          )}
 
           {/* Official Footer Sub-Links */}
           <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] font-semibold text-white/80 drop-shadow-sm text-center leading-relaxed">
@@ -1985,10 +2098,6 @@ export default function BioCard({
             <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Privacy</button>
             <span className="opacity-60">•</span>
             <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Explore</button>
-            <span className="opacity-60">•</span>
-            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">About this account</button>
-            <span className="opacity-60">•</span>
-            <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">More from BioLink</button>
           </div>
         </div>
       </div>

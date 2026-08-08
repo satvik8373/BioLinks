@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react'
 import {
-  Share2, Check, X, Search, Trash2, ExternalLink,
-  Sparkles, ArrowLeft, HelpCircle, Plus
+  Share2, X, Search, Trash2, ExternalLink,
+  Sparkles, ArrowLeft, HelpCircle
 } from 'lucide-react'
 import { ServiceIcon } from '@/components/icons/ServiceIcons'
 import { formatSocialUrl } from '@/lib/types/link'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
 
 export interface SocialPlatform {
   id: string
@@ -51,7 +52,7 @@ interface Props {
 }
 
 export default function SocialMediaPanel({ config, updateConfig, onBack }: Props) {
-  const [searchQuery,     setSearchQuery]     = useState('')
+  const [searchQuery,    setSearchQuery]    = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
 
   const socialLinks: Record<string, string> = config?.socialLinks || {}
@@ -90,12 +91,9 @@ export default function SocialMediaPanel({ config, updateConfig, onBack }: Props
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {onBack && (
-            <button
-              onClick={onBack}
-              className="p-1 rounded-lg hover:bg-slate-100 text-slate-900 transition-colors cursor-pointer"
-            >
+            <Button variant="ghost" size="icon" onClick={onBack}>
               <ArrowLeft className="w-5 h-5 stroke-[2]" />
-            </button>
+            </Button>
           )}
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Social Channels</h1>
@@ -119,18 +117,15 @@ export default function SocialMediaPanel({ config, updateConfig, onBack }: Props
         </div>
         <div className="grid grid-cols-2 gap-2">
           {(['top', 'bottom'] as const).map((pos) => (
-            <button
+            <Button
               key={pos}
               type="button"
+              variant={position === pos ? 'primary' : 'secondary'}
+              size="sm"
               onClick={() => updateConfig('socialIconPosition', pos)}
-              className={`py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                position === pos
-                  ? 'bg-brand-600 text-white shadow-clay-btn'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-              }`}
             >
               {pos === 'top' ? 'Top (Below Bio)' : 'Bottom (Above Footer)'}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -147,29 +142,30 @@ export default function SocialMediaPanel({ config, updateConfig, onBack }: Props
             className="w-full bg-white border border-slate-200 focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 rounded-2xl pl-10 pr-10 py-2.5 text-xs text-slate-800 outline-none transition-all shadow-clay-sm"
           />
           {searchQuery && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+              className="absolute right-2 w-7 h-7"
             >
               <X className="w-3.5 h-3.5" />
-            </button>
+            </Button>
           )}
         </div>
 
         {/* Category pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {Object.entries(CATEGORY_LABELS).map(([id, label]) => (
-            <button
+            <Button
               key={id}
+              variant={activeCategory === id ? 'primary' : 'secondary'}
+              size="xs"
+              shape="pill"
               onClick={() => setActiveCategory(id)}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer ${
-                activeCategory === id
-                  ? 'bg-slate-900 text-white shadow-clay-sm'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-              }`}
+              className="whitespace-nowrap flex-shrink-0"
             >
               {label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -190,30 +186,27 @@ export default function SocialMediaPanel({ config, updateConfig, onBack }: Props
               }`}
             >
               <div className="flex items-center gap-3">
-                {/* Icon */}
                 <div className={`w-10 h-10 rounded-2xl flex items-center justify-center p-2 flex-shrink-0 transition-colors ${
                   isConnected ? 'bg-brand-600 text-white shadow-clay-sm' : 'bg-slate-100 text-slate-600'
                 }`}>
                   <ServiceIcon iconId={platform.id} size={20} />
                 </div>
 
-                {/* Input */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-extrabold text-slate-900 flex items-center gap-2">
                       {platform.name}
-                      {isConnected && (
-                        <Badge variant="success" size="sm" dot>Connected</Badge>
-                      )}
+                      {isConnected && <Badge variant="success" size="sm" dot>Connected</Badge>}
                     </label>
                     {isConnected && (
-                      <button
+                      <Button
                         type="button"
+                        variant="danger"
+                        size="xs"
                         onClick={() => handleRemove(platform.id)}
-                        className="text-[11px] font-bold text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Remove
-                      </button>
+                      </Button>
                     )}
                   </div>
 
