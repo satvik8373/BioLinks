@@ -104,7 +104,6 @@ function AddSocialIconModal({
             <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 focus-within:border-slate-900 focus-within:bg-white transition-all">
               <input
                 type="text"
-                autoFocus
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
                 placeholder={platform.placeholder}
@@ -170,7 +169,6 @@ function AddSocialIconSearchModal({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search"
             className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400"
-            autoFocus
           />
         </div>
 
@@ -911,9 +909,7 @@ export default function LinkListEditor({
       )
     : standardLinks
 
-  const topLevelIds = filteredLinks
-    .filter(l => l.isGroupHeader || !l.groupId)
-    .map(l => l.id)
+  const topLevelIds = filteredLinks.flatMap(l => (l.isGroupHeader || !l.groupId) ? [l.id] : [])
 
   function handleDragStart({ active }: DragStartEvent) {
     setActiveId(active.id)
@@ -1061,16 +1057,17 @@ export default function LinkListEditor({
                 className="text-base font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg outline-none border border-slate-300 w-full"
               />
             ) : (
-              <div
+              <button
+                type="button"
                 onClick={() => setIsEditingTitle(true)}
-                className="group flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/80 px-1 py-0.5 rounded-lg -ml-1 transition-all"
+                className="group flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/80 px-1 py-0.5 rounded-lg -ml-1 transition-all bg-transparent border-0 text-left"
                 title="Click to edit title"
               >
                 <h3 className="text-base font-extrabold text-slate-900 leading-snug truncate">
                   {profile?.title || profile?.handle || 'satvikpatel8373'}
                 </h3>
                 <Pencil size={12} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-              </div>
+              </button>
             )}
 
             {/* Bio (Inline Edit) */}
@@ -1093,16 +1090,17 @@ export default function LinkListEditor({
                 className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg outline-none border border-slate-300 w-full"
               />
             ) : (
-              <div
+              <button
+                type="button"
                 onClick={() => setIsEditingBio(true)}
-                className="group flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/80 px-1 py-0.5 rounded-lg -ml-1 transition-all"
+                className="group flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/80 px-1 py-0.5 rounded-lg -ml-1 transition-all bg-transparent border-0 text-left"
                 title="Click to edit bio"
               >
                 <p className={`text-xs font-semibold ${profile?.bio ? 'text-slate-500' : 'text-slate-400 italic'}`}>
                   {profile?.bio || 'Add bio'}
                 </p>
                 <Pencil size={11} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-              </div>
+              </button>
             )}
 
             {/* Added Social Icons Row + Small Pencil Button (Screenshot 2 & 3) */}

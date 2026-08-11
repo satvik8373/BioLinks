@@ -65,13 +65,13 @@ function PreviewFramerPreload() {
 
   return (
     <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
-      <div ref={innerRef} className="absolute inset-0 overflow-hidden" style={{ willChange: 'transform' }}>
+      <div ref={innerRef} className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-white" />
-        <div ref={cyanRef} style={{ position: 'absolute', bottom: '-24px', left: '-24px', width: '90px', height: '90px', background: 'radial-gradient(circle, rgb(89,187,213) 0%, transparent 70%)', filter: 'blur(18px)', opacity: 0, willChange: 'transform,opacity' }} />
-        <div ref={limeRef} style={{ position: 'absolute', top: '-24px', right: '-24px', width: '90px', height: '90px', background: 'radial-gradient(circle, rgb(206,255,113) 0%, transparent 70%)', filter: 'blur(18px)', opacity: 0, willChange: 'transform,opacity' }} />
-        <div ref={textRef} className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none" style={{ opacity: 0, willChange: 'transform,opacity' }}>
+        <div ref={cyanRef} style={{ position: 'absolute', bottom: '-24px', left: '-24px', width: '90px', height: '90px', background: 'radial-gradient(circle, rgb(89,187,213) 0%, transparent 70%)', filter: 'blur(18px)', opacity: 0 }} />
+        <div ref={limeRef} style={{ position: 'absolute', top: '-24px', right: '-24px', width: '90px', height: '90px', background: 'radial-gradient(circle, rgb(206,255,113) 0%, transparent 70%)', filter: 'blur(18px)', opacity: 0 }} />
+        <div ref={textRef} className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none" style={{ opacity: 0 }}>
           <p style={{ fontFamily: 'Inter,sans-serif', fontSize: '15px', fontWeight: 700, color: 'rgb(23,23,23)', letterSpacing: '-0.03em', margin: 0, lineHeight: 1 }}>YOUR NAME</p>
-          <p ref={subRef} style={{ fontFamily: 'monospace', fontSize: '8px', color: 'rgba(23,23,23,0.4)', margin: 0, opacity: 0, willChange: 'opacity' }}>We Craft Digital Experiences</p>
+          <p ref={subRef} style={{ fontFamily: 'monospace', fontSize: '8px', color: 'rgba(23,23,23,0.4)', margin: 0, opacity: 0 }}>We Craft Digital Experiences</p>
         </div>
       </div>
     </div>
@@ -140,7 +140,6 @@ function PreviewLoadScreen() {
             backgroundColor: 'rgb(255,47,0)',
             boxShadow: 'inset 1px 0 0 rgba(255,255,255,0.15)',
             transformOrigin: 'top center',
-            willChange: 'transform',
           }}
         />
       ))}

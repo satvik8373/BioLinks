@@ -1,12 +1,14 @@
-'use client'
-
-import React, { useState, useEffect } from 'react'
+import React, { useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, X, Pencil, Trash2, GripVertical, Image as ImageIcon } from 'lucide-react'
 import { LinkItem } from '@/lib/types/link'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import MediaLibraryModal from '@/components/modals/MediaLibraryModal'
+
+const emptySubscribe = () => () => {}
+const getClientBody = () => (typeof document !== 'undefined' ? document.body : null)
+const getServerBody = () => null
 
 interface Props {
   link: LinkItem
@@ -137,14 +139,10 @@ function AddPhotoModal({
   onClose: () => void
   onAdd: (url: string, caption: string) => void
 }) {
-  const [mounted, setMounted] = useState(false)
+  const portalContainer = useSyncExternalStore(emptySubscribe, getClientBody, getServerBody)
   const [url, setUrl] = useState('')
   const [caption, setCaption] = useState('')
   const [showMediaLibrary, setShowMediaLibrary] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -153,58 +151,69 @@ function AddPhotoModal({
     onClose()
   }
 
-  if (!mounted) return null
+  if (!portalContainer) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 max-w-md w-full space-y-5 relative">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-extrabold text-slate-900">Add Photo</h3>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-900">Add Photo to Gallery</h3>
+          <button
+            onClick={onClose}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700">
-                Image Source
-              </label>
-              <Button
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Photo Source</label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://images.unsplash.com/..."
+                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
+              />
+              <button
                 type="button"
-                variant="secondary"
-                size="xs"
                 onClick={() => setShowMediaLibrary(true)}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
               >
-                <ImageIcon className="w-3.5 h-3.5" /> Media Library
-              </Button>
+                <ImageIcon className="w-4 h-4" />
+                Library
+              </button>
             </div>
+          </div>
 
-            <Input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/photo.jpg"
-              required
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Caption (Optional)</label>
+            <input
+              type="text"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Summer trip photo..."
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900"
             />
           </div>
 
-          <Input
-            label="Caption (optional)"
-            type="text"
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Describe this photo"
-          />
-
-          <div className="flex items-center gap-2 pt-2">
-            <Button type="button" variant="secondary" size="md" fullWidth onClick={onClose}>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            >
               Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="md" shape="pill" fullWidth>
+            </button>
+            <button
+              type="submit"
+              disabled={!url.trim()}
+              className="px-4 py-2 text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
+            >
               Add Photo
-            </Button>
+            </button>
           </div>
         </form>
       </div>
@@ -220,6 +229,6 @@ function AddPhotoModal({
         />
       )}
     </div>,
-    document.body
+    portalContainer
   )
 }

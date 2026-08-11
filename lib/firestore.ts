@@ -54,7 +54,7 @@ export async function saveCard(cardId: string, cardData: Omit<BioCard, 'id'>) {
   try {
     const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
-    const cleanCardData = JSON.parse(JSON.stringify(cardData))
+    const cleanCardData = structuredClone(cardData)
     
     const dataToSave = {
       ...cleanCardData,
@@ -118,7 +118,7 @@ export async function updateCard(cardId: string, updates: Partial<BioCard>) {
       throw new Error('Card not found')
     }
     
-    const cleanUpdates = JSON.parse(JSON.stringify(updates))
+    const cleanUpdates = structuredClone(updates)
 
     await updateDoc(cardRef, {
       ...cleanUpdates,

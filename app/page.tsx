@@ -1,15 +1,18 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState, useRef } from 'react'
-import Navigation from '@/components/layout/Navigation'
-import Footer from '@/components/layout/Footer'
+
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Plus, Eye, TrendingUp, ArrowRight, Edit3, ChevronRight, BarChart3, Globe, Sparkles
 } from 'lucide-react'
 import { getAllCards } from '@/lib/storage'
 import { THEMES } from '@/lib/themes'
-import BioCard from '@/components/card/BioCard'
+import dynamicImport from 'next/dynamic'
+const BioCard = dynamicImport(() => import('@/components/card/BioCard'), { ssr: false, loading: () => <div style={{ width: '100%', height: '100%', background: 'transparent' }} /> })
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -347,7 +350,8 @@ export default function Home() {
                 className="flex items-center gap-1.5 p-1.5 rounded-full shadow-md transition-colors duration-500"
                 style={{ backgroundColor: activeTheme.sec1BtnBg }}
               >
-                {THEMES.filter(t => DEMO_THEME_IDS.includes(t.id)).map((t) => {
+                {THEMES.flatMap(t => {
+                  if (!DEMO_THEME_IDS.includes(t.id)) return []
                   const isActive = activeDemoTheme === t.id
                   return (
                     <button
@@ -461,9 +465,12 @@ export default function Home() {
 
             <div className="bg-black/20 border border-white/15 p-8 rounded-3xl text-center space-y-4 shadow-2xl backdrop-blur-md">
               <div className="w-24 h-24 rounded-2xl bg-white p-3 mx-auto shadow-md">
-                <img
+                <Image
                   src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://biolinks.app"
                   alt="QR Code"
+                  unoptimized
+                  width={150}
+                  height={150}
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -534,7 +541,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
-      <Navigation />
 
       {/* Header Banner */}
       <div className="bg-white border-b border-slate-200 py-8 px-6">
@@ -618,8 +624,6 @@ export default function Home() {
         </Card>
 
       </div>
-
-      <Footer />
     </main>
   )
 }

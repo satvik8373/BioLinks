@@ -33,7 +33,7 @@ export default function ThemesPanel({ config, updateConfig, onBack }: Props) {
   const [subTab, setSubTab] = useState<'customizable' | 'curated'>('customizable')
 
   const applyTheme = (targetTheme: Theme) => {
-    const cleanTheme: Theme = JSON.parse(JSON.stringify(targetTheme))
+    const cleanTheme: Theme = structuredClone(targetTheme)
     cleanTheme.colors.backgroundVideo  = ''
     cleanTheme.colors.backgroundIframe = ''
     cleanTheme.colors.backgroundImage  = targetTheme.colors.backgroundImage || ''

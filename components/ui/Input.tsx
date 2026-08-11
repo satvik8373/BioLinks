@@ -1,4 +1,4 @@
-import { InputHTMLAttributes, forwardRef, ReactNode } from 'react'
+import { InputHTMLAttributes, forwardRef, ReactNode, useId } from 'react'
 import { clsx } from 'clsx'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -9,11 +9,14 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, icon, className, style, ...props }, ref) => {
+  ({ label, error, hint, icon, className, style, id, ...props }, ref) => {
+    const generatedId = useId()
+    const inputId = id || generatedId
+
     return (
       <div className="w-full text-left">
         {label && (
-          <label className="block text-xs font-bold mb-1.5 text-slate-800 uppercase tracking-wider">
+          <label htmlFor={inputId} className="block text-xs font-bold mb-1.5 text-slate-800 uppercase tracking-wider cursor-pointer">
             {label}
           </label>
         )}
@@ -24,6 +27,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             </div>
           )}
           <input
+            id={inputId}
             ref={ref}
             style={style}
             className={clsx(

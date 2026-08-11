@@ -180,7 +180,10 @@ export default function GallerySlider({
           {photos.map((photo, idx) => (
             <div
               key={photo.id || idx}
+              role="button"
+              tabIndex={0}
               onClick={openModal}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openModal(e as any) }}
               className="group relative aspect-square overflow-hidden rounded-xl shadow-md border border-white/20 bg-black/20 cursor-pointer"
             >
               <img
@@ -208,10 +211,13 @@ export default function GallerySlider({
     return (
       <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col p-2 ${animClasses}`}>
         <div
+          role="button"
+          tabIndex={0}
           onClick={(e) => {
             setCurrentIndex((prev) => (prev + 1) % photos.length)
             openModal(e)
           }}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setCurrentIndex((prev) => (prev + 1) % photos.length); openModal(e as any) } }}
           className={`relative w-full cursor-pointer select-none ${compact ? 'h-[130px]' : 'aspect-video'}`}
         >
           {photos.slice(0, 3).map((_, i) => {
@@ -264,7 +270,10 @@ export default function GallerySlider({
       <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
         {/* Featured Hero Photo */}
         <div
+          role="button"
+          tabIndex={0}
           onClick={openModal}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openModal(e as any) }}
           className={`relative w-full overflow-hidden bg-black/40 cursor-pointer ${compact ? 'h-[130px]' : 'aspect-video'}`}
         >
           <img
@@ -322,7 +331,10 @@ export default function GallerySlider({
   return (
     <div style={frameStyle} className={`w-full mb-3 overflow-hidden flex flex-col ${animClasses}`}>
       <div
+        role="button"
+        tabIndex={0}
         onClick={openModal}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openModal(e as any) }}
         className={`group relative w-full overflow-hidden bg-black/40 cursor-pointer ${
           compact ? 'h-[130px]' : 'aspect-video'
         }`}
@@ -330,7 +342,7 @@ export default function GallerySlider({
         {/* Horizontal Sliding Track (GSAP animated right-to-left) */}
         <div
           ref={trackRef}
-          className="flex w-full h-full will-change-transform"
+          className="flex w-full h-full"
         >
           {photos.map((photo, idx) => (
             <div

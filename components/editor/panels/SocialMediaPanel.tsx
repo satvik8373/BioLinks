@@ -18,7 +18,7 @@ export interface SocialPlatform {
   category: 'social' | 'music' | 'contact' | 'commerce'
 }
 
-export const SOCIAL_PLATFORMS: SocialPlatform[] = [
+const SOCIAL_PLATFORMS: SocialPlatform[] = [
   { id: 'instagram',   name: 'Instagram',     placeholder: '@username',                    category: 'social' },
   { id: 'tiktok',      name: 'TikTok',         placeholder: '@username',                    category: 'social' },
   { id: 'youtube',     name: 'YouTube',        placeholder: '@channel or channel URL',      category: 'social' },

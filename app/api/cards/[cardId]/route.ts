@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic'
 // GET - Get a specific card by ID or handle slug across any device/phone/browser
 export async function GET(
   request: NextRequest,
-  { params }: { params: { cardId: string } }
+  { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const { cardId } = params
+    const { cardId } = await params
 
     // 1. First check global server cardStore (works on any device/phone/browser!)
     let card = getCardGlobal(cardId)
@@ -71,10 +71,10 @@ export async function GET(
 // PUT - Update a card
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { cardId: string } }
+  { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const { cardId } = params
+    const { cardId } = await params
     const body = await request.json()
     const { config, analytics, handle, previousHandle, ownerId } = body
 
@@ -151,10 +151,10 @@ export async function PUT(
 // DELETE - Delete a card (also removes old handle alias when renaming)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { cardId: string } }
+  { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const { cardId } = params
+    const { cardId } = await params
     const { searchParams } = new URL(request.url)
     const oldHandle = searchParams.get('oldHandle')
 
@@ -177,10 +177,10 @@ export async function DELETE(
 // POST - Track click analytics
 export async function POST(
   request: NextRequest,
-  { params }: { params: { cardId: string } }
+  { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const { cardId } = params
+    const { cardId } = await params
     const body = await request.json()
     const { action } = body
 

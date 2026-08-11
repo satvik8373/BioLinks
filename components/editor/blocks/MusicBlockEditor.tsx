@@ -109,14 +109,6 @@ export default function MusicBlockEditor({ link, updateLink }: MusicBlockEditorP
 
   const services = autoSyncPlatforms(link.url || '', baseServices)
 
-  // Auto-sync on first render when services are empty
-  useEffect(() => {
-    if (link.url && (!link.streamingServices || link.streamingServices.length === 0)) {
-      updateLink(link.id, 'streamingServices', autoSyncPlatforms(link.url, DEFAULT_MUSIC_SERVICES))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [link.url])
-
   const handleSync = () => {
     const synced = autoSyncPlatforms(link.url || '', services)
     updateLink(link.id, 'streamingServices', synced)
@@ -222,8 +214,11 @@ export default function MusicBlockEditor({ link, updateLink }: MusicBlockEditorP
               return (
                 <div key={service.id} className="space-y-2">
                   <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => toggleVisibility(service.id)}
-                    className="flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer group select-none"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleVisibility(service.id) } }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer group select-none text-left bg-transparent"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 shadow-clay-sm">
@@ -242,7 +237,7 @@ export default function MusicBlockEditor({ link, updateLink }: MusicBlockEditorP
                           setEditingId(isEditing ? null : service.id)
                           setTempUrl(service.url || '')
                         }}
-                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors mr-1 cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors mr-1 cursor-pointer bg-transparent border-0"
                         title="Edit link"
                       >
                         <Pencil className="w-3.5 h-3.5" />

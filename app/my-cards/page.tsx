@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -61,7 +62,11 @@ function AvatarDisplay({ avatar, title, color }: { avatar: string; title: string
     )
   }
   if (avatar.startsWith('http') || avatar.startsWith('data:')) {
-    return <img src={avatar} alt={title} className="w-12 h-12 rounded-full object-cover border-2 border-white/40 shadow-sm" />
+    return (
+      <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-white/40 shadow-sm">
+        <Image src={avatar} alt={title} unoptimized fill sizes="48px" className="object-cover" />
+      </div>
+    )
   }
   return (
     <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl border border-white/30 shadow-sm"
@@ -85,66 +90,66 @@ export default function MyCardsPage() {
     const profile = localStorage.getItem('userProfile')
     if (!profile) { router.push('/login'); return }
 
-    const loadUserCards = async () => {
-      try {
-        const result = await getAllCards()
+    let isMounted = true
 
-        if (result.success) {
-          const rawList: CardData[] = result.cards.map((card: any) => {
-            const handle = (card.handle || card.config?.profile?.handle || card.id || '').toLowerCase()
-            const { bgStyle, profileText } = getBannerStyle(card.config)
-            return {
-              id: handle,
-              handle,
-              title: card.config?.profile?.title || 'My BioLink Card',
-              bio: card.config?.profile?.bio || '',
-              avatar: card.config?.profile?.avatar || '',
-              views: card.analytics?.views || 0,
-              clicks: card.analytics?.clicks || 0,
-              createdAt: card.createdAt || new Date().toISOString(),
-              themeName: card.config?.theme?.name || card.config?.theme?.id || 'Custom',
-              bgStyle,
-              profileText,
-              config: card.config,
-            }
-          })
+    getAllCards().then((result) => {
+      if (!isMounted) return
 
-          const uniqueMap = new Map<string, CardData>()
-          rawList.forEach(item => {
-            const key = item.handle
-            const existing = uniqueMap.get(key)
-            if (!existing || new Date(item.createdAt) > new Date(existing.createdAt)) {
-              uniqueMap.set(key, item)
-            }
-          })
-
-          const list = Array.from(uniqueMap.values()).slice(0, 1)
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          setCards(list)
-
-          if (list.length > 0) {
-            const accountHandle = (() => {
-              try {
-                const p = JSON.parse(localStorage.getItem('userProfile') || '{}')
-                return (p.username || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-              } catch { return '' }
-            })()
-            const preferred = accountHandle && list.some(c => c.handle === accountHandle)
-              ? accountHandle
-              : list[0].handle
-            setActiveCardId(preferred)
-            localStorage.setItem('activeBioCardId', preferred)
-            localStorage.setItem('editorPreviewCardId', preferred)
+      if (result.success) {
+        const rawList: CardData[] = result.cards.map((card: any) => {
+          const handle = (card.handle || card.config?.profile?.handle || card.id || '').toLowerCase()
+          const { bgStyle, profileText } = getBannerStyle(card.config)
+          return {
+            id: handle,
+            handle,
+            title: card.config?.profile?.title || 'My BioLink Card',
+            bio: card.config?.profile?.bio || '',
+            avatar: card.config?.profile?.avatar || '',
+            views: card.analytics?.views || 0,
+            clicks: card.analytics?.clicks || 0,
+            createdAt: card.createdAt || new Date().toISOString(),
+            themeName: card.config?.theme?.name || card.config?.theme?.id || 'Custom',
+            bgStyle,
+            profileText,
+            config: card.config,
           }
-        }
-      } catch (err) {
-        console.error('Load error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
+        })
 
-    loadUserCards()
+        const uniqueMap = new Map<string, CardData>()
+        rawList.forEach(item => {
+          const key = item.handle
+          const existing = uniqueMap.get(key)
+          if (!existing || new Date(item.createdAt) > new Date(existing.createdAt)) {
+            uniqueMap.set(key, item)
+          }
+        })
+
+        const list = Array.from(uniqueMap.values()).slice(0, 1)
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        setCards(list)
+
+        if (list.length > 0) {
+          const accountHandle = (() => {
+            try {
+              const p = JSON.parse(localStorage.getItem('userProfile') || '{}')
+              return (p.username || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+            } catch { return '' }
+          })()
+          const preferred = accountHandle && list.some(c => c.handle === accountHandle)
+            ? accountHandle
+            : list[0].handle
+          setActiveCardId(preferred)
+          localStorage.setItem('activeBioCardId', preferred)
+          localStorage.setItem('editorPreviewCardId', preferred)
+        }
+      }
+    }).catch((err) => {
+      console.error('Failed to load cards:', err)
+    }).finally(() => {
+      if (isMounted) setLoading(false)
+    })
+
+    return () => { isMounted = false }
   }, [router])
 
   const handleSetActiveCard = async (card: CardData) => {

@@ -527,7 +527,8 @@ export default function WallpaperPanel({ config, updateConfig, onBack }: Wallpap
                   className="hidden"
                   onChange={handleImageFileChange}
                 />
-                <div
+                <button
+                  type="button"
                   onClick={() => imageInputRef.current?.click()}
                   className="sm:col-span-1 border-2 border-dashed border-slate-200 hover:border-slate-900 bg-slate-50/80 hover:bg-slate-100/60 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center group"
                 >
@@ -536,7 +537,7 @@ export default function WallpaperPanel({ config, updateConfig, onBack }: Wallpap
                   </div>
                   <span className="text-xs font-extrabold text-slate-800">Browse image file</span>
                   <span className="text-[10px] text-slate-400 font-semibold">JPG, PNG, WebP up to 12MB</span>
-                </div>
+                </button>
 
                 {/* Direct Image URL input */}
                 <div className="sm:col-span-2 bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between space-y-2">

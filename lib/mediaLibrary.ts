@@ -18,34 +18,36 @@ export interface MediaItem {
 
 const LOCAL_STORAGE_PREFIX = 'user_media_library_'
 
+const PRESET_BASE_TIME = 1700000000000
+
 // Default stock presets shared across all users
 export const PRESET_LIBRARY: MediaItem[] = [
   {
     id: 'preset-1',
     url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
     name: 'Abstract Fluid Dark',
-    createdAt: Date.now() - 100000,
+    createdAt: PRESET_BASE_TIME - 100000,
     category: 'preset',
   },
   {
     id: 'preset-2',
     url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=800&q=80',
     name: 'Gradient Pastel Wave',
-    createdAt: Date.now() - 200000,
+    createdAt: PRESET_BASE_TIME - 200000,
     category: 'preset',
   },
   {
     id: 'preset-3',
     url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=800&q=80',
     name: 'Neon Cyber Grid',
-    createdAt: Date.now() - 300000,
+    createdAt: PRESET_BASE_TIME - 300000,
     category: 'preset',
   },
   {
     id: 'preset-4',
     url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
     name: 'Tropical Beach Sun',
-    createdAt: Date.now() - 400000,
+    createdAt: PRESET_BASE_TIME - 400000,
     category: 'preset',
   },
 ]

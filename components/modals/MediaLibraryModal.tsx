@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import {
   X,
@@ -218,17 +219,23 @@ export default function MediaLibraryModal({
                     return (
                       <div
                         key={item.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelectedUrl(item.url)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedUrl(item.url) } }}
                         className={`group relative aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all ${
                           isSelected
                             ? 'border-violet-600 ring-4 ring-violet-500/20 shadow-md'
                             : 'border-slate-200 hover:border-slate-300 shadow-xs'
                         }`}
                       >
-                        <img
+                        <Image
                           src={item.url}
                           alt={item.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          unoptimized
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
 
                         {/* Selected Indicator Badge */}
@@ -295,7 +302,10 @@ export default function MediaLibraryModal({
               />
 
               <div
+                role="button"
+                tabIndex={0}
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
                 className="w-full py-12 border-2 border-dashed border-slate-300 hover:border-violet-500 rounded-3xl flex flex-col items-center justify-center gap-3 bg-slate-50/50 hover:bg-violet-50/30 transition-all cursor-pointer group"
               >
                 <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center group-hover:scale-110 transition-transform">

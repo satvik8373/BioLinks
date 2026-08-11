@@ -1,13 +1,15 @@
 'use client'
 
 import ProfilePage from '@/components/profile/ProfilePage'
-import { useEffect } from 'react'
+import { useEffect, use } from 'react'
 
 export default function DirectUsernameCardPage({ 
   params 
 }: { 
-  params: { username: string } 
+  params: Promise<{ username: string }> 
 }) {
+  const { username } = use(params)
+
   useEffect(() => {
     // Hide body background for clean card display
     document.body.style.background = 'transparent'
@@ -24,5 +26,5 @@ export default function DirectUsernameCardPage({
     }
   }, [])
   
-  return <ProfilePage cardId={params.username} />
+  return <ProfilePage cardId={username} />
 }

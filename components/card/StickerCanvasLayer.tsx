@@ -23,19 +23,24 @@ interface StickerCanvasLayerProps {
   editable?: boolean
 }
 
+const EMPTY_STICKERS: PlacedSticker[] = []
+
 export default function StickerCanvasLayer({
-  stickers = [],
+  stickers = EMPTY_STICKERS,
   onUpdateStickers,
   editable = true,
 }: StickerCanvasLayerProps) {
   const [localStickers, setLocalStickers] = useState<PlacedSticker[]>(stickers)
+  const [prevStickers, setPrevStickers] = useState<PlacedSticker[]>(stickers)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const localStickersRef = useRef(localStickers)
+  localStickersRef.current = localStickers
 
-  // Sync local state when incoming prop changes
-  useEffect(() => {
+  if (stickers !== prevStickers) {
+    setPrevStickers(stickers)
     setLocalStickers(stickers)
-  }, [stickers])
+  }
 
   const draggingRef = useRef<{
     instanceId: string
@@ -59,43 +64,32 @@ export default function StickerCanvasLayer({
 
       const { instanceId, type, startX, startY, initialStickerX, initialStickerY, initialScale, initialRotation } = draggingRef.current
 
+      let updatedFields: Partial<PlacedSticker> | null = null
+
       if (type === 'move') {
         const deltaXPercent = ((clientX - startX) / rect.width) * 100
         const deltaYPercent = ((clientY - startY) / rect.height) * 100
 
         const newX = Math.max(2, Math.min(98, initialStickerX + deltaXPercent))
         const newY = Math.max(2, Math.min(98, initialStickerY + deltaYPercent))
-
-        setLocalStickers((prev) => {
-          const next = prev.map((st) =>
-            st.instanceId === instanceId ? { ...st, x: newX, y: newY } : st
-          )
-          if (draggingRef.current) draggingRef.current.latestStickers = next
-          return next
-        })
+        updatedFields = { x: newX, y: newY }
       } else if (type === 'scale') {
         const deltaX = clientX - startX
         const scaleChange = deltaX / 80
         const newScale = Math.max(0.3, Math.min(4.0, initialScale + scaleChange))
-
-        setLocalStickers((prev) => {
-          const next = prev.map((st) =>
-            st.instanceId === instanceId ? { ...st, scale: newScale } : st
-          )
-          if (draggingRef.current) draggingRef.current.latestStickers = next
-          return next
-        })
+        updatedFields = { scale: newScale }
       } else if (type === 'rotate') {
         const deltaX = clientX - startX
         const newRot = Math.round((initialRotation + deltaX * 2) % 360)
+        updatedFields = { rotation: newRot }
+      }
 
-        setLocalStickers((prev) => {
-          const next = prev.map((st) =>
-            st.instanceId === instanceId ? { ...st, rotation: newRot } : st
-          )
-          if (draggingRef.current) draggingRef.current.latestStickers = next
-          return next
-        })
+      if (updatedFields) {
+        const next = localStickersRef.current.map((st) =>
+          st.instanceId === instanceId ? { ...st, ...updatedFields } : st
+        )
+        draggingRef.current.latestStickers = next
+        setLocalStickers(next)
       }
     }
 

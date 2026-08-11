@@ -153,30 +153,17 @@ interface ThemeCardProps {
 }
 
 function ThemeCard({ theme, isSelected, isLoading, onSelect, showProBadge }: ThemeCardProps) {
-  const [previewColor, setPreviewColor] = useState('#FFFFFF')
-
-  useEffect(() => {
-    // Load theme config to get preview color
-    fetch(`/themes/${theme.id}/config.json`)
-      .then(res => {
-        if (!res.ok) throw new Error()
-        return res.json()
-      })
-      .then(config => {
-        setPreviewColor(config.colors.background)
-      })
-      .catch(() => {
-        // Fallback colors by category
-        const fallbacks: Record<string, string> = {
-          minimal: '#F8FAFC',
-          glass: '#667eea',
-          gradient: '#FF6B6B',
-          clay: '#F0F0F3',
-          luxury: '#0F0F0F',
-        }
-        setPreviewColor(fallbacks[theme.category] || '#FFFFFF')
-      })
-  }, [theme.id, theme.category])
+  const fallbacks: Record<string, string> = {
+    minimal: '#F8FAFC',
+    glass: '#667eea',
+    gradient: '#FF6B6B',
+    clay: '#F0F0F3',
+    luxury: '#0F0F0F',
+    cyber: '#0A0A12',
+    retro: '#F4ECD8',
+    dark: '#121212',
+  }
+  const previewColor = fallbacks[theme.category] || '#667eea'
 
   return (
     <button

@@ -169,9 +169,6 @@ export default function WelcomeSplashScreen({
   onFinish,
   isPreview = false,
 }: SplashProps) {
-  const [portalTarget, setPortalTarget] = useState<Element | null>(null)
-  const [mounted, setMounted]           = useState(false)
-
   const enabled   = splash?.enabled   ?? false
   const template  = splash?.template  ?? 'framer-preload'
   const tagline   = splash?.tagline   ?? ''
@@ -194,24 +191,21 @@ export default function WelcomeSplashScreen({
   useEffect(() => { onFinishRef.current = onFinish }, [onFinish])
 
   // SSR-safe portal target
-  useEffect(() => { setPortalTarget(document.body) }, [])
+  const [portalTarget] = useState<HTMLElement | null>(() => typeof window !== 'undefined' ? document.body : null)
 
-  // Session gate + mount — stable deps only, never re-runs on template/tagline change
-  useEffect(() => {
-    if (!enabled) {
-      setMounted(false)
-      return
+  // Session gate
+  const shouldShow = enabled && (isPreview || frequency !== 'session' || (() => {
+    if (typeof window === 'undefined') return true
+    const key = `splash_seen_${profile?.handle || 'bio'}`
+    if (sessionStorage.getItem(key)) {
+      onFinishRef.current?.()
+      return false
     }
+    sessionStorage.setItem(key, 'true')
+    return true
+  })())
 
-    if (!isPreview && frequency === 'session') {
-      const key = `splash_seen_${profile?.handle || 'bio'}`
-      if (sessionStorage.getItem(key)) { onFinishRef.current?.(); return }
-      sessionStorage.setItem(key, 'true')
-    }
-
-    setMounted(true)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, frequency, isPreview, profile?.handle])
+  const mounted = Boolean(shouldShow)
 
   // ── GSAP timeline — fires after DOM is ready ──────────────────────────────
   useEffect(() => {

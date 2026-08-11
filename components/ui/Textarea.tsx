@@ -1,4 +1,4 @@
-import { TextareaHTMLAttributes, forwardRef } from 'react'
+import { TextareaHTMLAttributes, forwardRef, useId } from 'react'
 import { clsx } from 'clsx'
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -10,16 +10,21 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, error, hint, counter, maxLength, className, value, ...props }, ref) => (
-    <div className="w-full text-left">
-      {label && (
-        <label className="block text-xs font-bold mb-1.5 text-slate-800 uppercase tracking-wider">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <textarea
-          ref={ref}
+  ({ label, error, hint, counter, maxLength, className, value, id, ...props }, ref) => {
+    const generatedId = useId()
+    const textareaId = id || generatedId
+
+    return (
+      <div className="w-full text-left">
+        {label && (
+          <label htmlFor={textareaId} className="block text-xs font-bold mb-1.5 text-slate-800 uppercase tracking-wider cursor-pointer">
+            {label}
+          </label>
+        )}
+        <div className="relative">
+          <textarea
+            id={textareaId}
+            ref={ref}
           value={value}
           maxLength={maxLength}
           className={clsx(
@@ -39,7 +44,8 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       {error && <p className="mt-1.5 text-xs font-bold text-rose-600">{error}</p>}
       {hint && !error && <p className="mt-1.5 text-xs text-slate-500 font-normal">{hint}</p>}
     </div>
-  )
+    )
+  }
 )
 
 Textarea.displayName = 'Textarea'

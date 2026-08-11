@@ -13,8 +13,8 @@ export class ThemeEditorSession {
   private history: ThemeHistory
 
   constructor(initialTheme: any) {
-    this.baseTheme = JSON.parse(JSON.stringify(initialTheme))
-    this.activeEditorTheme = JSON.parse(JSON.stringify(initialTheme))
+    this.baseTheme = structuredClone(initialTheme)
+    this.activeEditorTheme = structuredClone(initialTheme)
     this.history = new ThemeHistory()
     this.history.pushState(this.activeEditorTheme)
   }
@@ -34,13 +34,13 @@ export class ThemeEditorSession {
   }
 
   public getEditorTheme(): any {
-    return JSON.parse(JSON.stringify(this.activeEditorTheme))
+    return structuredClone(this.activeEditorTheme)
   }
 
   public undo(): any | null {
     const prev = this.history.undo(this.activeEditorTheme)
     if (prev) {
-      this.activeEditorTheme = JSON.parse(JSON.stringify(prev))
+      this.activeEditorTheme = structuredClone(prev)
     }
     return this.getEditorTheme()
   }
@@ -48,13 +48,13 @@ export class ThemeEditorSession {
   public redo(): any | null {
     const next = this.history.redo(this.activeEditorTheme)
     if (next) {
-      this.activeEditorTheme = JSON.parse(JSON.stringify(next))
+      this.activeEditorTheme = structuredClone(next)
     }
     return this.getEditorTheme()
   }
 
   public save(): any {
-    this.baseTheme = JSON.parse(JSON.stringify(this.activeEditorTheme))
+    this.baseTheme = structuredClone(this.activeEditorTheme)
     return this.getEditorTheme()
   }
 }

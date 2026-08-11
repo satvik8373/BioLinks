@@ -33,7 +33,7 @@ export function Toggle({
   const activeBg = variant === 'brand' ? 'bg-brand-600' : 'bg-slate-900'
 
   return (
-    <label
+    <span
       className={clsx(
         'inline-flex items-center gap-2 cursor-pointer select-none flex-shrink-0',
         disabled && 'opacity-50 cursor-not-allowed',
@@ -67,7 +67,7 @@ export function Toggle({
       {label && (
         <span className="text-sm font-semibold text-slate-700">{label}</span>
       )}
-    </label>
+    </span>
   )
 }
 

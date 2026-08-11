@@ -173,5 +173,8 @@ export const getPopularIcons = (): ServiceIcon[] => {
     'instagram', 'tiktok', 'youtube', 'twitter', 'spotify', 'website',
     'email', 'phone', 'linkedin', 'github', 'portfolio', 'shopify'
   ]
-  return popularIds.map(id => getIconById(id)).filter(Boolean) as ServiceIcon[]
+  return popularIds.flatMap(id => {
+    const icon = getIconById(id)
+    return icon ? [icon] : []
+  })
 }

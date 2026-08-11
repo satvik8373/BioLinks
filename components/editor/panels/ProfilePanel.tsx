@@ -147,9 +147,9 @@ export default function ProfilePanel({ config, updateConfig, onBack }: Props) {
             <Upload className="w-3.5 h-3.5" /> Upload image
           </Button>
           <div className="relative group">
-            <div onClick={() => avatarRef.current?.click()} className="w-14 h-14 rounded-full overflow-hidden cursor-pointer">
+            <button type="button" onClick={() => avatarRef.current?.click()} className="w-14 h-14 rounded-full overflow-hidden cursor-pointer border-0 p-0 focus:outline-none">
               <Avatar src={config.profile.avatar} size="lg" />
-            </div>
+            </button>
             <Button
               variant="secondary"
               size="icon"
@@ -174,14 +174,15 @@ export default function ProfilePanel({ config, updateConfig, onBack }: Props) {
             >
               <Upload className="w-3.5 h-3.5" /> Upload banner
             </Button>
-            <div
+            <button
+              type="button"
               onClick={() => bannerRef.current?.click()}
-              className="w-14 h-14 rounded-[18px] bg-slate-100 border border-slate-200 flex items-center justify-center cursor-pointer hover:bg-slate-200 transition-colors relative overflow-hidden shadow-clay-sm"
+              className="w-14 h-14 rounded-[18px] bg-slate-100 border border-slate-200 flex items-center justify-center cursor-pointer hover:bg-slate-200 transition-colors relative overflow-hidden shadow-clay-sm focus:outline-none"
             >
               {config.profile.bannerImage
                 ? <img src={config.profile.bannerImage} alt="banner" className="w-full h-full object-cover" />
                 : <div className="flex items-center justify-center text-slate-500"><ImageIcon className="w-5 h-5" /><Plus className="w-3 h-3 -ml-1 -mt-2 stroke-[3]" /></div>}
-            </div>
+            </button>
           </div>
         </div>
       )}

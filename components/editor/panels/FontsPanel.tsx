@@ -1,10 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, ChevronDown, X, Zap } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Toggle from '@/components/ui/Toggle'
+
+const emptySubscribe = () => () => {}
+const getClientBody = () => (typeof document !== 'undefined' ? document.body : null)
+const getServerBody = () => null
 
 export interface FontSpec {
   id: string
@@ -14,7 +18,7 @@ export interface FontSpec {
   googleFont?: string
 }
 
-export const AVAILABLE_FONTS: FontSpec[] = [
+const AVAILABLE_FONTS: FontSpec[] = [
   { id: 'albert-sans', name: 'Albert Sans', family: "'Albert Sans', sans-serif", googleFont: 'Albert+Sans:wght@400;700' },
   { id: 'belanosima', name: 'Belanosima', family: "'Belanosima', sans-serif", isPro: true, googleFont: 'Belanosima:wght@400;700' },
   { id: 'bricolage', name: 'Bricolage Grotesque', family: "'Bricolage Grotesque', sans-serif", isPro: true, googleFont: 'Bricolage+Grotesque:wght@400;700' },
@@ -184,9 +188,8 @@ function FontSelectionModal({
   onClose: () => void
   onSelectFont: (font: FontSpec) => void
 }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return null
+  const portalContainer = useSyncExternalStore(emptySubscribe, getClientBody, getServerBody)
+  if (!portalContainer) return null
 
   return createPortal(
     <div
@@ -237,6 +240,6 @@ function FontSelectionModal({
         </div>
       </div>
     </div>,
-    document.body
+    portalContainer
   )
 }

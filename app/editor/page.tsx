@@ -1776,7 +1776,6 @@ function LinkEditForm({ link, updateLink, removeLink, onDone, toggleLinkVisibili
       <div className="flex items-center gap-3">
         <LinkRowIcon link={link} />
         <input
-          autoFocus
           type="text"
           value={link.text}
           onChange={e => updateLink(link.id, 'text', e.target.value)}

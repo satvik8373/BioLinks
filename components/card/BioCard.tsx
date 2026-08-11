@@ -532,19 +532,19 @@ export default function BioCard({
 
   // Replay splash screen animation live in preview whenever splash settings change
   const currentSplash = (cardData?.config as any)?.splashScreen
+  const splashEnabled = Boolean(currentSplash?.enabled)
+  const splashTemplate = currentSplash?.template
+  const splashTagline = currentSplash?.tagline
+  const splashFreq = currentSplash?.frequency
+
   useEffect(() => {
-    if (currentSplash?.enabled) {
+    if (splashEnabled) {
       setIsSplashActive(true)
       setSplashKey(prev => prev + 1)
     } else {
       setIsSplashActive(false)
     }
-  }, [
-    currentSplash?.enabled,
-    currentSplash?.template,
-    currentSplash?.tagline,
-    currentSplash?.frequency,
-  ])
+  }, [splashEnabled, splashTemplate, splashTagline, splashFreq])
 
   const linksContainerRef = useRef<HTMLDivElement>(null)
 
@@ -564,26 +564,28 @@ export default function BioCard({
     const targetLinks = cardData.config.links.filter(l => (l.videoClickOption === 'open_latest' || l.videoClickOption === 'display_latest') && l.url)
     if (targetLinks.length === 0) return
 
-    targetLinks.forEach(async (link) => {
-      try {
-        const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
-        if (res.ok) {
-          const data = await res.json()
-          if (data.thumbnailUrl || data.title) {
-            setLatestVideoDetails(prev => ({
-              ...prev,
-              [link.id]: {
-                thumbnailUrl: data.thumbnailUrl,
-                title: data.title,
-                latestUrl: data.latestUrl,
-              }
-            }))
+    let isMounted = true
+    Promise.all(
+      targetLinks.map(async (link) => {
+        try {
+          const res = await fetch(`/api/youtube-latest?url=${encodeURIComponent(link.url)}`)
+          if (res.ok) {
+            const data = await res.json()
+            if ((data.thumbnailUrl || data.title) && isMounted) {
+              setLatestVideoDetails(prev => ({
+                ...prev,
+                [link.id]: {
+                  thumbnailUrl: data.thumbnailUrl,
+                  title: data.title,
+                  latestUrl: data.latestUrl,
+                },
+              }))
+            }
           }
-        }
-      } catch {
-        // ignore
-      }
-    })
+        } catch (_) {}
+      })
+    )
+    return () => { isMounted = false }
   }, [cardData?.config?.links])
 
   const handleUnlockSubmit = (e: React.FormEvent) => {
@@ -1996,20 +1998,21 @@ export default function BioCard({
           })()}
 
           {/* ── Social Icons (Top Position) ── */}
-          {hasSocials && (config.socialIconPosition || 'top') === 'top' && (
-            <div className="flex justify-center items-center flex-wrap relative z-10 gap-3.5 mb-6 px-4">
-              {allSocialItems.map(({ platform, url }) => {
-                if (!url) return null
-                const Icon = PLATFORM_ICONS[platform]
-                if (!Icon) return null
-                const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
-                const claySocialColor =
-                  isClay && platform === 'linkedin' ? '#2f6fed' :
-                  isClay && (platform === 'twitter' || platform === 'x') ? '#3aa0f3' :
-                  isClay ? '#1a1d24' : undefined
+          {hasSocials && (config.socialIconPosition || 'top') === 'top' && (() => {
+            const hasDashedSocials = Boolean((theme.specialty as any)?.socialBorder?.includes('dashed') || theme.id === 'retro-lcd' || theme.buttonStyle?.style === 'retro-lcd' || theme.buttonStyle?.style === 'button-retro-lcd')
+            return (
+              <div className="flex justify-center items-center flex-wrap relative z-10 gap-3.5 mb-6 px-4">
+                {allSocialItems.map(({ platform, url }) => {
+                  if (!url) return null
+                  const Icon = PLATFORM_ICONS[platform]
+                  if (!Icon) return null
+                  const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
+                  const claySocialColor =
+                    isClay && platform === 'linkedin' ? '#2f6fed' :
+                    isClay && (platform === 'twitter' || platform === 'x') ? '#3aa0f3' :
+                    isClay ? '#1a1d24' : undefined
 
-                const hasDashedSocials = (theme.specialty as any)?.socialBorder?.includes('dashed') || theme.id === 'retro-lcd' || theme.buttonStyle?.style === 'retro-lcd' || theme.buttonStyle?.style === 'button-retro-lcd'
-                if (hasDashedSocials) {
+                  if (hasDashedSocials) {
                   return (
                     <a
                       key={platform}
@@ -2061,7 +2064,8 @@ export default function BioCard({
                 )
               })}
             </div>
-          )}
+          )
+        })()}
 
           {/* ── Links (Mobile Optimized) ── */}
           {visibleLinks.length > 0 && (
@@ -2508,10 +2512,12 @@ export default function BioCard({
 
       {/* ── MUSIC BOTTOM SHEET MODAL (Linktree Official UI - Screenshot Match) ── */}
       {/* ── MUSIC BOTTOM SHEET MODAL ── */}
-      <MusicSheetModal
-        link={activeMusicSheetLink}
-        onClose={() => setActiveMusicSheetLink(null)}
-      />
+      {activeMusicSheetLink && (
+        <MusicSheetModal
+          link={activeMusicSheetLink}
+          onClose={() => setActiveMusicSheetLink(null)}
+        />
+      )}
 
       {/* Keyframe for sheet slide-up */}
       <style>{`

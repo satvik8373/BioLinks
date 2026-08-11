@@ -78,7 +78,10 @@ export default function AddLinkModal({ onClose, onAdd }: AddLinkModalProps) {
   return (
     <div
       ref={backdropRef}
+      role="button"
+      tabIndex={0}
       onClick={handleClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') handleClose() }}
       className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 cursor-pointer"
     >
       <div
@@ -111,7 +114,6 @@ export default function AddLinkModal({ onClose, onAdd }: AddLinkModalProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 shadow-clay-sm transition-all"
-              autoFocus
             />
           </div>
 
@@ -154,6 +156,8 @@ export default function AddLinkModal({ onClose, onAdd }: AddLinkModalProps) {
             return (
               <div
                 key={block.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => onAdd({
                   type: block.type,
                   text: block.label === 'Link' ? 'My Link' : block.label,
@@ -165,6 +169,7 @@ export default function AddLinkModal({ onClose, onAdd }: AddLinkModalProps) {
                   ),
                   platform: block.platform,
                 })}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAdd({ type: block.type, text: block.label === 'Link' ? 'My Link' : block.label, url: block.type === 'link' ? 'https://' : '', icon: block.platform || (block.type === 'link' ? 'website' : block.type === 'video' ? 'youtube' : block.type === 'music' ? 'spotify' : 'link'), platform: block.platform }) } }}
                 className="group p-3.5 rounded-2xl border border-slate-100 hover:border-brand-200 bg-white hover:bg-brand-50/40 transition-all cursor-pointer flex items-center justify-between shadow-clay-sm hover:shadow-clay"
               >
                 <div className="flex items-center gap-3 min-w-0">

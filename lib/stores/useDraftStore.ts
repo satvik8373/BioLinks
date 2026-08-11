@@ -93,7 +93,7 @@ interface DraftState {
 // ── Deep-set helper ──────────────────────────────────────────────────────────
 
 function deepSet(obj: any, path: string, value: any): any {
-  const clone = JSON.parse(JSON.stringify(obj))
+  const clone = structuredClone(obj)
   const keys = path.split('.')
   let current = clone
   for (let i = 0; i < keys.length - 1; i++) {
@@ -115,7 +115,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
     const state = get()
     if (state._isUndoRedo) return
     set({
-      _past: [...state._past, JSON.parse(JSON.stringify(currentConfig))].slice(-30),
+      _past: [...state._past, structuredClone(currentConfig)].slice(-30),
       _future: [],
     })
   }
@@ -209,7 +209,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
           }
           set({
             config,
-            savedConfig: JSON.parse(JSON.stringify(config)),
+            savedConfig: structuredClone(config),
             version: draft.version ?? 1,
             isLoading: false,
             isDirty: false,
@@ -229,7 +229,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
           const configStr = localStorage.getItem('currentBioLinkConfig')
           if (configStr) {
             const config = JSON.parse(configStr)
-            set({ config, savedConfig: JSON.parse(configStr), isLoading: false, isDirty: false, version: 0 })
+            set({ config, savedConfig: config, isLoading: false, isDirty: false, version: 0 })
             bindBeforeUnload()
             return
           }
@@ -254,7 +254,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
       const state = get()
       if (!state.config) return
       pushHistory(state.config)
-      let newConfig = JSON.parse(JSON.stringify(state.config))
+      let newConfig = structuredClone(state.config)
       for (const { path, value } of updates) {
         newConfig = deepSet(newConfig, path, value)
       }
@@ -278,7 +278,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
       set({
         _isUndoRedo: true,
         _past: state._past.slice(0, -1),
-        _future: [JSON.parse(JSON.stringify(state.config)), ...state._future],
+        _future: [structuredClone(state.config), ...state._future],
         config: previous,
         isDirty: true,
       })
@@ -293,7 +293,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
       const next = state._future[0]
       set({
         _isUndoRedo: true,
-        _past: [...state._past, JSON.parse(JSON.stringify(state.config))],
+        _past: [...state._past, structuredClone(state.config)],
         _future: state._future.slice(1),
         config: next,
         isDirty: true,
@@ -393,7 +393,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
           version: currentVer,
           lastSavedAt: savedAt,
           // Snapshot the saved state so discard can restore it
-          savedConfig: JSON.parse(JSON.stringify(state.config)),
+          savedConfig: structuredClone(state.config),
         })
       } catch (err: any) {
         console.error('[useDraftStore] saveDraftNow error:', err)
@@ -419,7 +419,7 @@ export const useDraftStore = create<DraftState>()((set, get) => {
     discardChanges: () => {
       const state = get()
       if (!state.savedConfig) return
-      const restored = JSON.parse(JSON.stringify(state.savedConfig))
+      const restored = structuredClone(state.savedConfig)
       set({
         config: restored,
         isDirty: false,

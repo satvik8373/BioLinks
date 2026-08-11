@@ -10,7 +10,7 @@ export class ThemeHistory {
   private maxDepth: number = 50
 
   public pushState(state: any): void {
-    this.undoStack.push(JSON.parse(JSON.stringify(state)))
+    this.undoStack.push(structuredClone(state))
     if (this.undoStack.length > this.maxDepth) {
       this.undoStack.shift()
     }
@@ -19,13 +19,13 @@ export class ThemeHistory {
 
   public undo(currentState: any): any | null {
     if (this.undoStack.length === 0) return null
-    this.redoStack.push(JSON.parse(JSON.stringify(currentState)))
+    this.redoStack.push(structuredClone(currentState))
     return this.undoStack.pop()
   }
 
   public redo(currentState: any): any | null {
     if (this.redoStack.length === 0) return null
-    this.undoStack.push(JSON.parse(JSON.stringify(currentState)))
+    this.undoStack.push(structuredClone(currentState))
     return this.redoStack.pop()
   }
 

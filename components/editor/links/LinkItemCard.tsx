@@ -191,7 +191,7 @@ export default function LinkItemCard({
         { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
       )
     }
-  }, [activeDrawer])
+  }, [activeDrawer, isExpanded])
 
   const handleFileUpload = async (file: File) => {
     if (!file) return
@@ -323,13 +323,14 @@ export default function LinkItemCard({
                     className="bg-slate-100 border border-slate-300 rounded px-2 py-0.5 text-sm font-bold text-slate-900 outline-none w-full focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
                   />
                 ) : (
-                  <div
+                  <button
+                    type="button"
                     onClick={() => setIsEditingTitle(true)}
-                    className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 truncate"
+                    className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 truncate bg-transparent border-0 p-0 text-left font-bold text-slate-900"
                   >
                     <span className="truncate">{link.text || 'Untitled Link'}</span>
                     <Pencil className="w-3.5 h-3.5 text-slate-400 group-hover/edit:text-brand-600 flex-shrink-0 opacity-80" />
-                  </div>
+                  </button>
                 )}
               </div>
 
@@ -348,13 +349,14 @@ export default function LinkItemCard({
                       className="bg-slate-100 border border-slate-300 rounded px-2 py-0.5 text-xs text-slate-900 outline-none w-full focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
                     />
                   ) : (
-                    <div
+                    <button
+                      type="button"
                       onClick={() => setIsEditingUrl(true)}
-                      className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 truncate"
+                      className="flex items-center gap-1.5 cursor-pointer hover:text-brand-600 truncate bg-transparent border-0 p-0 text-left"
                     >
                       <span className="truncate">{link.url || 'Add URL'}</span>
                       <Pencil className="w-3 h-3 text-slate-400 group-hover/url:text-brand-600 flex-shrink-0 opacity-80" />
-                    </div>
+                    </button>
                   )}
                 </div>
               )}
@@ -603,9 +605,10 @@ export default function LinkItemCard({
                   </h4>
 
                   {/* Lock Option 1: Subscribe */}
-                  <div 
+                  <button 
+                    type="button"
                     onClick={() => handleFieldChange('lockType', link.lockType === 'subscribe' ? undefined : 'subscribe')}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 w-full text-left bg-transparent ${
                       link.lockType === 'subscribe' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -619,12 +622,13 @@ export default function LinkItemCard({
                       <h5 className="text-sm font-bold text-slate-900">Subscribe</h5>
                       <p className="text-xs text-slate-500 mt-0.5">Require visitors to subscribe to your newsletter or email list to unlock.</p>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Lock Option 2: Code */}
-                  <div 
+                  <button 
+                    type="button"
                     onClick={() => handleFieldChange('lockType', link.lockType === 'code' ? undefined : 'code')}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 w-full text-left bg-transparent ${
                       link.lockType === 'code' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -648,12 +652,13 @@ export default function LinkItemCard({
                         />
                       )}
                     </div>
-                  </div>
+                  </button>
 
                   {/* Lock Option 3: Password */}
-                  <div 
+                  <button 
+                    type="button"
                     onClick={() => handleFieldChange('lockType', link.lockType === 'password' ? undefined : 'password')}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 w-full text-left bg-transparent ${
                       link.lockType === 'password' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -677,12 +682,13 @@ export default function LinkItemCard({
                         />
                       )}
                     </div>
-                  </div>
+                  </button>
 
                   {/* Lock Option 4: Date of birth */}
-                  <div 
+                  <button 
+                    type="button"
                     onClick={() => handleFieldChange('lockType', link.lockType === 'dob' ? undefined : 'dob')}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 w-full text-left bg-transparent ${
                       link.lockType === 'dob' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -696,12 +702,13 @@ export default function LinkItemCard({
                       <h5 className="text-sm font-bold text-slate-900">Date of birth</h5>
                       <p className="text-xs text-slate-500 mt-0.5">Require visitors to verify their age before accessing this link.</p>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Lock Option 5: Sensitive content */}
-                  <div 
+                  <button 
+                    type="button"
                     onClick={() => handleFieldChange('lockType', link.lockType === 'sensitive' ? undefined : 'sensitive')}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 w-full text-left bg-transparent ${
                       link.lockType === 'sensitive' ? 'border-brand-600 bg-brand-50/20' : 'border-slate-200 hover:border-slate-300'
                     }`}
                   >
@@ -715,7 +722,7 @@ export default function LinkItemCard({
                       <h5 className="text-sm font-bold text-slate-900">Sensitive content</h5>
                       <p className="text-xs text-slate-500 mt-0.5">Show an 18+ sensitive content disclaimer prior to opening.</p>
                     </div>
-                  </div>
+                  </button>
                 </div>
               </div>
             )}
@@ -1048,10 +1055,11 @@ export default function LinkItemCard({
                       ].map((opt) => {
                         const isSelected = (link.galleryLayout || 'slider') === opt.id
                         return (
-                          <div
+                          <button
                             key={opt.id}
+                            type="button"
                             onClick={() => handleFieldChange('galleryLayout', opt.id)}
-                            className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer ${
+                            className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer text-left w-full ${
                               isSelected
                                 ? 'border-slate-900 bg-white shadow-2xs'
                                 : 'border-slate-200 bg-white hover:border-slate-300'
@@ -1075,7 +1083,7 @@ export default function LinkItemCard({
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
@@ -1090,9 +1098,10 @@ export default function LinkItemCard({
 
                     <div className="space-y-4">
                       {/* CLASSIC OPTION */}
-                      <div
+                      <button
+                        type="button"
                         onClick={() => handleFieldChange('layout', 'classic')}
-                        className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer ${
+                        className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer text-left w-full ${
                           (link.layout || 'classic') === 'classic'
                             ? 'border-slate-900 bg-white shadow-2xs'
                             : 'border-slate-200 bg-white hover:border-slate-300'
@@ -1127,12 +1136,13 @@ export default function LinkItemCard({
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </button>
 
                       {/* FEATURED OPTION */}
-                      <div
+                      <button
+                        type="button"
                         onClick={() => handleFieldChange('layout', 'featured')}
-                        className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer ${
+                        className={`p-5 rounded-[22px] border-2 transition-all cursor-pointer text-left w-full ${
                           link.layout === 'featured'
                             ? 'border-slate-900 bg-white shadow-2xs'
                             : 'border-slate-200 bg-white hover:border-slate-300'
@@ -1214,7 +1224,7 @@ export default function LinkItemCard({
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     </div>
                   </div>
                 )}

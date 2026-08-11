@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { X, ExternalLink, Share2, Image as ImageIcon, Film, ShoppingBag, Music, Link2, Copy, Check, Eye } from 'lucide-react'
 import { gsap } from 'gsap'
 import { LinkItem } from '@/lib/types/link'
@@ -56,43 +57,42 @@ function ensureAbsoluteUrl(url?: string): string {
 }
 
 export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
-  if (!link) return null
-
   const [copied, setCopied] = useState(false)
 
-  const backdropRef = useRef<HTMLDivElement>(null)
+  const backdropRef = useRef<HTMLButtonElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
   // Determine item type
-  const isGallery = link.type === 'gallery' || Boolean(link.galleryPhotos?.length || link.photos?.length)
-  const isVideo = link.type === 'video' || Boolean(getVideoEmbedUrl(link.url || link.embedUrl))
-  const isShop = link.type === 'shop' || Boolean(link.price)
-  const isMusic = link.type === 'music' || Boolean(link.streamingServices?.length || getSpotifyEmbedUrl(link.url))
+  const isGallery = link?.type === 'gallery' || Boolean(link?.galleryPhotos?.length || link?.photos?.length)
+  const isVideo = link?.type === 'video' || Boolean(getVideoEmbedUrl(link?.url || link?.embedUrl))
+  const isShop = link?.type === 'shop' || Boolean(link?.price)
+  const isMusic = link?.type === 'music' || Boolean(link?.streamingServices?.length || getSpotifyEmbedUrl(link?.url))
 
   // Extract photos for gallery
-  const photos = link.galleryPhotos || link.photos || []
+  const photos = link?.galleryPhotos || link?.photos || []
 
   // Extract video embed for video
-  const videoEmbedUrl = getVideoEmbedUrl(link.url || link.embedUrl || link.videoUrl)
+  const videoEmbedUrl = getVideoEmbedUrl(link?.url || link?.embedUrl || link?.videoUrl)
 
   // Extract spotify embed for music
-  const spotifyEmbed = getSpotifyEmbedUrl(link.url || link.embedUrl)
+  const spotifyEmbed = getSpotifyEmbedUrl(link?.url || link?.embedUrl)
 
   // Extract streaming services for music
-  const services = (link.streamingServices && link.streamingServices.length > 0)
+  const services = (link?.streamingServices && link?.streamingServices.length > 0)
     ? link.streamingServices.filter((s: any) => s.isVisible !== false)
     : [
-      { id: 'spotify', name: 'Spotify', platformKey: 'spotify', url: link.url },
-      { id: 'apple-music', name: 'Apple Music', platformKey: 'apple-music', url: link.url },
-      { id: 'youtube', name: 'YouTube', platformKey: 'youtube', url: link.url },
-      { id: 'youtube-music', name: 'YouTube Music', platformKey: 'youtube-music', url: link.url },
-      { id: 'soundcloud', name: 'SoundCloud', platformKey: 'soundcloud', url: link.url },
-      { id: 'tidal', name: 'TIDAL', platformKey: 'tidal', url: link.url },
+      { id: 'spotify', name: 'Spotify', platformKey: 'spotify', url: link?.url },
+      { id: 'apple-music', name: 'Apple Music', platformKey: 'apple-music', url: link?.url },
+      { id: 'youtube', name: 'YouTube', platformKey: 'youtube', url: link?.url },
+      { id: 'youtube-music', name: 'YouTube Music', platformKey: 'youtube-music', url: link?.url },
+      { id: 'soundcloud', name: 'SoundCloud', platformKey: 'soundcloud', url: link?.url },
+      { id: 'tidal', name: 'TIDAL', platformKey: 'tidal', url: link?.url },
     ]
 
   // GSAP Smooth Enter Animation
   useEffect(() => {
+    if (!link) return
     if (backdropRef.current && modalRef.current) {
       const tl = gsap.timeline()
       tl.fromTo(
@@ -103,8 +103,8 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
       tl.fromTo(
         modalRef.current,
         { y: '100%', scale: 0.94, opacity: 0 },
-        { y: '0%', scale: 1, opacity: 1, duration: 0.42, ease: 'back.out(1.08)' },
-        '-=0.2'
+        { y: '0%', scale: 1, opacity: 1, duration: 0.4, ease: 'power3.out' },
+        '-=0.15'
       )
       if (contentRef.current?.children) {
         tl.fromTo(
@@ -135,6 +135,7 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
   }
 
   const handleShare = () => {
+    if (!link) return
     const targetUrl = link.url || (typeof window !== 'undefined' ? window.location.href : '')
     if (navigator.share) {
       navigator.share({ title: link.text || link.title || 'Linktree Item', url: targetUrl }).catch(() => {})
@@ -144,6 +145,9 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
       setTimeout(() => setCopied(false), 2000)
     }
   }
+
+  // Bail out safely if link is null (e.g. during initial render before state is set)
+  if (!link) return null
 
   // Header Title & Subtitle
   const modalTitle = link.text || link.title || (isGallery ? 'Photo Gallery' : isVideo ? 'Video' : isShop ? 'Product' : 'Link Details')
@@ -158,10 +162,11 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 font-sans select-none overflow-hidden">
       {/* Backdrop */}
-      <div
+      <button
         ref={backdropRef}
+        type="button"
         onClick={handleClose}
-        className="absolute inset-0 bg-black/65 backdrop-blur-xs cursor-pointer opacity-0"
+        className="absolute inset-0 bg-black/65 backdrop-blur-xs cursor-pointer opacity-0 border-0 p-0 w-full h-full"
       />
 
       {/* Floating Sheet Modal Container */}
@@ -211,11 +216,13 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
                       key={photo.id || index}
                       className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs group"
                     >
-                      <div className="relative aspect-4/3 w-full bg-slate-100 overflow-hidden">
+                      <div className="relative w-full bg-slate-100 overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={photo.url}
                           alt={photo.title || `Photo ${index + 1}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-auto object-cover block group-hover:scale-105 transition-transform duration-300"
+                          style={{ maxHeight: '320px', objectFit: 'cover', width: '100%' }}
                         />
                         <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] font-bold">
                           {index + 1} / {photos.length}
@@ -253,7 +260,7 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
                 </div>
               ) : link.thumbnail ? (
                 <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-sm bg-black">
-                  <img src={link.thumbnail} alt={modalTitle} className="w-full h-full object-cover" />
+                  <Image src={link.thumbnail} alt={modalTitle} unoptimized fill sizes="(max-width: 640px) 100vw, 420px" className="object-cover" />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                     <Film className="w-12 h-12 text-white opacity-80" />
                   </div>
@@ -274,6 +281,7 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
               {/* Spotify Audio Embed Player */}
               {spotifyEmbed && (
                 <iframe
+                  title="Music Embed Player"
                   data-testid="embed-iframe"
                   src={spotifyEmbed}
                   width="100%"
@@ -318,8 +326,8 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
           {isShop && (
             <div className="space-y-3">
               {link.thumbnail && (
-                <div className="w-full aspect-square max-h-[260px] rounded-2xl overflow-hidden border border-slate-200 bg-white">
-                  <img src={link.thumbnail} alt={modalTitle} className="w-full h-full object-cover" />
+                <div className="relative w-full aspect-square max-h-[260px] rounded-2xl overflow-hidden border border-slate-200 bg-white">
+                  <Image src={link.thumbnail} alt={modalTitle} unoptimized fill sizes="260px" className="object-cover" />
                 </div>
               )}
               <div className="flex items-center justify-between px-1">
@@ -342,7 +350,9 @@ export default function MusicSheetModal({ link, onClose }: SheetModalProps) {
           {!isGallery && !isVideo && !isMusic && !isShop && (
             <div className="space-y-3 text-center py-4">
               {link.thumbnail ? (
-                <img src={link.thumbnail} alt={modalTitle} className="w-20 h-20 rounded-2xl mx-auto object-cover border border-slate-200 shadow-sm" />
+                <div className="relative w-20 h-20 rounded-2xl mx-auto overflow-hidden border border-slate-200 shadow-sm">
+                  <Image src={link.thumbnail} alt={modalTitle} unoptimized fill sizes="80px" className="object-cover" />
+                </div>
               ) : (
                 <div className="w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto border border-purple-100">
                   <Link2 className="w-8 h-8" />

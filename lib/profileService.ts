@@ -73,7 +73,7 @@ function normalizeTimestamp(val: any): string {
 }
 
 function stripUndefined(obj: any): any {
-  return JSON.parse(JSON.stringify(obj))
+  return structuredClone(obj)
 }
 
 // ── Read ─────────────────────────────────────────────────────────────────────
