@@ -31,6 +31,7 @@ export const AVAILABLE_FONTS: FontSpec[] = [
   { id: 'red-hat', name: 'Red Hat Display', family: "'Red Hat Display', sans-serif", googleFont: 'Red+Hat+Display:wght@400;700' },
   { id: 'roboto', name: 'Roboto', family: "'Roboto', sans-serif", isPro: true, googleFont: 'Roboto:wght@400;700' },
   { id: 'rubik', name: 'Rubik', family: "'Rubik', sans-serif", isPro: true, googleFont: 'Rubik:wght@400;700' },
+  { id: 'silkscreen', name: 'Silkscreen', family: "'Silkscreen', monospace", googleFont: 'Silkscreen:wght@400;700' },
   { id: 'space-grotesk', name: 'Space Grotesk', family: "'Space Grotesk', sans-serif", isPro: true, googleFont: 'Space+Grotesk:wght@400;700' },
   { id: 'syne', name: 'Syne', family: "'Syne', sans-serif", isPro: true, googleFont: 'Syne:wght@400;700' },
 ]
@@ -60,7 +61,7 @@ export default function FontsPanel({ config, updateConfig, onBack }: FontsPanelP
       link.id = linkId
       link.rel = 'stylesheet'
       link.href =
-        'https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;700&family=Belanosima:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=DM+Sans:wght@400;700&family=Epilogue:wght@400;700&family=IBM+Plex+Sans:wght@400;700&family=Inter:wght@400;700&family=Lato:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Manrope:wght@400;700&family=Oxanium:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Poppins:wght@400;700&family=Red+Hat+Display:wght@400;700&family=Roboto:wght@400;700&family=Rubik:wght@400;700&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700&display=swap'
+        'https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;700&family=Belanosima:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=DM+Sans:wght@400;700&family=Epilogue:wght@400;700&family=IBM+Plex+Sans:wght@400;700&family=Inter:wght@400;700&family=Lato:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Manrope:wght@400;700&family=Oxanium:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Poppins:wght@400;700&family=Red+Hat+Display:wght@400;700&family=Roboto:wght@400;700&family=Rubik:wght@400;700&family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700&display=swap'
       document.head.appendChild(link)
     }
   }, [])

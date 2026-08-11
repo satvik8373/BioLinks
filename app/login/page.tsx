@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LogIn, Mail, Lock, AlertCircle, Sparkles } from 'lucide-react'
-import { auth, googleProvider, githubProvider } from '@/lib/firebase-auth'
+import Input from '@/components/ui/Input'
+import Card from '@/components/ui/Card'
+import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react'
+import { getAuthInstance, getGoogleProvider, getGithubProvider } from '@/lib/firebase-auth'
 import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth'
 
 export default function LoginPage() {
@@ -33,6 +35,7 @@ export default function LoginPage() {
       }
 
       try {
+        const auth = getAuthInstance()
         const userCredential = await signInWithEmailAndPassword(auth, email, password)
         const user = userCredential.user
 
@@ -47,7 +50,7 @@ export default function LoginPage() {
 
         localStorage.setItem('userProfile', JSON.stringify(userProfile))
         localStorage.setItem('onboardingCompleted', 'true')
-        router.push('/')
+        router.push('/editor')
       } catch (firebaseError: any) {
         console.log('Firebase auth not configured, using mock login')
         
@@ -62,7 +65,7 @@ export default function LoginPage() {
 
         localStorage.setItem('userProfile', JSON.stringify(userProfile))
         localStorage.setItem('onboardingCompleted', 'true')
-        router.push('/my-cards')
+        router.push('/editor')
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.')
@@ -76,6 +79,8 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      const auth = getAuthInstance()
+      const googleProvider = getGoogleProvider()
       const result = await signInWithPopup(auth, googleProvider)
       const user = result.user
 
@@ -90,12 +95,12 @@ export default function LoginPage() {
 
       localStorage.setItem('userProfile', JSON.stringify(userProfile))
       localStorage.setItem('onboardingCompleted', 'true')
-      router.push('/my-cards')
+      router.push('/editor')
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled')
       } else if (err.code === 'auth/configuration-not-found') {
-        setError('Google Sign-In not configured in Firebase. Please contact support.')
+        setError('Google Sign-In not configured in Firebase.')
       } else {
         setError(err.message || 'Google sign-in failed. Please try again.')
       }
@@ -109,6 +114,8 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      const auth = getAuthInstance()
+      const githubProvider = getGithubProvider()
       const result = await signInWithPopup(auth, githubProvider)
       const user = result.user
 
@@ -123,12 +130,12 @@ export default function LoginPage() {
 
       localStorage.setItem('userProfile', JSON.stringify(userProfile))
       localStorage.setItem('onboardingCompleted', 'true')
-      router.push('/my-cards')
+      router.push('/editor')
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
         setError('Sign-in cancelled')
       } else if (err.code === 'auth/configuration-not-found') {
-        setError('GitHub Sign-In not configured in Firebase. Please contact support.')
+        setError('GitHub Sign-In not configured in Firebase.')
       } else {
         setError(err.message || 'GitHub sign-in failed. Please try again.')
       }
@@ -138,66 +145,53 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-clay-btn text-white group-hover:scale-105 transition-transform">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <span className="text-2xl font-extrabold text-slate-900 tracking-tight">Bio<span className="text-rose-500">Link</span></span>
-          </Link>
-          <h1 className="text-3xl font-black text-slate-900 mb-1">Welcome Back!</h1>
-          <p className="text-slate-600 text-sm font-semibold">Sign in to manage your bio link cards</p>
+    <main className="min-h-screen bg-[#c7d2ab] text-[#1a2211] font-sans flex flex-col justify-between items-center px-6 pt-36 pb-12">
+      <div className="w-full max-w-md mx-auto space-y-6">
+        
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-[#1a2211]">
+            Welcome Back
+          </h1>
+          <p className="text-sm font-semibold opacity-85 text-[#1a2211]">
+            Log in to manage & update your BioLink cards
+          </p>
         </div>
 
-        {/* Sharp Clay Container (Solid White, High Contrast) */}
-        <div className="clay-card-flat p-8 bg-white">
+        <Card className="bg-white border border-black/10 p-8 rounded-3xl shadow-2xl space-y-6">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
               <p className="text-xs font-extrabold text-rose-700">{error}</p>
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold mb-1.5 text-slate-900 uppercase tracking-wide">Email Address</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  disabled={loading}
-                  className="clay-input pl-10"
-                />
-              </div>
-            </div>
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              disabled={loading}
+              icon={<Mail className="w-4 h-4" />}
+            />
 
-            <div>
-              <label className="block text-xs font-bold mb-1.5 text-slate-900 uppercase tracking-wide">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  disabled={loading}
-                  className="clay-input pl-10"
-                />
-              </div>
-            </div>
+            <Input
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              disabled={loading}
+              icon={<Lock className="w-4 h-4" />}
+            />
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-indigo-600 rounded" />
-                <span className="text-xs text-slate-800 font-extrabold">Remember me</span>
+            <div className="flex items-center justify-between text-xs font-bold pt-1">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+                <input type="checkbox" className="w-4 h-4 accent-[#1a2211] rounded" />
+                <span>Remember me</span>
               </label>
-              <Link href="/forgot-password" className="text-xs font-extrabold text-rose-500 hover:text-rose-600 transition-colors">
+              <Link href="/forgot-password" className="text-slate-600 hover:text-black transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -205,34 +199,29 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="clay-btn clay-btn-primary w-full py-3.5 text-sm font-black mt-2"
+              className="w-full py-4 rounded-full font-black text-xs bg-[#1a2211] text-[#c7d2ab] transition-all shadow-md hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-[#c7d2ab] border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <LogIn className="w-4 h-4 mr-2" /> Login to Account
+                  <LogIn className="w-4 h-4" /> Log in to Account
                 </>
               )}
             </button>
           </form>
 
-          <p className="text-center text-xs font-bold text-slate-600 mt-6">
-            Don't have an account?{' '}
-            <Link href="/signup" className="font-black text-rose-500 hover:text-rose-600 transition-colors">
-              Sign Up Free
-            </Link>
-          </p>
+          <div className="relative border-t border-slate-100 pt-6 text-center">
+            <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-[11px] font-black uppercase text-slate-400">
+              Or continue with
+            </span>
 
-          {/* Social Sign-In */}
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <p className="text-center text-xs text-slate-400 font-extrabold uppercase tracking-wider mb-4">Or continue with</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="clay-btn clay-btn-ghost py-2.5 text-xs font-extrabold flex items-center justify-center gap-2"
+                className="py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -246,7 +235,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleGithubLogin}
                 disabled={loading}
-                className="clay-btn clay-btn-ghost py-2.5 text-xs font-extrabold flex items-center justify-center gap-2"
+                className="py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -255,14 +244,15 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
-        </div>
 
-        <div className="mt-6 text-center">
-          <Link href="/create" className="text-xs font-extrabold text-brand-600 hover:text-brand-800 transition-colors">
-            Try Without Account →
-          </Link>
-        </div>
+          <p className="text-center text-xs font-bold text-slate-600">
+            Don't have an account?{' '}
+            <Link href="/signup" className="font-black text-[#1a2211] underline hover:opacity-80 transition-opacity">
+              Sign up free
+            </Link>
+          </p>
+        </Card>
       </div>
-    </div>
+    </main>
   )
 }

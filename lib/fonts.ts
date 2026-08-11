@@ -173,6 +173,18 @@ export const FONT_TOKENS: Record<string, FontDefinition> = {
     name: 'Exo 2',
     family: 'Exo 2, sans-serif',
     category: 'sans-serif'
+  },
+  'font-silkscreen': {
+    id: 'font-silkscreen',
+    name: 'Silkscreen',
+    family: 'Silkscreen, monospace',
+    category: 'monospace'
+  },
+  'silkscreen': {
+    id: 'silkscreen',
+    name: 'Silkscreen',
+    family: 'Silkscreen, monospace',
+    category: 'monospace'
   }
 }
 

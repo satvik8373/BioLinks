@@ -276,6 +276,15 @@ export const BACKGROUND_PRESETS: Record<string, BackgroundPreset> = {
     overlay: 'rgba(248, 250, 252, 0.85)',
     blur: 0,
     opacity: 1
+  },
+  'bg-retro-lcd': {
+    id: 'bg-retro-lcd',
+    name: 'Retro LCD GameBoy Screen Pattern',
+    type: 'mesh',
+    value: 'repeating-linear-gradient(rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 3px), radial-gradient(120% 90% at 30% 0%, #c7d2ab, #b7c495 70%)',
+    overlay: 'radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,0.16) 100%)',
+    blur: 0,
+    opacity: 1
   }
 }
 

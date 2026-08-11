@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Button from '@/components/ui/Button'
+import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemesByCategory, Theme, parseGoogleDriveUrl } from '@/lib/themes'
 import { getCleanUsernameSlug } from '@/lib/urlHelper'
@@ -34,7 +36,6 @@ import {
 function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
   const c = theme.colors
   
-  // PREMIUM GRADIENT RENDERING
   if (c.backgroundGradient) {
     const g = c.backgroundGradient
     return { 
@@ -44,7 +45,6 @@ function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
     }
   }
   
-  // MESH GRADIENT - Maximum richness
   if (c.backgroundMesh) {
     return { 
       background: c.backgroundMesh,
@@ -53,7 +53,6 @@ function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
     }
   }
   
-  // IMAGE BACKGROUND
   if (c.backgroundImage) {
     const driveObj = parseGoogleDriveUrl(c.backgroundImage)
     const imgUrl = driveObj.directUrl || c.backgroundImage
@@ -65,7 +64,6 @@ function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
     }
   }
   
-  // SOLID COLOR - Add subtle grain for premium texture
   return { 
     backgroundColor: c.background || '#FFFFFF',
     backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.025) 1px, transparent 0)',
@@ -73,7 +71,6 @@ function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
   }
 }
 
-// Sample links per theme category so every card has distinct, realistic content
 const CATEGORY_SAMPLE_LINKS: Record<string, Array<{ text: string; icon: any }>> = {
   minimal: [
     { text: 'Read My Newsletter', icon: FileText },
@@ -123,28 +120,24 @@ function renderButtonStyle(theme: Theme): React.CSSProperties {
     styleObj.border = `${Math.max(b.borderWidth, 2)}px solid ${c.accent || c.buttonText}`
     styleObj.boxShadow = 'none'
   } else if (b.style === 'glass') {
-    // GLASSMORPHISM - Premium frosted glass effect with MAXIMUM blur
     styleObj.backgroundColor = 'rgba(255, 255, 255, 0.12)'
     styleObj.backdropFilter = 'blur(16px) saturate(200%)'
     styleObj.WebkitBackdropFilter = 'blur(16px) saturate(200%)'
     styleObj.border = '1.5px solid rgba(255, 255, 255, 0.3)'
-    styleObj.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.05)'
+    styleObj.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)'
   } else if (b.style === 'clay') {
-    // NEUMORPHISM - Soft clay-like depth
     styleObj.background = c.buttonDefault
     styleObj.border = 'none'
-    styleObj.boxShadow = '8px 8px 16px rgba(163, 177, 198, 0.5), -8px -8px 16px rgba(255, 255, 255, 0.8)'
+    styleObj.boxShadow = '8px 8px 16px rgba(163, 177, 198, 0.5)'
   } else if (b.style === 'soft') {
-    // SOFT STYLE - Deep elevation with premium layered shadow
     styleObj.backgroundColor = c.buttonDefault
     styleObj.border = 'none'
-    styleObj.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)'
+    styleObj.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
   } else if (b.style === 'hard-shadow') {
     styleObj.backgroundColor = c.buttonDefault
     styleObj.border = '2.5px solid #000000'
     styleObj.boxShadow = '5px 5px 0px #000000'
   } else {
-    // SOLID/FILLED - Rich color with dramatic depth (supports gradients)
     if (c.buttonDefault.includes('gradient')) {
       styleObj.background = c.buttonDefault
     } else {
@@ -154,8 +147,7 @@ function renderButtonStyle(theme: Theme): React.CSSProperties {
       styleObj.border = `${b.borderWidth}px solid ${b.borderColor || c.accent || 'transparent'}`
     }
     if (b.shadow) {
-      // DRAMATIC shadow for premium feel
-      styleObj.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15), 0 3px 8px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)'
+      styleObj.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15)'
     }
   }
 
@@ -201,7 +193,6 @@ export default function CreatePage() {
     const theme = themeToUse || selectedTheme
     if (!theme) return
 
-    // If a card already exists, go straight to the editor without overwriting it
     const existingConfig = localStorage.getItem('currentBioLinkConfig')
     const existingId = localStorage.getItem('editorPreviewCardId')
     if (existingConfig && existingId) {
@@ -217,7 +208,6 @@ export default function CreatePage() {
     }
 
     const accountUsername = getCleanUsernameSlug(profileData.username) || 'myusername'
-
     const sampleLinks = CATEGORY_SAMPLE_LINKS[theme.category] || CATEGORY_SAMPLE_LINKS.minimal
 
     const bioLinkConfig = {
@@ -251,7 +241,6 @@ export default function CreatePage() {
     localStorage.setItem('editorPreviewCardId', accountUsername)
     localStorage.setItem('activeBioCardId', accountUsername)
 
-    // Also persist to Firestore draft so it survives refresh
     const userId = profileData.id || profileData.uid || ''
     if (userId) {
       fetch('/api/drafts', {
@@ -275,14 +264,7 @@ export default function CreatePage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-brand-600 animate-spin mx-auto mb-3" />
-          <p className="font-bold text-slate-900 text-sm">Loading theme templates...</p>
-        </div>
-      </div>
-    )
+    return <LoadingScreen title="Loading theme templates..." subtitle="Preparing design presets" />
   }
 
   const filteredThemes = activeCategory === 'all' 
@@ -290,37 +272,42 @@ export default function CreatePage() {
     : getThemesByCategory(activeCategory as any)
 
   return (
-    <div className="min-h-screen pb-20 bg-slate-50">
+    <main className="min-h-screen bg-[#c7d2ab] text-[#1a2211] font-sans flex flex-col justify-between pt-36 pb-12">
+      <div className="flex-1 max-w-7xl mx-auto px-6 py-4 w-full space-y-6">
 
-      {/* ── Top Header ── */}
-      <div className="max-w-[1600px] mx-auto px-6 pt-6 pb-3">
-        <div className="clay-card-flat p-5 bg-white flex items-center justify-between border border-slate-200 shadow-sm">
+        {/* ── Top Header Banner Card ── */}
+        <Card className="bg-white border border-black/10 p-8 rounded-3xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => router.push('/my-cards')}
-              className="clay-btn clay-btn-ghost p-2.5 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors flex-shrink-0"
+              className="p-3 rounded-full bg-slate-100 text-slate-800 hover:bg-slate-200 transition-colors shrink-0 shadow-xs"
               title="Back to My Cards"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">Choose Theme Template</h1>
-                <span className="text-[10px] font-extrabold text-brand-600 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-100">
-                  {THEMES.length} Unique Themes
-                </span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="success" size="md">{THEMES.length} Theme Templates</Badge>
               </div>
-              <p className="text-xs font-medium text-slate-500 mt-0.5">
-                Explore our collection of custom theme designs. Click <span className="font-bold text-slate-800">"Use Theme"</span> to open in editor.
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900">
+                Choose Theme Template
+              </h1>
+              <p className="text-sm font-semibold text-slate-500">
+                Explore custom theme presets. Select a style and click <span className="font-bold text-slate-900">"Use Theme"</span> to start.
               </p>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── Category Filter Pills ── */}
-      <div className="max-w-[1600px] mx-auto px-6 py-1">
-        <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-hide mb-3">
+          <button
+            onClick={() => handleCreateBioLink()}
+            className="px-7 py-3.5 rounded-full font-black text-xs bg-[#1a2211] text-[#c7d2ab] transition-all shadow-md hover:scale-[1.02] active:scale-95 flex items-center gap-2 shrink-0"
+          >
+            Start with Selected <ArrowRight className="w-4 h-4" />
+          </button>
+        </Card>
+
+        {/* ── Category Filter Pills ── */}
+        <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
           {categories.map((cat) => {
             const Icon = cat.icon
             const isActive = activeCategory === cat.id
@@ -328,13 +315,13 @@ export default function CreatePage() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black whitespace-nowrap transition-all shadow-sm ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    ? 'bg-[#1a2211] text-[#c7d2ab]'
+                    : 'bg-white text-slate-800 hover:bg-slate-100 border border-black/10'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-brand-400' : 'text-slate-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-[#c7d2ab]' : 'text-slate-400'}`} />
                 <span>{cat.name}</span>
               </button>
             )
@@ -342,7 +329,7 @@ export default function CreatePage() {
         </div>
 
         {/* ── HIGHLY DIVERSE 9:16 THEME CARDS GRID ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-2">
           {filteredThemes.map((theme) => {
             const isSelected = selectedTheme.id === theme.id
             const bgStyle = getThemeBackgroundStyle(theme)
@@ -356,19 +343,13 @@ export default function CreatePage() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedTheme(theme) } }}
-                className={`w-full aspect-[9/16] rounded-[24px] p-4 flex flex-col justify-between items-center text-center relative overflow-hidden border-2 transition-all duration-300 group cursor-pointer ${
+                className={`w-full aspect-[9/16] rounded-3xl p-5 flex flex-col justify-between items-center text-center relative overflow-hidden border-2 transition-all duration-300 group cursor-pointer ${
                   isSelected
-                    ? 'border-brand-600 ring-4 ring-brand-500/30 shadow-2xl scale-[1.04]'
-                    : 'border-slate-200/60 hover:border-brand-400 hover:shadow-2xl hover:-translate-y-3 shadow-lg'
+                    ? 'border-[#1a2211] ring-4 ring-[#1a2211]/20 shadow-2xl scale-[1.03]'
+                    : 'border-white/30 hover:border-[#1a2211] hover:shadow-2xl shadow-xl'
                 }`}
-                style={{
-                  ...bgStyle,
-                  boxShadow: isSelected 
-                    ? '0 24px 60px rgba(0, 0, 0, 0.18), 0 12px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)'
-                    : '0 10px 30px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)'
-                }}
+                style={bgStyle}
               >
-                {/* Background Overlay for Image Themes */}
                 {theme.colors.backgroundOverlay && (
                   <div 
                     className="absolute inset-0 pointer-events-none" 
@@ -379,64 +360,61 @@ export default function CreatePage() {
                 {/* Top Badge */}
                 <div className="w-full flex items-center justify-between relative z-10">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-extrabold px-2.5 py-1 rounded-full bg-slate-900/70 text-white backdrop-blur-sm capitalize border border-white/30 truncate max-w-[85px] shadow-lg">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/10 truncate max-w-[100px] shadow-md">
                       {theme.name}
                     </span>
                     {theme.isPremium && (
-                      <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white flex items-center gap-0.5 shadow-lg animate-pulse">
-                        <Star className="w-2 h-2 fill-current" />
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-black flex items-center gap-0.5 shadow-md">
+                        <Star className="w-2.5 h-2.5 fill-current" />
                         PRO
                       </span>
                     )}
                   </div>
                   {isSelected ? (
-                    <span className="text-[9px] font-extrabold px-2 py-1 rounded-full bg-brand-600 text-white flex items-center gap-0.5 shadow-lg">
-                      <Check className="w-2.5 h-2.5" />
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500 text-white flex items-center gap-1 shadow-md">
+                      <Check className="w-3 h-3" />
                     </span>
                   ) : (
-                    <span className="text-[9px] font-bold text-white/90 backdrop-blur-sm px-2 py-1 rounded-full bg-black/40 capitalize border border-white/20 shadow-md">
+                    <span className="text-[9px] font-bold text-white/90 backdrop-blur-md px-2.5 py-1 rounded-full bg-black/40 capitalize border border-white/20 shadow-sm">
                       {theme.buttonStyle.style}
                     </span>
                   )}
                 </div>
 
                 {/* Profile Header */}
-                <div className="my-auto w-full px-1 relative z-10">
+                <div className="my-auto w-full px-2 relative z-10">
                   <Avatar 
                     src={userProfile?.avatar} 
                     size="md" 
-                    className="mx-auto mb-2.5 border-3 shadow-xl ring-2 ring-offset-2"
-                    style={{
-                      borderColor: theme.colors.accent,
-                      boxShadow: `0 8px 24px ${theme.colors.accent}30, 0 3px 8px rgba(0,0,0,0.1)`
-                    }}
+                    className="mx-auto mb-3 border-2 shadow-xl"
+                    style={{ borderColor: theme.colors.accent }}
                   />
                   <h3 
-                    className="font-extrabold text-xs leading-snug mb-0.5 truncate max-w-[140px] mx-auto"
+                    className="font-black text-sm leading-tight mb-1 truncate max-w-[160px] mx-auto"
                     style={{ color: theme.colors.profileText, fontFamily: theme.fonts.heading }}
                   >
                     {userProfile?.displayName || 'Alex Rivera'}
                   </h3>
                   <p 
-                    className="text-[10px] max-w-[150px] mx-auto line-clamp-1 opacity-85 font-medium leading-tight mb-2.5"
+                    className="text-[11px] max-w-[170px] mx-auto line-clamp-1 opacity-85 font-medium leading-tight mb-3"
                     style={{ color: theme.colors.profileBio, fontFamily: theme.fonts.body }}
                   >
                     {userProfile?.bio || 'Digital Creator'}
                   </p>
 
                   {/* Category-Specific Unique Link Buttons */}
-                  <div className="space-y-1.5 w-full">
+                  <div className="space-y-2 w-full">
                     {sampleLinks.map((item, idx) => {
                       const Icon = item.icon
                       return (
                         <div
                           key={idx}
-                          className="w-full py-1.5 px-2.5 text-[10px] font-bold text-center flex items-center justify-between"
+                          className="w-full py-2 px-3 text-xs font-bold text-center flex items-center justify-between shadow-sm"
                           style={btnStyle}
                         >
-                          <Icon className="w-3 h-3 opacity-80 flex-shrink-0" />
+                          <Icon className="w-3.5 h-3.5 opacity-80 shrink-0" />
                           <span className="truncate mx-1">{item.text}</span>
-                          <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />
+                          <ChevronRight className="w-3.5 h-3.5 opacity-50 shrink-0" />
                         </div>
                       )
                     })}
@@ -444,11 +422,11 @@ export default function CreatePage() {
                 </div>
 
                 {/* Bottom Action Bar */}
-                <div className="w-full pt-2 flex items-center justify-between relative z-10 border-t border-white/20">
+                <div className="w-full pt-3 flex items-center justify-between relative z-10 border-t border-white/20">
                   <div className="flex items-center gap-2 opacity-90" style={{ color: theme.colors.accent }}>
-                    <Instagram className="w-3 h-3" />
-                    <Twitter className="w-3 h-3" />
-                    <Globe className="w-3 h-3" />
+                    <Instagram className="w-3.5 h-3.5" />
+                    <Twitter className="w-3.5 h-3.5" />
+                    <Globe className="w-3.5 h-3.5" />
                   </div>
                   <button
                     onClick={(e) => {
@@ -456,9 +434,9 @@ export default function CreatePage() {
                       setSelectedTheme(theme)
                       handleCreateBioLink(theme)
                     }}
-                    className="clay-btn clay-btn-primary px-2.5 py-1 text-[10px] font-extrabold flex items-center gap-0.5 shadow-sm"
+                    className="px-3.5 py-1.5 rounded-full text-xs font-black bg-[#1a2211] text-[#c7d2ab] flex items-center gap-1 shadow-md hover:scale-105 transition-all"
                   >
-                    Use Theme <ArrowRight className="w-3 h-3" />
+                    Use Theme <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -468,6 +446,6 @@ export default function CreatePage() {
         </div>
 
       </div>
-    </div>
+    </main>
   )
 }

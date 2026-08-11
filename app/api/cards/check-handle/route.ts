@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isHandleTaken } from '@/lib/cardStore'
 import { getUsernameOwner } from '@/lib/usernameRegistry'
 
+// Prevent static generation - this route needs runtime access
+export const dynamic = 'force-dynamic'
+
 const RESERVED = new Set([
   'admin', 'api', 'login', 'signup', 'create', 'editor', 'my-cards',
   'onboarding', 'settings', 'dashboard', 'card', 'preview', 'debug',

@@ -21,6 +21,7 @@ import GallerySlider from '@/components/card/GallerySlider'
 import BioCard from '@/components/card/BioCard'
 import BlockEditorDispatcher from '@/components/editor/blocks/BlockEditorDispatcher'
 import { useDraftStore, useCanUndo, useCanRedo } from '@/lib/stores/useDraftStore'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { 
   ArrowLeft, 
   Save, 
@@ -548,18 +549,7 @@ export default function EditorPage() {
   }
 
   if (loading || !config) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #EEF0F8 0%, #E8E9F5 100%)' }}>
-        <div className="text-center clay-card p-10 clay-pop-in">
-          <div className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #7C3AED, #6366F1)', boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.25), 0 4px 0 #4F46E5, 0 8px 20px rgba(124,58,237,0.35)' }}>
-            <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" style={{ borderWidth: '3px' }} />
-          </div>
-          <p className="text-base font-extrabold text-slate-800 tracking-tight">Loading editor...</p>
-          <p className="text-xs text-slate-400 font-medium mt-1">Preparing your workspace</p>
-        </div>
-      </div>
-    )
+    return <LoadingScreen title="Loading editor..." subtitle="Preparing your workspace" />
   }
 
   // ── Design summary helpers ──
@@ -1010,7 +1000,7 @@ export default function EditorPage() {
                 previewIframeRef.current.contentWindow.postMessage({ type: 'UPDATE_CONFIG', config }, '*')
               }
             }}
-            className="w-full max-w-[340px] h-[650px] max-h-[82vh] border border-slate-200/60 rounded-[36px] shadow-xl bg-white"
+            className="w-full max-w-[340px] h-[650px] max-h-[82vh] border border-slate-200/60 rounded-[36px] shadow-xl bg-transparent"
             title="Live Preview"
           />
         </aside>

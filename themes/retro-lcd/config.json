@@ -1,0 +1,110 @@
+{
+  "version": "2.1.0",
+  "id": "retro-lcd",
+  "name": "Retro LCD GameBoy",
+  "namespace": "theme-retro-lcd",
+  "extends": "base-light",
+  "category": "skeuomorphic",
+  "order": 15,
+  "license": {
+    "type": "free"
+  },
+  "overrides": {
+    "colors": true,
+    "radius": true,
+    "buttons": true,
+    "wallpaper": true,
+    "decorations": true
+  },
+  "meta": {
+    "author": "BioLinks",
+    "description": "Authentic monochrome retro LCD GameBoy handheld aesthetic with Silkscreen typography, scanlines, pixel status bar, and bordered buttons.",
+    "tags": [
+      "retro",
+      "gameboy",
+      "lcd",
+      "pixel",
+      "monochrome",
+      "silkscreen"
+    ]
+  },
+  "background": {
+    "type": "pattern",
+    "value": "#c7d2ab",
+    "mesh": "repeating-linear-gradient(rgba(0, 0, 0, 0.05) 0px, rgba(0, 0, 0, 0.05) 1px, transparent 1px, transparent 3px), radial-gradient(120% 90% at 30% 0%, rgb(199, 210, 171), rgb(183, 196, 149) 70%)"
+  },
+  "palette": {
+    "surface": "#c7d2ab",
+    "text": "#1a2211",
+    "textMuted": "#344422",
+    "brand": "#1a2211",
+    "border": "#1a2211",
+    "surfaceAlt": "#b7c495"
+  },
+  "buttonColor": "rgba(255, 255, 255, 0.05)",
+  "buttonText": "#1a2211",
+  "accent": "#1a2211",
+  "typography": {
+    "font": "font-silkscreen",
+    "heading": "font-silkscreen",
+    "headingWeight": 700,
+    "bodyWeight": 400,
+    "buttonWeight": 700
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": {
+    "glass": false,
+    "clay": false,
+    "blur": 0
+  },
+  "components": {
+    "button": {
+      "variant": "button-retro-lcd",
+      "radius": 12,
+      "shadow": "none",
+      "borderWidth": 2
+    },
+    "card": {
+      "variant": "card-retro-lcd",
+      "radius": 22,
+      "background": "repeating-linear-gradient(rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 3px), radial-gradient(120% 90% at 30% 0%, #c7d2ab, #b7c495 70%)",
+      "shadow": "0 20px 40px -16px rgba(0, 0, 0, 0.35), inset 0 0 24px rgba(0, 0, 0, 0.2)",
+      "maxWidth": "340px",
+      "padding": "18px 18px 22px"
+    },
+    "avatar": {
+      "variant": "avatar-circle",
+      "size": 126
+    },
+    "social": {
+      "variant": "social-dashed"
+    }
+  },
+  "specialty": {
+    "scanlines": true,
+    "statusBar": false,
+    "creatorTag": null,
+    "fontFamily": "'Silkscreen', monospace",
+    "avatarBorder": "2.5px solid #1a2211",
+    "socialBorder": "2px dashed #1a2211",
+    "buttonBorder": "2px solid #1a2211"
+  },
+  "link": {
+    "style": "button",
+    "icon": "left",
+    "arrow": true
+  },
+  "visibility": {
+    "avatar": true,
+    "bio": true,
+    "verified": true,
+    "social": true,
+    "footer": true,
+    "shareButton": true
+  },
+  "a11y": {
+    "contrast": "AAA",
+    "reducedMotion": true
+  }
+}

@@ -1,16 +1,32 @@
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getStorage, FirebaseStorage } from 'firebase/storage'
-import { app, auth, googleProvider, githubProvider } from './firebase-auth'
+import { getApp, auth, googleProvider, githubProvider } from './firebase-auth'
 
-let db: Firestore
-let storage: FirebaseStorage
+let db: Firestore | null = null
+let storage: FirebaseStorage | null = null
 
-if (typeof window !== 'undefined') {
-  db = getFirestore(app)
-  storage = getStorage(app)
-} else {
-  db = getFirestore(app)
-  storage = getStorage(app)
+// Lazy getters that initialize on-demand
+export const getDb = (): Firestore => {
+  if (!db) {
+    const app = getApp()
+    db = getFirestore(app)
+  }
+  return db
 }
 
-export { app, db, auth, storage, googleProvider, githubProvider }
+export const getStorageInstance = (): FirebaseStorage => {
+  if (!storage) {
+    const app = getApp()
+    storage = getStorage(app)
+  }
+  return storage
+}
+
+// Legacy exports for backward compatibility
+export { auth, googleProvider, githubProvider }
+
+// Re-export app getter
+export { getApp as app }
+
+// Export db and storage as getters
+export { db, storage }

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDraft, saveDraft } from '@/lib/profileService'
 
+// Prevent static generation - this route needs runtime access
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl

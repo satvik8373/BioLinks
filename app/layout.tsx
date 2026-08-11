@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import ConditionalNavigation from '@/components/layout/ConditionalNavigation'
+import ConditionalFooter from '@/components/layout/ConditionalFooter'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
 const jakarta = Plus_Jakarta_Sans({
@@ -34,6 +35,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ConditionalNavigation />
           {children}
+          <ConditionalFooter />
         </ThemeProvider>
       </body>
     </html>

@@ -1,9 +1,10 @@
-import { ReactNode } from 'react'
+import React, { ReactNode } from 'react'
 import { clsx } from 'clsx'
 
 interface CardProps {
   children: ReactNode
   className?: string
+  style?: React.CSSProperties
   hover?: boolean
   onClick?: () => void
   /** Color accent for top border stripe: primary (brand violet) | secondary (slate) */
@@ -28,6 +29,7 @@ const paddings: Record<string, string> = {
 export default function Card({
   children,
   className,
+  style,
   hover = false,
   onClick,
   accent,
@@ -36,6 +38,7 @@ export default function Card({
   const interactive = typeof onClick === 'function'
   return (
     <div
+      style={style}
       className={clsx(
         'clay-card-flat overflow-hidden',
         hover && 'clay-card cursor-pointer',

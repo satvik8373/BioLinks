@@ -3,6 +3,9 @@ import { saveCard } from '@/lib/firestore'
 import { storeCardGlobal, getAllCardsGlobal } from '@/lib/cardStore'
 import { claimUsername, UsernameTakenError } from '@/lib/usernameRegistry'
 
+// Prevent static generation - this route needs runtime access
+export const dynamic = 'force-dynamic'
+
 // GET - Get all cards published on server
 export async function GET() {
   try {

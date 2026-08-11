@@ -15,6 +15,7 @@ import pastelDreamConfig from './pastel-dream/config.json'
 import warmCoffeeConfig from './warm-coffee/config.json'
 import softClayConfig from './soft-clay/config.json'
 import skeuoWoodConfig from './skeuo-wood/config.json'
+import retroLcdConfig from './retro-lcd/config.json'
 
 export const ALL_JSON_CONFIGS: ThemeConfig[] = [
   popBrutalistConfig as unknown as ThemeConfig,
@@ -24,6 +25,7 @@ export const ALL_JSON_CONFIGS: ThemeConfig[] = [
   warmCoffeeConfig as unknown as ThemeConfig,
   softClayConfig as unknown as ThemeConfig,
   skeuoWoodConfig as unknown as ThemeConfig,
+  retroLcdConfig as unknown as ThemeConfig,
 ]
 
 export function jsonToLegacyTheme(config: any): Theme {
@@ -46,7 +48,8 @@ export function jsonToLegacyTheme(config: any): Theme {
     category: mappedCat as any,
     colors: {
       background: bgObj.value,
-      backgroundMesh: bgObj.type === 'mesh' ? bgObj.value : undefined,
+      backgroundMesh: (config.background as any)?.mesh || (bgObj.type === 'mesh' || bgObj.type === 'pattern' ? bgObj.value : undefined),
+      backgroundType: (config.background as any)?.type || bgObj.type,
       backgroundImage: bgObj.image,
       backgroundOverlay: bgObj.overlay,
       buttonDefault: config.buttonColor || palette.brand,

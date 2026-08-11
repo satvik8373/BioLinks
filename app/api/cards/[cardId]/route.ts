@@ -3,6 +3,9 @@ import { getCard, saveCard, deleteCard, incrementViews, incrementClicks } from '
 import { getCardGlobal, storeCardGlobal, deleteCardGlobal } from '@/lib/cardStore'
 import { claimUsername, UsernameTakenError } from '@/lib/usernameRegistry'
 
+// Prevent static generation - this route needs runtime access
+export const dynamic = 'force-dynamic'
+
 // GET - Get a specific card by ID or handle slug across any device/phone/browser
 export async function GET(
   request: NextRequest,

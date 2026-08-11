@@ -25,6 +25,7 @@ export default function ButtonsPanel({ config, updateConfig, onBack }: ButtonsPa
     { id: 'solid', label: 'Solid' },
     { id: 'glass', label: 'Glass' },
     { id: 'outline', label: 'Outline' },
+    { id: 'retro-lcd', label: 'Retro LCD' },
   ]
 
   const cornerOptions = [

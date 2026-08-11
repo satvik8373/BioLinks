@@ -18,7 +18,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { getDb } from './firebase'
 import type { Theme } from './themes'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -61,6 +61,7 @@ export interface ProfileDocument {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function profilesRef(userId: string, docType: 'draft' | 'published') {
+  const db = getDb()
   return doc(db, 'profiles', userId, docType, 'data')
 }
 

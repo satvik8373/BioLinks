@@ -47,6 +47,13 @@ const PALETTES = [
     button: '#E0F2FE',
     buttonText: '#0369A1',
   },
+  {
+    name: 'Retro LCD GameBoy',
+    bg: '#e2e8f0',
+    text: '#1a2211',
+    button: 'rgba(255, 255, 255, 0.05)',
+    buttonText: '#1a2211',
+  },
 ]
 
 export default function ColorsPanel({ config, updateConfig, onBack }: ColorsPanelProps) {

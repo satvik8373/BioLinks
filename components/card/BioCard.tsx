@@ -120,7 +120,7 @@ interface BioLinkConfig {
       shadow: boolean
       shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
       boxShadow?: string
-      style?: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill' | 'wood' | 'carved' | 'raised' | 'leather'
+      style?: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill' | 'wood' | 'carved' | 'raised' | 'leather' | 'retro-lcd' | 'button-retro-lcd' | string
       animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide' | string
       enableAnimations?: boolean
     }
@@ -192,13 +192,14 @@ function ProfileBadge({ profile }: { profile: any }) {
 }
 
 // ─── Platform icons ───────────────────────────────────────────────────────
-const PLATFORM_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
+const PLATFORM_ICONS: Record<string, any> = {
   instagram: InstagramIcon, tiktok: TikTokIcon, youtube: YouTubeIcon,
-  spotify: SpotifyIcon, twitter: TwitterIcon, facebook: FacebookIcon,
-  linkedin: LinkedInIcon, discord: DiscordIcon, github: GitHubIcon,
+  spotify: SpotifyIcon, twitter: TwitterIcon, x: TwitterIcon, facebook: FacebookIcon,
+  linkedin: LinkedInIcon, in: LinkedInIcon, discord: DiscordIcon, github: GitHubIcon,
   whatsapp: WhatsAppIcon, telegram: TelegramIcon, soundcloud: SoundCloudIcon,
-  shopify: ShopifyIcon, email: EmailIcon, phone: PhoneIcon, website: WebsiteIcon,
-  'apple-music': AppleMusicIcon,
+  shopify: ShopifyIcon, email: EmailIcon, mail: EmailIcon, phone: PhoneIcon,
+  website: WebsiteIcon, globe: Globe, 'apple-music': AppleMusicIcon,
+  work: Briefcase, briefcase: Briefcase,
 }
 
 // ─── URL Sanitizer — ensures absolute external URLs ───────────────────────
@@ -285,6 +286,8 @@ export function resolveFontFamily(fontName?: string): string {
     'Montserrat': "'Montserrat', sans-serif",
     'Playfair Display': "'Playfair Display', serif",
     'Open Sans': "'Open Sans', sans-serif",
+    'Silkscreen': "'Silkscreen', monospace",
+    'font-silkscreen': "'Silkscreen', monospace",
   }
 
   if (map[clean]) return map[clean]
@@ -325,6 +328,25 @@ function buildBtnStyle(
 
   const bWidth = bs?.borderWidth ?? 0
   const bColor = bs?.borderColor || c.buttonText || c.profileText || '#000000'
+
+  if (theme.id === 'retro-lcd' || style === 'retro-lcd' || style === 'button-retro-lcd') {
+    const isDefaultDarkOrGrey = !c.buttonDefault || c.buttonDefault === '#D3D1C7' || c.buttonDefault === '#39342C' || c.buttonDefault === '#1E293B' || c.buttonDefault === '#161821' || c.buttonDefault === '#000000' || c.buttonDefault === '#ffffff' || c.buttonDefault === '#F8FAFC'
+    const retroBg = isDefaultDarkOrGrey ? 'rgba(255, 255, 255, 0.05)' : c.buttonDefault
+    return {
+      ...base,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: retroBg,
+      color: c.buttonText || '#1a2211',
+      border: `${Math.max(bWidth, 2)}px solid ${bColor}`,
+      borderRadius: typeof r === 'number' ? `${r}px` : (r || '12px'),
+      padding: '11px 12px',
+      fontFamily: resolveFontFamily(theme.fonts?.body || "'Silkscreen', monospace"),
+      fontSize: '15px',
+      boxShadow: 'none',
+    }
+  }
 
   switch (style) {
     case 'clay':
@@ -736,7 +758,7 @@ export default function BioCard({
       link.id = linkId
       link.rel = 'stylesheet'
       link.href =
-        'https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;700&family=Belanosima:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=DM+Sans:wght@400;700&family=Epilogue:wght@400;700&family=IBM+Plex+Sans:wght@400;700&family=Inter:wght@400;700&family=Lato:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Manrope:wght@400;700&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Oxanium:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Poppins:wght@400;700&family=Red+Hat+Display:wght@400;700&family=Roboto:wght@400;700&family=Rubik:wght@400;700&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700&display=swap'
+        'https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;700&family=Belanosima:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=DM+Sans:wght@400;700&family=Epilogue:wght@400;700&family=IBM+Plex+Sans:wght@400;700&family=Inter:wght@400;700&family=Lato:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Manrope:wght@400;700&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Oxanium:wght@400;700&family=Playfair+Display:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Poppins:wght@400;700&family=Red+Hat+Display:wght@400;700&family=Roboto:wght@400;700&family=Rubik:wght@400;700&family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@400;700&family=Syne:wght@400;700&display=swap'
       document.head.appendChild(link)
     }
   }, [])
@@ -1447,8 +1469,20 @@ export default function BioCard({
 
 
     // Classic Button Layout (Default) or Featured Card Layout
-    const iconKey = (link.platform || link.icon || '').toLowerCase()
-    const Icon = PLATFORM_ICONS[iconKey] || null
+    const rawIconKey = (link.platform || link.icon || '').toLowerCase()
+    const inferredIconKey = rawIconKey || (() => {
+      const u = (link.url || '').toLowerCase()
+      const t = (link.text || '').toLowerCase()
+      if (u.includes('youtube') || t.includes('youtube')) return 'youtube'
+      if (u.includes('instagram') || t.includes('instagram')) return 'instagram'
+      if (u.includes('twitter') || u.includes('x.com') || t.includes('twitter')) return 'twitter'
+      if (u.includes('linkedin') || t.includes('linkedin')) return 'linkedin'
+      if (t.includes('work') || t.includes('portfolio')) return 'work'
+      if (t.includes('business') || t.includes('inquir') || t.includes('contact') || u.includes('mailto:')) return 'email'
+      if (t.includes('website') || t.includes('site') || u.includes('http')) return 'website'
+      return 'globe'
+    })()
+    const Icon = PLATFORM_ICONS[inferredIconKey] || Globe
     const isClay = theme.buttonStyle?.style === 'clay' || theme.id === 'soft-clay'
 
     const featuredThumb = link.thumbnail || (link as any).featuredImage || (link as any).imageUrl || null
@@ -1511,6 +1545,29 @@ export default function BioCard({
       )
     }
 
+    const isRetroBtn = theme.id === 'retro-lcd' || theme.buttonStyle?.style === 'retro-lcd' || theme.buttonStyle?.style === 'button-retro-lcd'
+    if (isRetroBtn) {
+      return (
+        <a 
+          key={key} 
+          href={ensureAbsoluteUrl(link.url)} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          onClick={(e) => handleLinkClick(e, link)} 
+          style={btnStyle}
+          className={`group relative overflow-hidden transform-gpu flex items-center justify-between gap-[10px] text-[15px] no-underline whitespace-nowrap ${animClasses}`}
+        >
+          <div className="w-[22px] h-[22px] border-2 rounded-[5px] flex items-center justify-center flex-shrink-0" style={{ borderColor: theme.buttonStyle?.borderColor || c.buttonText || '#1a2211' }}>
+            {Icon ? <Icon size={13} style={{ color: c.buttonText }} /> : <Globe size={13} style={{ color: c.buttonText }} />}
+          </div>
+          <span className="flex-1 min-w-0 text-left truncate font-bold text-[14px] sm:text-[15px] whitespace-nowrap leading-none" style={{ color: c.buttonText, fontFamily: resolveFontFamily(theme.fonts?.body) }}>
+            {link.text}
+          </span>
+          <span className="text-[18px] leading-none flex-shrink-0 ml-auto font-bold" style={{ color: c.buttonText, fontFamily: resolveFontFamily(theme.fonts?.body) }}>&rsaquo;</span>
+        </a>
+      )
+    }
+
     return (
       <a 
         key={key} 
@@ -1554,11 +1611,11 @@ export default function BioCard({
             {Icon ? <Icon size={isClay ? 22 : 18} /> : <Globe size={isClay ? 22 : 18} />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : (theme.buttonStyle?.style === 'leather' ? '#FFF8F0' : (isWood ? '#2B1F16' : c.buttonText)), fontFamily: theme.fonts?.body }}>
+            <p className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : (theme.buttonStyle?.style === 'leather' ? '#FFF8F0' : (isWood ? '#2B1F16' : c.buttonText)), fontFamily: resolveFontFamily(theme.fonts?.body) }}>
               {link.text}
             </p>
             {link.description && (
-              <p className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : (theme.buttonStyle?.style === 'leather' ? 'rgba(255,248,240,0.75)' : (isWood ? 'rgba(43,31,22,0.75)' : c.buttonText)), fontFamily: theme.fonts?.body, opacity: isClay ? 1 : 0.8 }}>
+              <p className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : (theme.buttonStyle?.style === 'leather' ? 'rgba(255,248,240,0.75)' : (isWood ? 'rgba(43,31,22,0.75)' : c.buttonText)), fontFamily: resolveFontFamily(theme.fonts?.body), opacity: isClay ? 1 : 0.8 }}>
                 {link.description}
               </p>
             )}
@@ -1590,11 +1647,10 @@ export default function BioCard({
 
   const hasCardSpecialty = Boolean(theme.specialty?.cardBackground || theme.specialty?.cardBorderRadius || isWood || isClay)
   const cardMaxWidth = theme.specialty?.cardMaxWidth || (widthToken === 'compact' ? '390px' : widthToken === 'wide' ? '640px' : '480px')
-  const cardPadding = theme.specialty?.cardPadding || '16px 16px 20px'
 
-  const cardStyle: React.CSSProperties = hasCardSpecialty
-    ? { maxWidth: cardMaxWidth }
-    : {}
+  const cardStyle: React.CSSProperties = {
+    maxWidth: cardMaxWidth,
+  }
 
   const activeDecorations = (theme.specialty as any)?.decorations || ((theme.specialty as any)?.blobs ? ['blobs', 'noise'] : [])
 
@@ -1655,10 +1711,7 @@ export default function BioCard({
         }} />
       )}
 
-      {/* ── Welcome / Loading Splash Screen Intro Sequence ──
-           Rendered via React Portal into document.body so it covers the true
-           100vw × 100vh viewport — independent of any parent container,
-           overflow, border-radius, or stacking context.                   ── */}
+      {/* ── Welcome / Loading Splash Screen Intro Sequence ── */}
       <WelcomeSplashScreen
         key={`splash_${splashKey}`}
         splash={(config as any).splashScreen}
@@ -1678,6 +1731,7 @@ export default function BioCard({
         }`}
         style={cardStyle}
       >
+
         <DecorationLayer decorations={activeDecorations} blobColorLeft="#ffffff" blobColorRight="#ffffff" />
 
         {/* ── Interactive Floating Stickers Canvas Layer ── */}
@@ -1861,8 +1915,37 @@ export default function BioCard({
             }
 
             // 5. CLASSIC LAYOUT (DEFAULT - Mobile Optimized)
+            const showStatusBar = Boolean((theme.specialty as any)?.statusBar)
+            const creatorTag = (theme.specialty as any)?.creatorTag
+            const avatarBorder = (theme.specialty as any)?.avatarBorder
+
             return (
               <div className="w-full text-center relative z-10 mb-4 sm:mb-6">
+                {/* Optional Status Bar */}
+                {showStatusBar && (
+                  <div className="flex justify-between items-center text-[13px] tracking-wider pb-2 relative z-10" style={{ color: c.profileText }}>
+                    <span className="font-bold">{(theme.specialty as any)?.time || '09:41'}</span>
+                    <span className="flex items-center gap-[6px]">
+                      <span className="flex items-end gap-[1px] h-[9px]">
+                        <span className="w-[2px] h-[3px] block" style={{ backgroundColor: c.profileText }} />
+                        <span className="w-[2px] h-[5px] block" style={{ backgroundColor: c.profileText }} />
+                        <span className="w-[2px] h-[7px] block" style={{ backgroundColor: c.profileText }} />
+                        <span className="w-[2px] h-[9px] block" style={{ backgroundColor: c.profileText }} />
+                      </span>
+                      <span className="w-[20px] h-[10px] border-[1.5px] rounded-[2px] relative flex items-center p-[1.5px]" style={{ borderColor: c.profileText }}>
+                        <span className="block w-[75%] h-full" style={{ backgroundColor: c.profileText }} />
+                        <span className="absolute -right-[4px] top-[2.5px] w-[2px] h-[5px] rounded-r-[1px]" style={{ backgroundColor: c.profileText }} />
+                      </span>
+                    </span>
+                  </div>
+                )}
+
+                {/* Optional Creator Tag */}
+                {creatorTag && (
+                  <div className="text-right text-[15px] underline underline-offset-[3px] mb-1.5 relative z-10" style={{ color: c.profileText }}>
+                    {creatorTag}
+                  </div>
+                )}
                 {/* Avatar */}
                 <div className="w-24 h-24 sm:w-28 sm:h-28 my-3 rounded-full mx-auto overflow-hidden shadow-md border-2 border-white/80">
                   {hasImg(avatarSrc) ? (
@@ -1924,6 +2007,24 @@ export default function BioCard({
                   isClay && platform === 'linkedin' ? '#2f6fed' :
                   isClay && (platform === 'twitter' || platform === 'x') ? '#3aa0f3' :
                   isClay ? '#1a1d24' : undefined
+
+                const hasDashedSocials = (theme.specialty as any)?.socialBorder?.includes('dashed') || theme.id === 'retro-lcd' || theme.buttonStyle?.style === 'retro-lcd' || theme.buttonStyle?.style === 'button-retro-lcd'
+                if (hasDashedSocials) {
+                  return (
+                    <a
+                      key={platform}
+                      href={ensureAbsoluteUrl(url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-[42px] h-[42px] rounded-full border-2 border-dashed flex items-center justify-center transition-all hover:scale-110"
+                      style={{ borderColor: c.profileText || '#1a2211', color: c.profileText || '#1a2211' }}
+                      title={platform}
+                    >
+                      <Icon size={20} style={{ color: c.profileText || '#1a2211' }} />
+                    </a>
+                  )
+                }
+
                 return (
                   <a
                     key={platform}
@@ -2090,7 +2191,7 @@ export default function BioCard({
           )}
 
           {/* Official Footer Sub-Links */}
-          <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] font-semibold text-white/80 drop-shadow-sm text-center leading-relaxed">
+          <div className="flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] font-semibold text-center leading-relaxed" style={{ color: c.profileBio || c.profileText || '#1a2211' }}>
             <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Cookie Preferences</button>
             <span className="opacity-60">•</span>
             <button type="button" onClick={() => {}} className="hover:underline opacity-90 hover:opacity-100 cursor-pointer">Report</button>

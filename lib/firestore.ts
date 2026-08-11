@@ -9,7 +9,7 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore'
-import { db } from './firebase'
+import { getDb } from './firebase'
 
 const CARDS_COLLECTION = 'bioCards'
 
@@ -52,6 +52,7 @@ export interface BioCard {
  */
 export async function saveCard(cardId: string, cardData: Omit<BioCard, 'id'>) {
   try {
+    const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
     const cleanCardData = JSON.parse(JSON.stringify(cardData))
     
@@ -76,6 +77,7 @@ export async function saveCard(cardId: string, cardData: Omit<BioCard, 'id'>) {
  */
 export async function getCard(cardId: string): Promise<BioCard | null> {
   try {
+    const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
     const cardSnap = await getDoc(cardRef)
     
@@ -107,6 +109,7 @@ export async function getCard(cardId: string): Promise<BioCard | null> {
  */
 export async function updateCard(cardId: string, updates: Partial<BioCard>) {
   try {
+    const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
     
     // Check if card exists
@@ -134,6 +137,7 @@ export async function updateCard(cardId: string, updates: Partial<BioCard>) {
  */
 export async function deleteCard(cardId: string) {
   try {
+    const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
     await deleteDoc(cardRef)
     
@@ -149,6 +153,7 @@ export async function deleteCard(cardId: string) {
  */
 export async function incrementViews(cardId: string) {
   try {
+    const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
     
     await updateDoc(cardRef, {
@@ -168,6 +173,7 @@ export async function incrementViews(cardId: string) {
  */
 export async function incrementClicks(cardId: string) {
   try {
+    const db = getDb()
     const cardRef = doc(db, CARDS_COLLECTION, cardId)
     
     await updateDoc(cardRef, {

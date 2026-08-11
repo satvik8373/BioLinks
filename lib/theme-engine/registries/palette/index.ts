@@ -419,6 +419,19 @@ export const PALETTE_REGISTRY: Record<string, SemanticPalette> = {
     success: '#10B981',
     warning: '#F59E0B',
     danger: '#EF4444'
+  },
+  'palette-retro-lcd': {
+    id: 'palette-retro-lcd',
+    name: 'Retro LCD GameBoy Olive Monochrome',
+    brand: '#1a2211',
+    surface: '#c7d2ab',
+    surfaceAlt: '#b7c495',
+    text: '#1a2211',
+    textMuted: '#344422',
+    border: '#1a2211',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444'
   }
 }
 

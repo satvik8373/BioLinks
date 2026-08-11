@@ -3,11 +3,15 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
+import LoadingScreen from '@/components/ui/LoadingScreen'
+import Button from '@/components/ui/Button'
 import { getAllCards, deleteCard, saveCard } from '@/lib/storage'
 import { parseGoogleDriveUrl } from '@/lib/themes'
 import {
   Plus, Eye, Edit3, Trash2, Copy, CheckCircle, Loader2,
-  Layout, ExternalLink, Sparkles, Check, Star
+  ExternalLink, Sparkles, Check, Star
 } from 'lucide-react'
 
 interface CardData {
@@ -27,11 +31,10 @@ interface CardData {
 
 function getBannerStyle(config: any): { bgStyle: React.CSSProperties; profileText: string } {
   const c = config?.theme?.colors
-  if (!c) return { bgStyle: { background: 'linear-gradient(135deg, #0F172A, #1E293B)' }, profileText: '#fff' }
+  if (!c) return { bgStyle: { background: 'linear-gradient(135deg, #1a2211, #2d3b1e)' }, profileText: '#fff' }
   let bgStyle: React.CSSProperties = {}
   if (c.backgroundVideo || c.backgroundIframe) {
-    // video background — show a dark placeholder in the banner
-    bgStyle = { background: 'linear-gradient(135deg, #0F172A, #1E293B)' }
+    bgStyle = { background: 'linear-gradient(135deg, #1a2211, #2d3b1e)' }
   } else if (c.backgroundImage) {
     const driveObj = parseGoogleDriveUrl(c.backgroundImage)
     const imgUrl = driveObj.directUrl || c.backgroundImage
@@ -42,7 +45,7 @@ function getBannerStyle(config: any): { bgStyle: React.CSSProperties; profileTex
     const g = c.backgroundGradient
     bgStyle = { background: `linear-gradient(${g.direction || '135deg'},${g.from},${g.to})` }
   } else {
-    bgStyle = { backgroundColor: c.background || '#0F172A' }
+    bgStyle = { backgroundColor: c.background || '#1a2211' }
   }
   return { bgStyle, profileText: c.profileText || '#fff' }
 }
@@ -82,8 +85,6 @@ export default function MyCardsPage() {
     const profile = localStorage.getItem('userProfile')
     if (!profile) { router.push('/login'); return }
 
-    const savedActiveId = localStorage.getItem('activeBioCardId') || localStorage.getItem('editorPreviewCardId') || ''
-
     const loadUserCards = async () => {
       try {
         const result = await getAllCards()
@@ -108,7 +109,6 @@ export default function MyCardsPage() {
             }
           })
 
-          // One card per account username — keep most recently updated
           const uniqueMap = new Map<string, CardData>()
           rawList.forEach(item => {
             const key = item.handle
@@ -147,7 +147,6 @@ export default function MyCardsPage() {
     loadUserCards()
   }, [router])
 
-  // Set a card as the active one being edited, load it into editor state
   const handleSetActiveCard = async (card: CardData) => {
     setActiveCardId(card.handle)
     localStorage.setItem('activeBioCardId', card.handle)
@@ -179,8 +178,6 @@ export default function MyCardsPage() {
   const handleDelete = async (cardHandle: string) => {
     if (!confirm('Delete this card? This cannot be undone.')) return
     setDeletingId(cardHandle)
-
-    const card = cards.find(c => c.handle === cardHandle)
 
     try {
       await fetch(`/api/cards/${cardHandle}`, { method: 'DELETE' }).catch(() => {})
@@ -214,11 +211,8 @@ export default function MyCardsPage() {
     })
   }
 
-  // "New Card" button — if a card already exists, go to editor (edit current).
-  // Only go to /create if there are truly no cards yet.
   const handleNewCard = () => {
     if (cards.length > 0) {
-      // Load the active card and go straight to editor
       const active = cards.find(c => c.id === activeCardId) || cards[0]
       handleSetActiveCard(active)
       router.push('/editor')
@@ -228,83 +222,98 @@ export default function MyCardsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-      </div>
-    )
+    return <LoadingScreen title="Loading dashboard..." subtitle="Fetching your BioLink cards" />
   }
 
+  const totalViews = cards.reduce((sum, c) => sum + c.views, 0)
+  const totalClicks = cards.reduce((sum, c) => sum + c.clicks, 0)
+
   return (
-    <div className="min-h-screen pb-16 bg-slate-50/50">
-      {/* Header */}
-      <div className="max-w-6xl mx-auto px-5 pt-6 pb-2">
-        <div className="clay-card-flat p-6 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-slate-200/80 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
-              <Layout className="w-5 h-5" />
+    <main className="min-h-screen bg-[#c7d2ab] text-[#1a2211] font-sans flex flex-col justify-between pt-36 pb-12">
+      <div className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full space-y-8">
+        
+        {/* Banner Card Header */}
+        <Card className="bg-white border border-black/10 p-8 rounded-3xl shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2">
+              <Badge variant="success" size="md">Account Dashboard</Badge>
             </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-900">My Bio Card</h1>
-              <p className="text-slate-500 text-xs font-medium mt-0.5">
-                {cards.length === 0 ? 'No card yet' : `${cards.length} card${cards.length !== 1 ? 's' : ''}`}
-              </p>
-            </div>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900">
+              My BioLink Cards
+            </h1>
+            <p className="text-sm font-semibold text-[#1a2211]/80">
+              Manage your active bio cards, customize design themes & track analytics
+            </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleNewCard}
-              className="clay-btn clay-btn-primary px-4 py-2.5 text-xs font-extrabold flex items-center gap-1.5 shadow-sm"
-            >
-              {cards.length > 0 ? (
-                <><Edit3 className="w-4 h-4" /> Edit Card</>
-              ) : (
-                <><Plus className="w-4 h-4" /> Create Card</>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={handleNewCard}
+            className="px-7 py-3.5 rounded-full font-black text-xs bg-[#1a2211] text-[#c7d2ab] transition-all shadow-md hover:scale-[1.02] active:scale-95 flex items-center gap-2 shrink-0"
+          >
+            {cards.length > 0 ? (
+              <><Edit3 className="w-4 h-4" /> Edit Active Card</>
+            ) : (
+              <><Plus className="w-4 h-4" /> Create New Card</>
+            )}
+          </button>
+        </Card>
+
+        {/* Dashboard Analytics Overview */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {[
+            { label: 'Total Cards', value: cards.length },
+            { label: 'Total Pageviews', value: totalViews.toLocaleString() },
+            { label: 'Link Clicks', value: totalClicks.toLocaleString() },
+          ].map(({ label, value }) => (
+            <Card key={label} className="bg-white border border-black/10 p-6 rounded-3xl shadow-md">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1">{label}</p>
+              <p className="text-3xl font-black text-slate-900">{value}</p>
+            </Card>
+          ))}
         </div>
-      </div>
 
-      {/* Cards Grid */}
-      <div className="max-w-6xl mx-auto px-5 py-6">
+        {/* Card Management List */}
         {cards.length === 0 ? (
-          <div className="clay-card-flat p-14 text-center bg-white border border-slate-200 rounded-2xl">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center text-white mx-auto mb-4 shadow-md">
+          <Card className="bg-white border border-black/10 p-16 text-center rounded-3xl shadow-xl space-y-4 max-w-xl mx-auto">
+            <div className="w-16 h-16 rounded-2xl bg-[#1a2211] text-[#c7d2ab] flex items-center justify-center mx-auto shadow-md">
               <Sparkles className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-extrabold text-slate-900 mb-2">No card built yet</h2>
-            <p className="text-slate-500 text-xs font-medium mb-6 max-w-xs mx-auto">
-              Create your bio link card and share it with your audience.
+            <h2 className="text-2xl font-black text-slate-900">No Bio Card Created Yet</h2>
+            <p className="text-sm font-semibold text-slate-500 max-w-sm mx-auto">
+              Create your custom bio link card now to share your links, social channels, and products everywhere.
             </p>
-            <Link href="/create" className="clay-btn clay-btn-primary px-6 py-2.5 text-xs font-bold">
-              <Plus className="w-4 h-4 mr-1.5" /> Create Card
+            <Link href="/create">
+              <button
+                type="button"
+                className="px-8 py-4 rounded-full font-black text-xs bg-[#1a2211] text-[#c7d2ab] transition-all shadow-md hover:scale-[1.02]"
+              >
+                Create Bio Link Card
+              </button>
             </Link>
-          </div>
+          </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {cards.map(card => {
               const isActive = card.handle === activeCardId
               return (
-                <div
+                <Card
                   key={card.id}
-                  className={`clay-card overflow-hidden bg-white flex flex-col justify-between rounded-2xl transition-all duration-200 ${
-                    isActive ? 'ring-2 ring-emerald-500 shadow-xl scale-[1.01]' : 'border border-slate-200 hover:border-slate-300'
+                  className={`bg-white border transition-all duration-300 overflow-hidden rounded-3xl flex flex-col justify-between shadow-xl ${
+                    isActive ? 'border-[#1a2211] ring-2 ring-[#1a2211]/20' : 'border-slate-200'
                   }`}
                 >
                   <div>
-                    {/* Banner */}
-                    <div className="relative h-36 flex flex-col items-center justify-center gap-2 px-4 shadow-sm" style={card.bgStyle}>
+                    {/* Banner Top */}
+                    <div className="relative h-40 flex flex-col items-center justify-center gap-2 p-4 shadow-sm" style={card.bgStyle}>
                       <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-900/60 text-white backdrop-blur-sm capitalize border border-white/10">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/10">
                           {card.themeName}
                         </span>
                         <button
                           onClick={() => handleSetActiveCard(card)}
-                          className={`flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full backdrop-blur-md transition-all cursor-pointer shadow-md ${
+                          className={`flex items-center gap-1.5 text-[10px] font-black px-3.5 py-1.5 rounded-full backdrop-blur-md transition-all cursor-pointer shadow-md ${
                             isActive
-                              ? 'bg-emerald-500 text-white border border-emerald-400 ring-2 ring-emerald-300/40'
+                              ? 'bg-emerald-500 text-white border border-emerald-400'
                               : 'bg-black/40 text-white/90 hover:bg-black/60 border border-white/20'
                           }`}
                         >
@@ -312,65 +321,57 @@ export default function MyCardsPage() {
                           {isActive ? 'ACTIVE' : 'SET ACTIVE'}
                         </button>
                       </div>
+
                       <AvatarDisplay avatar={card.avatar} title={card.title} color={card.profileText} />
                       <div className="text-center">
-                        <p className="text-sm font-extrabold leading-tight" style={{ color: card.profileText }}>{card.title}</p>
+                        <p className="text-base font-black leading-tight" style={{ color: card.profileText }}>{card.title}</p>
                         {card.bio && (
-                          <p className="text-[11px] mt-0.5 opacity-80 line-clamp-1 max-w-[180px]" style={{ color: card.profileText }}>{card.bio}</p>
+                          <p className="text-xs mt-0.5 opacity-80 line-clamp-1 max-w-[200px]" style={{ color: card.profileText }}>{card.bio}</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Analytics */}
-                    <div className="px-4 py-2.5 flex items-center justify-between border-b border-slate-100 bg-slate-50/50">
+                    {/* Analytics Bar */}
+                    <div className="px-5 py-3 flex items-center justify-between border-b border-slate-100 bg-slate-50">
                       <span className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
-                        <Eye className="w-3.5 h-3.5 text-slate-400" /> {card.views} Views
+                        <Eye className="w-4 h-4 text-slate-400" /> {card.views.toLocaleString()} Views
                       </span>
-                      <span className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold">
-                        <ExternalLink className="w-3.5 h-3.5 text-indigo-500" /> {card.clicks} Clicks
+                      <span className="flex items-center gap-1.5 text-xs text-[#1a2211] font-bold">
+                        <ExternalLink className="w-4 h-4" /> {card.clicks.toLocaleString()} Clicks
                       </span>
                     </div>
 
-                    {/* URL Bar */}
-                    <div className="px-4 py-2 border-b border-slate-100 flex items-center gap-2 bg-white">
-                      <span className="text-xs font-mono text-slate-600 truncate flex-1 font-semibold">
+                    {/* Handle URL Bar */}
+                    <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-white">
+                      <span className="text-xs font-mono text-slate-700 truncate font-bold">
                         {origin}/{card.handle}
                       </span>
                       <button
                         onClick={() => handleCopy(card.handle)}
-                        className="flex-shrink-0 flex items-center gap-1 text-xs text-slate-700 hover:text-slate-900 font-bold transition-colors"
+                        className="flex items-center gap-1.5 text-xs text-slate-900 hover:text-black font-extrabold transition-colors cursor-pointer shrink-0 ml-2"
                       >
                         {copyMsg === card.handle ? (
-                          <><CheckCircle className="w-3.5 h-3.5 text-emerald-600" /><span className="text-emerald-600">Copied</span></>
+                          <><CheckCircle className="w-4 h-4 text-emerald-600" /><span className="text-emerald-600">Copied</span></>
                         ) : (
-                          <><Copy className="w-3.5 h-3.5" /> Copy</>
+                          <><Copy className="w-4 h-4" /> Copy</>
                         )}
                       </button>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="p-3 flex items-center gap-2 bg-white">
-                    <button
-                      onClick={() => handleSetActiveCard(card)}
-                      className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all flex-1 flex items-center justify-center gap-1 ${
-                        isActive ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      {isActive ? <Check className="w-3.5 h-3.5" /> : <Star className="w-3.5 h-3.5 text-slate-400" />}
-                      {isActive ? 'Active' : 'Make Active'}
-                    </button>
+                  {/* Bottom Actions */}
+                  <div className="p-4 flex items-center gap-2 bg-slate-50 border-t border-slate-100">
                     <button
                       onClick={() => handleEdit(card)}
-                      className="clay-btn clay-btn-primary px-3 py-1.5 text-xs font-bold flex-1 text-center"
+                      className="flex-1 py-2.5 px-4 rounded-full font-black text-xs bg-[#1a2211] text-[#c7d2ab] transition-all shadow-sm hover:scale-[1.02] flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
+                      <Edit3 className="w-3.5 h-3.5" /> Edit Card
                     </button>
                     <a
                       href={`/${card.handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="clay-btn clay-btn-ghost p-2 text-xs font-bold text-slate-600 hover:text-slate-900"
+                      className="p-2.5 rounded-full bg-white border border-slate-200 text-slate-800 hover:bg-slate-100 transition-colors shadow-xs"
                       title="Preview card"
                     >
                       <Eye className="w-4 h-4" />
@@ -378,18 +379,18 @@ export default function MyCardsPage() {
                     <button
                       onClick={() => handleDelete(card.handle)}
                       disabled={deletingId === card.handle}
-                      className="clay-btn bg-rose-50 text-rose-600 hover:bg-rose-100 p-2 text-xs font-bold border border-rose-200 rounded-xl"
+                      className="p-2.5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition-colors shadow-xs"
                       title="Delete card"
                     >
-                      {deletingId === card.handle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      {deletingId === card.handle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
                   </div>
-                </div>
+                </Card>
               )
             })}
           </div>
         )}
       </div>
-    </div>
+    </main>
   )
 }

@@ -1,4 +1,4 @@
-import { db } from './firebase'
+import { getDb } from './firebase'
 import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore'
 
 const USERNAMES_COLLECTION = 'usernames'
@@ -11,12 +11,14 @@ export class UsernameTakenError extends Error {
 }
 
 export async function getUsernameOwner(handle: string): Promise<string | null> {
+  const db = getDb()
   const snapshot = await getDoc(doc(db, USERNAMES_COLLECTION, handle))
   return snapshot.exists() ? snapshot.data().ownerId || null : null
 }
 
 /** Atomically claim a username and release the caller's previous username. */
 export async function claimUsername(handle: string, ownerId: string, previousHandle?: string) {
+  const db = getDb()
   const nextRef = doc(db, USERNAMES_COLLECTION, handle)
   const previousRef = previousHandle && previousHandle !== handle
     ? doc(db, USERNAMES_COLLECTION, previousHandle)
@@ -43,6 +45,7 @@ export async function claimUsername(handle: string, ownerId: string, previousHan
 }
 
 export async function releaseUsername(handle: string, ownerId: string) {
+  const db = getDb()
   const ref = doc(db, USERNAMES_COLLECTION, handle)
   const snapshot = await getDoc(ref)
   if (snapshot.exists() && snapshot.data().ownerId === ownerId) {

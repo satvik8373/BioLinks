@@ -18,7 +18,7 @@ interface Props {
 }
 
 const COLOR_SWATCHES = [
-  '#FFFFFF', '#090D16', '#0F172A', '#1E1B4B', '#064E3B',
+  '#FFFFFF', '#c7d2ab', '#090D16', '#0F172A', '#1E1B4B', '#064E3B',
   '#4C1D95', '#831843', '#7B3200', '#7F2AEB', '#DC2626',
 ]
 

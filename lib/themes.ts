@@ -47,7 +47,7 @@ export interface Theme {
     shadow: boolean
     shadowStyle?: 'none' | 'soft' | 'strong' | 'hard'
     boxShadow?: string
-    style: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill' | 'wood' | 'carved' | 'raised' | 'leather'
+    style: 'solid' | 'clay' | 'outline' | 'soft' | 'glass' | 'hard-shadow' | 'fill' | 'wood' | 'carved' | 'raised' | 'leather' | 'retro-lcd' | 'button-retro-lcd' | string
     animation?: 'none' | 'bounce' | 'pulse' | 'wobble' | 'slide'
     enableAnimations?: boolean
   }

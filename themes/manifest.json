@@ -7,6 +7,7 @@
     { "id": "pastel-dream",     "name": "Pastel Dream",     "category": "minimal", "license": "free", "isCurated": false },
     { "id": "warm-coffee",      "name": "Warm Coffee",      "category": "minimal", "license": "free", "isCurated": false },
     { "id": "soft-clay",        "name": "Soft Clay",        "category": "clay",    "license": "free", "isCurated": false },
-    { "id": "skeuo-wood",       "name": "Skeuo Wood",       "category": "skeuomorphic", "license": "free", "isCurated": false }
+    { "id": "skeuo-wood",       "name": "Skeuo Wood",       "category": "skeuomorphic", "license": "free", "isCurated": false },
+    { "id": "retro-lcd",        "name": "Retro LCD GameBoy","category": "skeuomorphic", "license": "free", "isCurated": true }
   ]
 }

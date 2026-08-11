@@ -109,6 +109,15 @@ export const BUTTON_VARIANTS: Record<string, ButtonVariantSpec> = {
     shadow: 'shadow-soft',
     borderWidth: 1,
     states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
+  },
+  'button-retro-lcd': {
+    id: 'button-retro-lcd',
+    name: 'Retro LCD Bordered Button',
+    variant: 'outline',
+    radius: 'radius-md',
+    shadow: 'shadow-none',
+    borderWidth: 2,
+    states: { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }
   }
 }
 

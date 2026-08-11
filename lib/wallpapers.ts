@@ -83,6 +83,13 @@ export const PATTERN_PRESETS: PatternPreset[] = [
     defaultBgColor: '#090D16',
   },
   {
+    id: 'retro-lcd-scanlines',
+    name: 'Retro GameBoy LCD',
+    cssPattern: 'repeating-linear-gradient(rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 3px), radial-gradient(120% 90% at 30% 0%, #c7d2ab, #b7c495 70%)',
+    backgroundSize: '100% 100%',
+    defaultBgColor: '#c7d2ab',
+  },
+  {
     id: 'crosshatch',
     name: 'Crosshatch',
     cssPattern: 'linear-gradient(45deg, rgba(120,119,198,0.3) 25%, transparent 25%, transparent 75%, rgba(120,119,198,0.3) 75%), linear-gradient(-45deg, rgba(120,119,198,0.3) 25%, transparent 25%, transparent 75%, rgba(120,119,198,0.3) 75%)',
@@ -121,6 +128,11 @@ export const BLUR_MESH_PRESETS: BlurMeshPreset[] = [
     id: 'emerald-glass',
     name: 'Emerald Glass',
     cssMesh: 'radial-gradient(circle at 30% 20%, rgba(16,185,129,0.8) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(6,182,212,0.75) 0%, transparent 50%), linear-gradient(160deg, #022C22 0%, #0F172A 100%)',
+  },
+  {
+    id: 'retro-lcd-green',
+    name: 'Retro GameBoy LCD',
+    cssMesh: 'repeating-linear-gradient(rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 1px, transparent 3px), radial-gradient(120% 90% at 30% 0%, #c7d2ab, #b7c495 70%)',
   },
   {
     id: 'pastel-dream',
