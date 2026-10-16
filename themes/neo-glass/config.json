@@ -5,5 +5,79 @@
   "version": "2.0.0",
   "category": "glass",
   "license": "pro",
-  "tags": ["glass", "futuristic", "translucent", "neon"]
+  "tags": [
+    "glass",
+    "futuristic",
+    "translucent",
+    "neon"
+  ],
+  "namespace": "theme-neo-glass",
+  "extends": "base-glass",
+  "order": 16,
+  "isCurated": false,
+  "meta": {
+    "author": "BioLink Studio",
+    "tags": [
+      "glass",
+      "futuristic",
+      "translucent",
+      "neon"
+    ]
+  },
+  "background": {
+    "type": "mesh",
+    "value": "radial-gradient(ellipse at 20% 20%, rgba(129,140,248,0.35), transparent 55%), radial-gradient(ellipse at 80% 70%, rgba(192,132,252,0.25), transparent 55%), #0F172A"
+  },
+  "palette": {
+    "brand": "#818CF8",
+    "surface": "#0F172A",
+    "surfaceAlt": "rgba(30, 41, 59, 0.7)",
+    "text": "#F8FAFC",
+    "textMuted": "#94A3B8",
+    "border": "rgba(255, 255, 255, 0.2)"
+  },
+  "buttonColor": "rgba(255, 255, 255, 0.08)",
+  "buttonText": "#F8FAFC",
+  "accent": "#38BDF8",
+  "typography": {
+    "font": "font-inter",
+    "heading": "font-space-grotesk",
+    "headingWeight": 700,
+    "bodyWeight": 400,
+    "buttonWeight": 600
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-hero",
+  "components": {
+    "button": {
+      "variant": "button-glass",
+      "radius": 18,
+      "shadow": "0 8px 24px rgba(129, 140, 248, 0.25)",
+      "borderWidth": 1
+    },
+    "card": {
+      "variant": "card-glass",
+      "radius": 28,
+      "shadow": "0 20px 50px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
+      "background": "rgba(255, 255, 255, 0.08)",
+      "maxWidth": "420px",
+      "padding": "24px 20px 28px"
+    },
+    "avatar": {
+      "variant": "avatar-circle",
+      "size": 112
+    },
+    "social": {
+      "variant": "social-rounded"
+    }
+  },
+  "effects": {
+    "glass": true,
+    "clay": false,
+    "blur": 16
+  },
+  "a11y": {
+    "contrast": "AA",
+    "reducedMotion": true
+  }
 }

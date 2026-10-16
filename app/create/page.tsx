@@ -9,6 +9,7 @@ import LoadingScreen from '@/components/ui/LoadingScreen'
 import Avatar from '@/components/ui/Avatar'
 import { THEMES, getThemesByCategory, Theme, parseGoogleDriveUrl } from '@/lib/themes'
 import { getCleanUsernameSlug } from '@/lib/urlHelper'
+import { getBackgroundPaint } from '@/lib/backgroundStyle'
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -39,7 +40,7 @@ function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
   if (c.backgroundGradient) {
     const g = c.backgroundGradient
     return { 
-      background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})`,
+      ...getBackgroundPaint(`linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})`),
       backgroundSize: '100% 100%',
       position: 'relative' as const,
     }
@@ -47,7 +48,7 @@ function getThemeBackgroundStyle(theme: Theme): React.CSSProperties {
   
   if (c.backgroundMesh) {
     return { 
-      background: c.backgroundMesh,
+      ...getBackgroundPaint(c.backgroundMesh),
       backgroundSize: '100% 100%',
       position: 'relative' as const,
     }
@@ -165,11 +166,17 @@ export default function CreatePage() {
     { id: 'all',      name: 'All Themes', icon: Sparkles,    description: 'Explore all styles' },
     { id: 'minimal',  name: 'Minimal',    icon: Circle,      description: 'Clean & minimal' },
     { id: 'dark',     name: 'Dark',       icon: Moon,        description: 'Dark mode' },
+    { id: 'glass',    name: 'Glass',      icon: Sparkles,    description: 'Translucent surfaces' },
+    { id: 'clay',     name: 'Clay',       icon: Circle,      description: 'Soft tactile shapes' },
+    { id: 'skeuomorphic', name: 'Retro & Wood', icon: PaletteIcon, description: 'Textured designs' },
     { id: 'gradient', name: 'Gradient',   icon: Rainbow,     description: 'Vibrant gradients' },
     { id: 'mesh',     name: 'Mesh',       icon: PaletteIcon, description: 'Multi-color mesh' },
     { id: 'image',    name: 'Image',      icon: Briefcase,   description: 'Photo backdrops' },
     { id: 'vibrant',  name: 'Vibrant',    icon: Rainbow,     description: 'Bold & expressive' },
-  ] as const
+    ...Array.from(new Set(THEMES.map(theme => theme.category)))
+      .filter(category => !['minimal', 'dark', 'glass', 'clay', 'skeuomorphic', 'gradient', 'mesh', 'image', 'vibrant'].includes(category))
+      .map(category => ({ id: category, name: category[0].toUpperCase() + category.slice(1), icon: Sparkles, description: 'Explore this style' })),
+  ].filter(category => category.id === 'all' || THEMES.some(theme => theme.category === category.id))
 
   useEffect(() => {
     const profile = localStorage.getItem('userProfile')

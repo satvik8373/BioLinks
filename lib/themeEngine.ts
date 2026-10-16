@@ -7,16 +7,18 @@
 import { ThemeService } from './theme-engine/ThemeService'
 
 export type { ThemeConfig, ThemeMetadata } from './theme-engine/ThemeService'
+import type { ThemeMetadata } from './theme-engine/types'
+import type { ResolvedTheme } from './theme-engine/runtime/ResolvedTheme'
 
-export async function loadThemeConfig(themeId: string): Promise<any | null> {
+export async function loadThemeConfig(themeId: string): Promise<ResolvedTheme | null> {
   return ThemeService.load(themeId)
 }
 
-export function getAvailableThemes(): any[] {
+export function getAvailableThemes(): ThemeMetadata[] {
   return ThemeService.getAvailableThemes()
 }
 
-export function getThemeMetadata(themeId: string): any | undefined {
+export function getThemeMetadata(themeId: string): ThemeMetadata | undefined {
   return getAvailableThemes().find(t => t.id === themeId)
 }
 

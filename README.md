@@ -1,235 +1,63 @@
-# 🔗 BioLinks - Beautiful Bio Link Creator
+# BioLinks
 
-A modern, production-ready bio link creator built with **Next.js 14**, **Firebase Firestore**, and **TypeScript**. Create beautiful, customizable bio link pages like Linktree - completely free and open source!
+A Next.js 15 application for creating and editing bio link cards. The editor uses React, TypeScript, Zustand, Tailwind CSS and Firebase. Nine bundled templates share one theme compilation pipeline.
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![Next.js](https://img.shields.io/badge/Next.js-14-black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
+## Run locally
 
-## ✨ Features
-
-- 🎨 **JSON-Based Theme System** - Production-grade design token architecture (Linktree/Notion pattern)
-- 🔗 **Multiple Link Types** - Regular links, social media, shop products, contact buttons, events
-- 📱 **Mobile-First** - Responsive design that looks perfect on all devices
-- 🎯 **Clean Visitor View** - No navigation bars or website elements on shared links
-- 📊 **Analytics** - Track views and clicks on your bio links
-- 🌐 **Cross-Browser** - Works everywhere with Firebase backend (no localStorage limitations!)
-- ⚡ **Real-time Preview** - See changes instantly as you edit
-- 🎭 **Customizable** - Colors, fonts, button styles, backgrounds, and more
-- 🔒 **Secure** - Validated Firebase security rules for production
-- 🚀 **Fast** - Optimized build, lazy loading, and edge deployment ready
-
-## 🎨 Official Theme System
-
-This project uses the **JSON + CSS Variables** architecture—the same system used by Linktree, Notion, and modern SaaS platforms:
-
-```
-JSON Theme Files → Theme Engine → CSS Variables → Components
-```
-
-**Benefits:**
-- ✅ Add unlimited themes without changing React code
-- ✅ Store themes in database (MongoDB, PostgreSQL)
-- ✅ Build theme marketplace
-- ✅ User-created custom themes
-- ✅ Instant theme switching (no re-renders)
-
-**Built-in Themes:**
-- Minimal Light / Dark
-- Glass Dark (glassmorphism)
-- Clay Soft (neomorphism)
-- Luxury Gold
-- Gradient Sunset
-
-→ **Full documentation:** [THEME_SYSTEM.md](./THEME_SYSTEM.md)  
-→ **Architecture guide:** [ARCHITECTURE.md](./ARCHITECTURE.md)
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Firebase account (free tier is enough)
-- Vercel account for deployment (optional)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/satvik8373/BioLinks.git
-cd BioLinks
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env.local
-# Edit .env.local and add your Firebase config
-
-# Run development server
+```powershell
+npm ci
+Copy-Item .env.example .env.local
+# Fill in your Firebase and media configuration in .env.local.
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app!
+Use the installed Node.js 22 toolchain for this project. The app opens at http://localhost:3000. Environment setup is described by .env.example; never commit .env.local.
 
-### Firebase Setup
+## Add a template
 
-1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable Firestore Database
-3. Copy your Firebase config to `.env.local`
-4. Deploy security rules from `firestore.rules`
-
-See [FIREBASE_SETUP_GUIDE.md](./FIREBASE_SETUP_GUIDE.md) for detailed instructions.
-
-## 📦 Tech Stack
-
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Database**: Firebase Firestore
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **Deployment**: Vercel (recommended)
-
-## 🏗️ Project Structure
-
-```
-LinkTree/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes (cards, proxy)
-│   ├── card/              # Card viewer (clean public view)
-│   ├── editor/            # Bio link editor
-│   ├── create/            # Theme selector & card creator
-│   ├── my-cards/          # User dashboard
-│   └── [username]/        # Public profile pages
-├── components/            # React components
-│   ├── card/             # BioCard display component
-│   ├── editor/           # Editor tools & link management
-│   ├── layout/           # Navigation, footer
-│   └── ui/               # Reusable UI primitives
-├── contexts/             # React context providers
-│   └── ThemeContext.tsx  # Global theme state
-├── lib/                   # Utilities & business logic
-│   ├── firebase.ts       # Firebase initialization
-│   ├── firestore.ts      # Database CRUD operations
-│   ├── themes.ts         # Legacy theme definitions
-│   ├── themeEngine.ts    # 🆕 JSON theme loader & CSS var applier
-│   └── storage.ts        # Card storage interface
-├── themes/                # 🆕 JSON theme definitions
-│   ├── minimal-light/
-│   │   └── config.json
-│   ├── glass-dark/
-│   ├── clay-soft/
-│   └── ...
-├── public/               # Static assets
-├── .data/                # Local data cache
-└── firestore.rules       # Firebase security rules
+```powershell
+npm run theme:create -- ocean-blue --from soft-clay --name "Ocean Blue"
 ```
 
-### Key Architecture Files
+Edit `themes/ocean-blue/config.json`. The command creates the folder, validates the configuration, and updates the registry and catalog. The new template inherits the source template's design and license. No React imports or manual catalog edits are needed.
 
-- **`lib/themeEngine.ts`** - Theme loader, validator, and CSS variable applier
-- **`themes/*/config.json`** - Design token definitions (colors, typography, layout)
-- **`app/globals.css`** - CSS variable defaults and global styles
-- **`components/card/BioCard.tsx`** - Pure CSS variable consumption (no theme props)
-
-## 🎨 Features Overview
-
-### For Creators
-
-- **Visual Editor** - Drag-and-drop link management
-- **Theme Library** - 50+ professional themes
-- **Customization** - Colors, fonts, button styles
-- **Preview** - Live preview while editing
-- **Analytics** - Track performance
-- **Share** - One-click sharing to social media
-
-### For Visitors
-
-- **Clean Experience** - No navigation bars or distractions
-- **Fast Loading** - Optimized for speed
-- **Mobile Optimized** - Perfect on all screen sizes
-- **Click Tracking** - Analytics for creators
-
-## 📱 Deployment
-
-### Deploy to Vercel (Recommended)
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/satvik8373/BioLinks)
-
-See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for manual deployment instructions.
-
-### Environment Variables
-
-Required environment variables for deployment:
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
-NEXT_PUBLIC_APP_URL=https://your-domain.com
+```powershell
+npm run themes:sync   # Discover and register theme folders.
+npm run themes:check  # Validate configs and detect stale generated files.
+npm run check         # Theme checks, TypeScript, ESLint and regression tests.
+npm run build         # Production Next.js build.
 ```
 
-## 🔒 Security
+Development and build commands refresh the registry automatically. If you add a folder manually while development is already running, run `npm run themes:sync`.
 
-- Validated Firebase security rules
-- Data structure validation on create/update
-- Prevention of unauthorized deletes
-- No localStorage dependency (works cross-browser)
-- SSR-safe code (no browser globals during render)
+## Project layout
 
-## 📊 Performance
+```text
+app/                       Next.js pages, layouts and API routes
+components/card/           Public card rendering and block renderers
+components/editor/         Editor panels and block editors
+components/ui/             Shared UI controls
+contexts/                  React providers
+lib/stores/                Draft state, undo/redo and explicit save actions
+lib/theme-engine/          Validation, inheritance, compilation and rendering
+lib/theme-engine/variants/ Canonical component variant registries
+lib/theme-engine/registries/palette/ Canonical semantic color palettes
+themes/<id>/config.json    Authoritative template configuration
+themes/generated.ts       Generated static imports; do not edit
+themes/manifest.json      Generated catalog; do not edit
+scripts/themes.mjs         Template creation and catalog generation
+tests/                     Theme, renderer and authoring regression tests
+public/                    Shared assets, including wallpapers
+```
 
-- **Lighthouse Score**: 95+ (Performance, Accessibility, Best Practices, SEO)
-- **First Load JS**: ~87 KB (gzipped)
-- **Build Time**: ~2 minutes
-- **Pages Generated**: 15 static + dynamic routes
+Read [THEME_SYSTEM.md](./THEME_SYSTEM.md) for authoring examples and [ARCHITECTURE.md](./ARCHITECTURE.md) for module responsibilities and maintenance rules.
 
-## 🤝 Contributing
+## Bundled templates
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Pop Brutalist, Ariana Grande, Sunset Vibes, Pastel Dream, Soft Clay, Warm Coffee, Retro LCD GameBoy, Neo Glassmorphism and Skeuo Wood. Neo Glass is marked Pro; Retro LCD is curated. Catalog metadata comes from each configuration.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+## Deployment
 
-## 📄 License
+For a Node host, build with `npm run build` and run `npm start`. The repository also contains Vercel configuration and OpenNext/Cloudflare commands: `npm run preview`, `npm run deploy`, and `npm run upload`. Configure environment variables and Firebase rules for your chosen deployment. Hosting commands are separate from local validation.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by Linktree, Beacons, and other bio link tools
-- Built with Next.js and Firebase
-- Icons by Lucide React
-- Themes inspired by modern design trends
-
-## 📧 Contact
-
-**Satvik** - [@satvik8373](https://github.com/satvik8373)
-
-Project Link: [https://github.com/satvik8373/BioLinks](https://github.com/satvik8373/BioLinks)
-
-## 🗺️ Roadmap
-
-- [ ] User authentication
-- [ ] Custom domains
-- [ ] QR code generation
-- [ ] Email capture forms
-- [ ] Payment integration
-- [ ] Advanced analytics
-- [ ] Team collaboration
-- [ ] API access
-
----
-
-**⭐ Star this repo if you find it useful!**
-
-Made with ❤️ by [Satvik](https://github.com/satvik8373)
+The Next.js build downloads the app's configured Google Fonts, so it needs network access. Dynamic theme fonts also load from Google Fonts in the browser.

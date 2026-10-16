@@ -16,8 +16,9 @@ import {
   TelegramIcon, SoundCloudIcon, ShopifyIcon, EmailIcon, PhoneIcon,
   WebsiteIcon, AppleMusicIcon, ServiceIcon
 } from '@/components/icons/ServiceIcons'
-import { getEmbedIframeUrl, parseGoogleDriveUrl, formatAndNormalizeTheme } from '@/lib/themes'
+import { getEmbedIframeUrl, parseGoogleDriveUrl, formatAndNormalizeTheme, applyThemeToCSSVariables } from '@/lib/themes'
 import { getCardPublicUrl } from '@/lib/urlHelper'
+import { getBackgroundPaint } from '@/lib/backgroundStyle'
 import GallerySlider from '@/components/card/GallerySlider'
 import LinkRenderer from '@/components/card/renderers/LinkRenderer'
 import ShopRenderer from '@/components/card/renderers/ShopRenderer'
@@ -228,8 +229,8 @@ function getBg(c: ThemeColors): React.CSSProperties {
 
   if ((type === 'pattern' || type === 'blur' || type === 'mesh') && c.backgroundMesh) {
     return {
-      background: c.backgroundMesh,
-      backgroundSize: 'cover',
+      ...getBackgroundPaint(c.backgroundMesh),
+      backgroundSize: 'var(--profile-background-size, cover)',
       backgroundPosition: 'center',
     }
   }
@@ -237,12 +238,12 @@ function getBg(c: ThemeColors): React.CSSProperties {
   if (type === 'gradient' && c.backgroundGradient) {
     const g = c.backgroundGradient
     if (g.direction === 'radial') {
-      return { background: `radial-gradient(circle, ${g.from}, ${g.to})` }
+      return getBackgroundPaint(`radial-gradient(circle, ${g.from}, ${g.to})`)
     }
-    return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
+    return getBackgroundPaint(`linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})`)
   }
 
-  return { background: c.background || '#FFFFFF' }
+  return getBackgroundPaint(c.background || '#FFFFFF')
 }
 
 function getSmartContrastTextColor(bgHex?: string, fallbackText?: string, profileText?: string): string {
@@ -507,6 +508,13 @@ export default function BioCard({
     return null
   })
   const [loading, setLoading] = useState<boolean>(() => !overrideConfig)
+  const themeRootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (themeRootRef.current && cardData?.config.theme) {
+      applyThemeToCSSVariables(formatAndNormalizeTheme(cardData.config.theme), themeRootRef.current)
+    }
+  }, [cardData?.config.theme])
 
   useEffect(() => {
     setMounted(true)
@@ -1203,7 +1211,7 @@ export default function BioCard({
       </a>
     )
 
-    if (link.type === 'music' || (link.url && link.url.includes('spotify.com'))) {
+    if (link.type === 'music' || (theme.specialty?.autoUrlEmbeds !== false && link.url && link.url.includes('spotify.com'))) {
       const musicOpt = link.musicClickOption || 'display_services_preview'
       const isSpotify = (link.url || '').toLowerCase().includes('spotify.com')
       const albumArt = link.thumbnail || (isSpotify ? 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150&auto=format&fit=crop&q=80' : null)
@@ -1266,7 +1274,7 @@ export default function BioCard({
       )
     }
 
-    const isYouTubeUrl = (link.url || '').toLowerCase().includes('youtube.com') || (link.url || '').toLowerCase().includes('youtu.be')
+    const isYouTubeUrl = (link.type === 'video' || theme.specialty?.autoUrlEmbeds !== false) && ((link.url || '').toLowerCase().includes('youtube.com') || (link.url || '').toLowerCase().includes('youtu.be'))
     const ytThumb = isYouTubeUrl ? extractYouTubeThumb(link.url) : null
     const latestInfo = latestVideoDetails[link.id]
     const cardThumb = latestInfo?.thumbnailUrl || link.thumbnail || ytThumb
@@ -1475,11 +1483,15 @@ export default function BioCard({
     const inferredIconKey = rawIconKey || (() => {
       const u = (link.url || '').toLowerCase()
       const t = (link.text || '').toLowerCase()
+      if (u.includes('spotify.com')) return 'spotify'
+      if (u.includes('github.com')) return 'github'
       if (u.includes('youtube') || t.includes('youtube')) return 'youtube'
       if (u.includes('instagram') || t.includes('instagram')) return 'instagram'
       if (u.includes('twitter') || u.includes('x.com') || t.includes('twitter')) return 'twitter'
       if (u.includes('linkedin') || t.includes('linkedin')) return 'linkedin'
       if (t.includes('work') || t.includes('portfolio')) return 'work'
+      if (t.includes('resume') || t.includes('résumé') || t === 'cv') return 'document'
+      if (t.includes('coffee')) return 'coffee'
       if (t.includes('business') || t.includes('inquir') || t.includes('contact') || u.includes('mailto:')) return 'email'
       if (t.includes('website') || t.includes('site') || u.includes('http')) return 'website'
       return 'globe'
@@ -1504,6 +1516,8 @@ export default function BioCard({
             overflow: 'hidden',
           }}
           className={`group relative overflow-hidden transform-gpu flex flex-col w-full shadow-md transition-all ${animClasses}`}
+          data-profile-link="featured"
+          data-link-platform={inferredIconKey}
         >
           {/* Top Featured Banner Image */}
           <div className="w-full h-36 sm:h-44 bg-slate-800 relative overflow-hidden flex items-center justify-center">
@@ -1579,9 +1593,11 @@ export default function BioCard({
         onClick={(e) => handleLinkClick(e, link)} 
         style={btnStyle}
         className={`group relative overflow-hidden transform-gpu min-h-[50px] ${animClasses}`}
+        data-profile-link="classic"
+        data-link-platform={inferredIconKey}
       >
         <div className={`flex items-center ${isClay ? 'px-[18px] py-[14px]' : 'px-4 py-3.5'} gap-3.5`}>
-          <div className={
+          <div data-link-icon={inferredIconKey} data-has-thumbnail={link.thumbnail ? 'true' : undefined} className={
             isClay 
               ? "w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0" 
               : (isWood 
@@ -1595,10 +1611,10 @@ export default function BioCard({
                     const isYT = p === 'youtube' || (link.url || '').includes('youtube')
                     const isWork = p === 'briefcase' || p === 'work'
                     const isMail = p === 'mail' || p === 'email'
-                    if (isYT)   return { background: '#ff1f1f', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-                    if (isWork) return { background: '#f2f3f5', color: '#c7791f',  boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-                    if (isMail) return { background: '#3f5cf0', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
-                    return { background: '#ffffff', color: '#2f6fed', boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    if (isYT)   return { backgroundColor: '#ff1f1f', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    if (isWork) return { backgroundColor: '#f2f3f5', color: '#c7791f',  boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    if (isMail) return { backgroundColor: '#3f5cf0', color: '#fff',     boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
+                    return { backgroundColor: '#ffffff', color: '#2f6fed', boxShadow: '0 3px 8px rgba(120,124,134,0.18)' }
                   })() 
                 : (isWood 
                     ? {
@@ -1610,14 +1626,14 @@ export default function BioCard({
                     : undefined)
             }
           >
-            {Icon ? <Icon size={isClay ? 22 : 18} /> : <Globe size={isClay ? 22 : 18} />}
+            {link.thumbnail ? <img src={link.thumbnail} alt="" className="w-full h-full object-cover rounded-[inherit]" /> : Icon ? <Icon size={isClay ? 22 : 18} /> : <Globe size={isClay ? 22 : 18} />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : (theme.buttonStyle?.style === 'leather' ? '#FFF8F0' : (isWood ? '#2B1F16' : c.buttonText)), fontFamily: resolveFontFamily(theme.fonts?.body) }}>
+            <p data-link-title className={`${isClay ? 'text-[17px] font-bold' : 'font-extrabold text-sm md:text-base'} leading-tight truncate`} style={{ color: isClay ? '#161821' : (theme.buttonStyle?.style === 'leather' ? '#FFF8F0' : (isWood ? '#2B1F16' : c.buttonText)), fontFamily: resolveFontFamily(theme.fonts?.body) }}>
               {link.text}
             </p>
             {link.description && (
-              <p className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : (theme.buttonStyle?.style === 'leather' ? 'rgba(255,248,240,0.75)' : (isWood ? 'rgba(43,31,22,0.75)' : c.buttonText)), fontFamily: resolveFontFamily(theme.fonts?.body), opacity: isClay ? 1 : 0.8 }}>
+              <p data-link-description className={`${isClay ? 'text-[14px]' : 'text-xs'} truncate mt-0.5`} style={{ color: isClay ? '#6b7280' : (theme.buttonStyle?.style === 'leather' ? 'rgba(255,248,240,0.75)' : (isWood ? 'rgba(43,31,22,0.75)' : c.buttonText)), fontFamily: resolveFontFamily(theme.fonts?.body), opacity: isClay ? 1 : 0.8 }}>
                 {link.description}
               </p>
             )}
@@ -1652,14 +1668,18 @@ export default function BioCard({
 
   const cardStyle: React.CSSProperties = {
     maxWidth: cardMaxWidth,
+    padding: theme.specialty?.cardPadding,
   }
 
   const activeDecorations = (theme.specialty as any)?.decorations || ((theme.specialty as any)?.blobs ? ['blobs', 'noise'] : [])
 
   return (
     <div
+      ref={themeRootRef}
       suppressHydrationWarning
       data-theme={theme.id}
+      data-theme-style={theme.specialty?.styleId || theme.id}
+      data-header-layout={(config.profile as any)?.headerLayout || theme.headerLayout || 'classic'}
       className={`bl-profile-theme ${isPreview ? 'w-full h-full relative overflow-hidden p-3 sm:p-4 flex items-center justify-center' : 'min-h-screen relative flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden'}`}
       style={bg}
     >
@@ -1722,7 +1742,7 @@ export default function BioCard({
         onFinish={() => setIsSplashActive(false)}
       />
 
-      {/* ── Floating Mobile-First Card Frame ── */}
+      {/* Content container: the page owns the theme background and textures. */}
       <div
         className={`relative z-10 flex flex-col card-frame w-full ${widthClass} ${
           hasCardSpecialty
@@ -1756,7 +1776,7 @@ export default function BioCard({
           {/* ── Profile Section ── */}
           {(() => {
             const bannerImage = (config.profile as any)?.bannerImage || ''
-            const headerLayout = (config.profile as any)?.headerLayout || (bannerImage ? 'banner' : 'classic')
+            const headerLayout = (config.profile as any)?.headerLayout || (bannerImage ? 'banner' : theme.headerLayout || 'classic')
             const headerShape = (config.profile as any)?.headerShape || 'loop'
 
             const avatarSrc = config.profile.avatar && config.profile.avatar !== 'user' ? config.profile.avatar : ''
@@ -1949,17 +1969,24 @@ export default function BioCard({
                   </div>
                 )}
                 {/* Avatar */}
-                <div className="w-24 h-24 sm:w-28 sm:h-28 my-3 rounded-full mx-auto overflow-hidden shadow-md border-2 border-white/80">
+                <div data-profile-avatar className="w-24 h-24 sm:w-28 sm:h-28 my-3 mx-auto overflow-hidden shadow-md border-white/80"
+                  style={{
+                    width: theme.avatarStyle?.size, height: theme.avatarStyle?.size,
+                    borderRadius: theme.avatarStyle?.shape === 'square' ? 0 : theme.avatarStyle?.shape === 'rounded' ? 16 : '50%',
+                    border: avatarBorder || `${theme.avatarStyle?.borderWidth ?? 2}px solid rgba(255,255,255,0.8)`,
+                    clipPath: theme.avatarStyle?.shape === 'hexagon' ? 'polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)' : undefined,
+                  }}>
                   {hasImg(avatarSrc) ? (
-                    <img src={avatarSrc} alt="avatar" className="w-full h-full rounded-full object-cover" />
+                    <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full rounded-full flex items-center justify-center overflow-hidden"
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden"
                       style={{ background: `linear-gradient(135deg, ${c.accent || c.buttonDefault || '#2f6fed'}, ${c.buttonDefault || '#161821'})` }}>
                       <span className="text-3xl sm:text-4xl font-bold" style={{ color: c.buttonText || '#ffffff' }}>
                         {(config.profile.title || '?')[0].toUpperCase()}
                       </span>
                     </div>
                   )}
+                  {theme.specialty?.accentNote && <span aria-hidden="true" data-theme-accent-note className="hidden">{theme.specialty.accentNote}</span>}
                 </div>
 
                 {/* Name & Verified Badge */}

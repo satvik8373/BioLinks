@@ -45,7 +45,7 @@ const LAYOUTS = [
 ]
 
 export default function ProfilePanel({ config, updateConfig, onBack }: Props) {
-  const selectedLayout = config.profile?.headerLayout || 'classic'
+  const selectedLayout = config.profile?.headerLayout || config.theme?.headerLayout || 'classic'
   const titleStyle     = config.profile?.titleStyle   || 'text'
   const altFont        = config.profile?.altFont      || false
 

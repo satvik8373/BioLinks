@@ -1,0 +1,231 @@
+/* Paper Atelier: one full-bleed paper surface, with tactile stationery details. */
+.bl-profile-theme[data-theme-style="paper-atelier"] {
+  --profile-background-size: 560px 560px;
+  isolation: isolate;
+}
+
+.bl-profile-theme[data-theme-style="paper-atelier"]::before,
+.bl-profile-theme[data-theme-style="paper-atelier"]::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"]::before {
+  top: 0;
+  left: 0;
+  width: 190px;
+  height: 235px;
+  background-image: url('/themes/paper-atelier/decorations/pressed-olive-clean.png'), url('/themes/paper-atelier/textures/torn-corner.svg');
+  background-size: 125px 155px, 190px 138px;
+  background-position: -18px 20px, left top;
+  filter: drop-shadow(0 2px 2px rgba(71,54,30,.18));
+}
+.bl-profile-theme[data-theme-style="paper-atelier"]::after {
+  bottom: 0;
+  right: 0;
+  width: 165px;
+  height: 225px;
+  background-image: url('/themes/paper-atelier/decorations/pressed-olive-clean.png');
+  background-size: contain;
+  background-position: right bottom;
+  transform: rotate(168deg);
+  opacity: .65;
+}
+
+.bl-profile-theme[data-theme-style="paper-atelier"] h1 {
+  font-size: clamp(1.85rem, 7vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-avatar] {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  margin-top: 18px;
+  margin-bottom: 23px;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-avatar] > img,
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-avatar] > div {
+  border-radius: inherit;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-avatar]::before {
+  content: "";
+  position: absolute;
+  inset: -13px;
+  z-index: -1;
+  background: url('/themes/paper-atelier/textures/frayed-ring.svg') center / contain no-repeat;
+  pointer-events: none;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-theme-accent-note] {
+  display: block;
+  position: absolute;
+  top: 25px;
+  right: -72px;
+  width: 72px;
+  white-space: pre-line;
+  font-family: Caveat, cursive;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.05;
+  color: #594D3C;
+  transform: rotate(-13deg);
+  pointer-events: none;
+}
+
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"] {
+  --paper-link-base: var(--color-button, #FFFEFA);
+  --paper-link-ink: var(--color-button-text, #2D2D2D);
+  --paper-link-wash: linear-gradient(145deg, rgba(255,254,250,.65), rgba(255,254,250,.18));
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  min-height: 76px;
+  margin-top: 17px;
+  background-color: transparent !important;
+  color: var(--paper-link-ink) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 6px 5px rgba(64,46,28,.20));
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-color: var(--paper-link-base);
+  background-image: var(--paper-link-wash), url('/themes/paper-atelier/textures/handmade-paper.png');
+  background-blend-mode: normal, multiply;
+  background-size: cover, 400px 400px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 -2px 3px rgba(93,70,47,.08);
+  clip-path: polygon(1% 5%, 5% 2%, 13% 3%, 23% 1%, 34% 3%, 45% 1%, 58% 2%, 70% 0, 82% 2%, 96% 1%, 99% 8%, 100% 38%, 99% 64%, 100% 87%, 97% 97%, 89% 98%, 78% 97%, 66% 100%, 54% 98%, 42% 100%, 29% 98%, 18% 100%, 7% 98%, 1% 92%, 0 68%, 1% 42%, 0 18%);
+  pointer-events: none;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"]::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  width: 18px;
+  height: 18px;
+  background-color: var(--paper-link-base);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  box-shadow: inset 2px 2px 3px rgba(90,65,35,.17);
+  pointer-events: none;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"] > div {
+  min-height: 76px;
+  padding: 12px 15px;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-title] {
+  font-family: var(--font-family-heading, "Playfair Display", Georgia, serif) !important;
+  font-size: 18px;
+  font-weight: 500;
+  color: inherit !important;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-description] {
+  font-size: 11px;
+  color: inherit !important;
+  opacity: .8;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"] > div > div:last-child svg {
+  width: 21px;
+  height: 21px;
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"][data-link-platform="spotify"] {
+  --paper-link-base: #3D4634;
+  --paper-link-ink: #FFFEFA;
+  --paper-link-wash: linear-gradient(135deg, rgba(255,255,255,.06), transparent);
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"][data-link-platform="coffee"] {
+  --paper-link-base: #C9B89C;
+  --paper-link-wash: linear-gradient(145deg, rgba(255,254,250,.2), transparent);
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="classic"][data-link-platform="document"]::after {
+  top: -9px;
+  right: 10px;
+  bottom: auto;
+  width: 27px;
+  height: 52px;
+  background: url('/themes/paper-atelier/decorations/paperclip.svg') center / contain no-repeat;
+  clip-path: none;
+  box-shadow: none;
+  transform: rotate(15deg);
+  filter: drop-shadow(1px 2px 1px rgba(64,46,28,.25));
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link="featured"] {
+  background-image: url('/themes/paper-atelier/textures/handmade-paper.png');
+  background-size: 400px 400px;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link]:hover {
+  transform: translateY(-2px);
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link]:active {
+  transform: translateY(1px);
+}
+
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon] {
+  --paper-icon: url('/themes/paper-atelier/icons/link.svg');
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background-color: rgba(139,115,85,.10);
+  color: #59604A;
+  box-shadow: inset 0 0 0 1px rgba(139,115,85,.15);
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon]:not([data-has-thumbnail]) > svg {
+  visibility: hidden;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon]:not([data-has-thumbnail])::before {
+  content: "";
+  position: absolute;
+  width: 25px;
+  height: 25px;
+  background-color: currentColor;
+  -webkit-mask: var(--paper-icon) center / contain no-repeat;
+  mask: var(--paper-icon) center / contain no-repeat;
+}
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="instagram"] { --paper-icon: url('/themes/paper-atelier/icons/instagram.svg'); }
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="youtube"] { --paper-icon: url('/themes/paper-atelier/icons/youtube.svg'); color: #CF3025; background-color: #FFFEFA; }
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="github"] { --paper-icon: url('/themes/paper-atelier/icons/github.svg'); }
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="spotify"] { --paper-icon: url('/themes/paper-atelier/icons/spotify.svg'); color: #31CC65; background-color: rgba(0,0,0,.25); }
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="work"],
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="document"] { --paper-icon: url('/themes/paper-atelier/icons/document.svg'); }
+.bl-profile-theme[data-theme-style="paper-atelier"] [data-link-icon="coffee"] { --paper-icon: url('/themes/paper-atelier/icons/coffee.svg'); color: #463A22; background-color: rgba(174,135,60,.23); }
+
+.bl-profile-theme[data-theme-style="paper-atelier"] .card-frame::after {
+  content: "";
+  display: block;
+  flex-shrink: 0;
+  min-height: 80px;
+  margin-top: 12px;
+  background-image: url('/themes/paper-atelier/decorations/wax-seal.svg'), url('/themes/paper-atelier/decorations/tape-strip.svg');
+  background-repeat: no-repeat;
+  background-size: 72px 72px, 70px 26px;
+  background-position: right bottom, right 38px top;
+  filter: drop-shadow(0 3px 2px rgba(71,54,30,.2));
+  pointer-events: none;
+}
+
+.bl-profile-theme[data-theme-style="paper-atelier"] a:focus-visible,
+.bl-profile-theme[data-theme-style="paper-atelier"] button:focus-visible {
+  outline: 2px solid #59604A;
+  outline-offset: 5px;
+}
+@media (max-width: 360px) {
+  .bl-profile-theme[data-theme-style="paper-atelier"] [data-theme-accent-note] { right: -61px; width: 61px; font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bl-profile-theme[data-theme-style="paper-atelier"] *,
+  .bl-profile-theme[data-theme-style="paper-atelier"] *::before,
+  .bl-profile-theme[data-theme-style="paper-atelier"] *::after { animation: none !important; transition: none !important; }
+  .bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link]:hover,
+  .bl-profile-theme[data-theme-style="paper-atelier"] [data-profile-link]:active { transform: none; }
+}

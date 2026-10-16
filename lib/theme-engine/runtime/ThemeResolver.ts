@@ -1,10 +1,13 @@
-/**
- * Runtime: Theme Resolver Stage
- * 
- * Performs 3-tier runtime cascading merge: Base Theme → Theme Config → User Override Layer.
- */
-
 import { BASE_THEMES } from '@/lib/baseThemes'
+import { mergeThemeValues } from '../merge'
+import { getLicenseType } from '../types'
+import { resolvePalette } from '../palettes'
+import { resolveSpacing } from '../spacing'
+import { resolveLayout } from '../layouts'
+import { resolveBackground } from '@/lib/backgrounds'
+import { resolveButtonVariant } from '../variants/button'
+import { resolveCardVariant } from '../variants/card'
+import { resolveAvatarVariant } from '../variants/avatar'
 
 export interface UserThemeOverride {
   palette?: any
@@ -20,66 +23,47 @@ export class ThemeResolver {
     if (!childTheme) return childTheme
     const baseKey = childTheme.extends || 'base-minimal'
     const base = BASE_THEMES[baseKey] || BASE_THEMES['base-minimal']
-
-    const merged = {
-      version: childTheme.version || base.version || '1.0.0',
-      id: childTheme.id,
-      name: childTheme.name,
-      namespace: childTheme.namespace || `theme-${childTheme.id}`,
-      order: childTheme.order ?? 1,
-      compatibility: { minVersion: '2.0.0', ...base.compatibility, ...childTheme.compatibility },
-      extends: baseKey,
-      category: childTheme.category || base.category,
-      license: { type: childTheme.isPro ? 'pro' : (childTheme.license?.type || base.license?.type || 'free') },
-      preview: { thumbnail: `${childTheme.id}.webp`, cover: `${childTheme.id}-cover.webp`, ...base.preview, ...childTheme.preview },
-      supports: {
-        imageBackground: true,
-        videoBackground: true,
-        animatedGradient: true,
-        glass: baseKey === 'base-glass',
-        clay: baseKey === 'base-clay',
-        particles: false,
-        customCursor: false,
-        ...base.supports,
-        ...childTheme.supports
-      },
-      visibility: {
-        avatar: true,
-        bio: true,
-        social: true,
-        footer: true,
-        musicPlayer: false,
-        ...base.visibility,
-        ...childTheme.visibility
-      },
-      meta: {
-        author: childTheme.meta?.author || 'BioLinks',
-        createdAt: childTheme.meta?.createdAt || '2026-08-04',
-        updatedAt: childTheme.meta?.updatedAt || '2026-08-04',
-        tags: childTheme.meta?.tags || [childTheme.id, childTheme.category || 'theme']
-      },
-      a11y: {
-        contrast: childTheme.a11y?.contrast || base.a11y?.contrast || 'AA',
-        reducedMotion: childTheme.a11y?.reducedMotion ?? base.a11y?.reducedMotion ?? true
-      },
-      palette: userOverride?.palette || childTheme.palette || childTheme.colors || base.palette,
-      background: userOverride?.background || childTheme.background || base.background,
-      effects: { ...base.effects, ...childTheme.effects },
-      animation: { ...base.animation, ...childTheme.animation },
-      typography: userOverride?.typography || childTheme.typography || base.typography,
-      spacing: userOverride?.spacing || childTheme.spacing || base.spacing,
-      icon: { ...base.icon, ...childTheme.icon },
-      link: { style: 'card', icon: 'left', arrow: true, ...base.link, ...childTheme.link },
-      components: {
-        button: userOverride?.components?.button || childTheme.components?.button || childTheme.button || base.components?.button || 'button-filled',
-        card: userOverride?.components?.card || childTheme.components?.card || childTheme.card || base.components?.card || 'card-elevated',
-        avatar: userOverride?.components?.avatar || childTheme.components?.avatar || childTheme.avatar || base.components?.avatar || 'avatar-circle',
-        badge: userOverride?.components?.badge || childTheme.components?.badge || childTheme.badge || base.components?.badge || 'badge-soft',
-        social: userOverride?.components?.social || childTheme.components?.social || childTheme.social || base.components?.social || 'social-rounded'
-      },
-      layout: userOverride?.layout || childTheme.layout || base.layout || 'layout-centered'
+    const child = { ...childTheme }
+    child.palette = child.palette ?? child.colors ?? base.palette
+    if (child.typography && typeof child.typography === 'object') {
+      child.typography = { ...child.typography,
+        font: child.typography.font ?? child.typography.bodyFont ?? child.typography.fontFamily,
+        headingFont: child.typography.headingFont ?? child.typography.heading ?? child.typography.headingFamily,
+      }
+      for (const key of Object.keys(child.typography)) {
+        if (child.typography[key] === undefined) delete child.typography[key]
+      }
     }
-
-    return merged
+    child.components = { ...child.components }
+    for (const key of ['button', 'card', 'avatar', 'badge', 'social']) {
+      if (child[key] !== undefined && child.components[key] === undefined) child.components[key] = child[key]
+    }
+    const inherited = mergeThemeValues(base, child)
+    // A partial override on a registry ID must merge with that preset's
+    // resolved tokens, rather than replacing the ID with an incomplete object.
+    if (userOverride) {
+      for (const [key, resolver] of Object.entries({ palette: resolvePalette, spacing: resolveSpacing, layout: resolveLayout, background: resolveBackground })) {
+        if (typeof (userOverride as any)[key] === 'object' && typeof inherited[key] === 'string') inherited[key] = resolver(inherited[key])
+      }
+      if (typeof userOverride.typography === 'object' && typeof inherited.typography === 'string') {
+        inherited.typography = { font: inherited.typography, headingFont: inherited.typography }
+      }
+      for (const [key, resolver] of Object.entries({ button: resolveButtonVariant, card: resolveCardVariant, avatar: resolveAvatarVariant })) {
+        if (typeof userOverride.components?.[key] === 'object' && typeof inherited.components?.[key] === 'string') inherited.components[key] = resolver(inherited.components[key])
+      }
+    }
+    const merged = mergeThemeValues(inherited, userOverride || {})
+    return {
+      ...merged,
+      id: child.id,
+      name: child.name,
+      namespace: child.namespace || `theme-${child.id}`,
+      extends: baseKey,
+      license: { type: getLicenseType({ license: child.license ?? base.license, isPro: child.isPro }) },
+      preview: child.preview || {},
+      visibility: { avatar: true, bio: true, social: true, footer: true, ...merged.visibility },
+      meta: { author: 'BioLinks', tags: [child.id], ...merged.meta },
+      a11y: { contrast: 'AA', reducedMotion: true, ...merged.a11y },
+    }
   }
 }

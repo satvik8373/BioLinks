@@ -1,0 +1,67 @@
+{
+  "id": "paper-atelier",
+  "name": "Paper Atelier",
+  "version": "1.0.0",
+  "description": "Warm editorial paper theme with tactile surfaces, botanical details, and understated elegance.",
+  "colors": {
+    "paper": "#F8F5EE",
+    "warmBeige": "#E7D7C9",
+    "mutedBrown": "#C9B89C",
+    "earthTone": "#8B7355",
+    "textDark": "#2D2D2D",
+    "olive": "#59604A",
+    "border": "#D7C6B2",
+    "white": "#FFFEFA"
+  },
+  "typography": {
+    "heading": {
+      "fontFamily": "Playfair Display, Georgia, serif",
+      "weight": 600
+    },
+    "body": {
+      "fontFamily": "Inter, Poppins, Arial, sans-serif",
+      "weight": 400
+    },
+    "accent": {
+      "fontFamily": "Caveat, cursive",
+      "weight": 400
+    }
+  },
+  "radius": {
+    "card": 20,
+    "button": 16,
+    "chip": 999
+  },
+  "shadows": {
+    "card": "0 8px 20px rgba(64, 46, 28, 0.12)",
+    "raised": "0 12px 28px rgba(64, 46, 28, 0.16)",
+    "inset": "inset 0 1px 2px rgba(255,255,255,0.85), inset 0 -1px 2px rgba(93,70,47,0.10)"
+  },
+  "assets": {
+    "textures": [
+      "paper-fiber.svg",
+      "warm-paper.svg",
+      "kraft-paper.svg",
+      "marble-paper.svg",
+      "torn-edge.svg"
+    ],
+    "decorations": [
+      "botanical-sprig.svg",
+      "paperclip.svg",
+      "wax-seal.svg",
+      "tape-strip.svg"
+    ],
+    "icons": [
+      "link.svg",
+      "youtube.svg",
+      "instagram.svg",
+      "github.svg",
+      "spotify.svg",
+      "document.svg",
+      "coffee.svg",
+      "arrow-right.svg",
+      "share.svg",
+      "more.svg"
+    ]
+  }
+}

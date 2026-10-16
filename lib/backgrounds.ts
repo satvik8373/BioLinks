@@ -303,7 +303,7 @@ export function resolveBackground(bgConfig: any): { value: string; image?: strin
   if (presetKey && BACKGROUND_PRESETS[presetKey]) {
     const p = BACKGROUND_PRESETS[presetKey]
     return {
-      value: bgConfig.value || p.value,
+      value: bgConfig.mesh || bgConfig.value || p.value,
       image: bgConfig.image || p.image,
       overlay: bgConfig.overlay || p.overlay,
       type: bgConfig.type || p.type
@@ -311,7 +311,7 @@ export function resolveBackground(bgConfig: any): { value: string; image?: strin
   }
 
   return {
-    value: bgConfig.value || bgConfig.image || bgConfig.video || '#FFFFFF',
+    value: bgConfig.mesh || bgConfig.value || bgConfig.image || bgConfig.video || '#FFFFFF',
     image: bgConfig.image || undefined,
     overlay: bgConfig.overlay || undefined,
     type: bgConfig.type || 'gradient'

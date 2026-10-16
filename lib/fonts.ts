@@ -9,9 +9,11 @@ export interface FontDefinition {
   name: string
   family: string
   category: 'sans-serif' | 'serif' | 'monospace' | 'display'
+  weights?: number[]
 }
 
 export const FONT_TOKENS: Record<string, FontDefinition> = {
+  'caveat': { id: 'caveat', name: 'Caveat', family: 'Caveat, cursive', category: 'display', weights: [400] },
   'font-outfit': {
     id: 'font-outfit',
     name: 'Outfit',
@@ -191,6 +193,10 @@ export const FONT_TOKENS: Record<string, FontDefinition> = {
 export function resolveFontFamily(fontKey?: string, fallback: string = 'Inter, sans-serif'): string {
   if (!fontKey) return fallback
   if (FONT_TOKENS[fontKey]) return FONT_TOKENS[fontKey].family
+  const normalizedKey = fontKey.replace(/^font-/, '')
+  if (FONT_TOKENS[normalizedKey]) return FONT_TOKENS[normalizedKey].family
+  const namedFont = Object.values(FONT_TOKENS).find(font => font.name.toLowerCase() === fontKey.toLowerCase() || font.family.split(',')[0].toLowerCase() === fontKey.toLowerCase())
+  if (namedFont) return namedFont.family
   if (fontKey.includes(',') || fontKey.includes('sans-serif') || fontKey.includes('serif')) return fontKey
   return fallback
 }
@@ -210,7 +216,8 @@ export function loadGoogleFonts(fontNames: string[]): void {
     link.id = linkId
     link.rel = 'stylesheet'
     const encoded = fontName.replace(/\s+/g, '+')
-    link.href = `https://fonts.googleapis.com/css2?family=${encoded}:wght@400;500;600;700;800&display=swap`
+    const weights = Object.values(FONT_TOKENS).find(font => font.name === fontName)?.weights || [400, 500, 600, 700, 800]
+    link.href = `https://fonts.googleapis.com/css2?family=${encoded}:wght@${weights.join(';')}&display=swap`
     document.head.appendChild(link)
   })
 }

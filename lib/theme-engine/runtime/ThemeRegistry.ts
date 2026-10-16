@@ -1,31 +1,22 @@
-/**
- * Runtime: Central Theme Registry Store
- */
+import type { ThemeConfig } from '../types'
 
+/** Owns raw configurations. Call ThemeService.register to invalidate caches. */
 export class ThemeRegistry {
   private static instance: ThemeRegistry
-  private themesMap: Map<string, any> = new Map()
-
+  private themesMap = new Map<string, ThemeConfig>()
   private constructor() {}
-
   public static getInstance(): ThemeRegistry {
-    if (!ThemeRegistry.instance) {
-      ThemeRegistry.instance = new ThemeRegistry()
-    }
-    return ThemeRegistry.instance
+    if (!this.instance) this.instance = new ThemeRegistry()
+    return this.instance
   }
-
-  public registerTheme(config: any): void {
-    if (config?.id) {
-      this.themesMap.set(config.id, config)
-    }
+  public registerTheme(config: ThemeConfig): void {
+    this.themesMap.set(config.id, structuredClone(config))
   }
-
-  public getTheme(id: string): any | undefined {
-    return this.themesMap.get(id)
+  public getTheme(id: string): ThemeConfig | undefined {
+    const theme = this.themesMap.get(id)
+    return theme ? structuredClone(theme) : undefined
   }
-
-  public getAllThemes(): any[] {
-    return Array.from(this.themesMap.values())
+  public getAllThemes(): ThemeConfig[] {
+    return Array.from(this.themesMap.values(), config => structuredClone(config))
   }
 }

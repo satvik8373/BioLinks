@@ -3,27 +3,20 @@
  * 
  * This file provides backward compatibility for code that uses the old Theme type.
  * All themes are now stored as JSON in themes slash star slash config.json
- * All functions delegate to themeEngine.ts
+ * Bundled presets are compiled once through the shared adapter in themes/index.ts.
  */
 
-import { getAvailableThemes as getJSONThemes, loadThemeConfig, applyThemeToDOM } from './themeEngine'
-import type { ThemeConfig } from './themeEngine'
 import { ThemeService } from './theme-engine/ThemeService'
+import { Renderer } from './theme-engine/runtime/Renderer'
+import { loadGoogleFonts } from './fonts'
+import type { ThemeCategory } from './theme-engine/types'
 import { MODULAR_THEMES } from '@/themes'
-import { extendTheme } from './baseThemes'
-import { resolveBackground } from './backgrounds'
-import { resolveFontFamily } from './fonts'
-import { resolvePalette } from './theme-engine/palettes'
-import { resolveLayout } from './theme-engine/layouts'
-import { resolveButtonVariant } from './theme-engine/button-variants'
-import { resolveRadius } from './theme-engine/radius'
-import { resolveShadow } from './theme-engine/shadows'
 
 // ─── Legacy Theme Type (kept for backward compatibility) ───────────────────
 export interface Theme {
   id: string
   name: string
-  category: 'minimal' | 'dark' | 'gradient' | 'mesh' | 'image' | 'vibrant'
+  category: ThemeCategory
   colors: {
     background: string
     backgroundGradient?: { from: string; to: string; direction?: string }
@@ -59,113 +52,23 @@ export interface Theme {
   isCurated?: boolean
   author?: string
   headerLayout?: 'classic' | 'hero' | 'banner' | 'shape'
+  avatarStyle?: { shape: 'circle' | 'rounded' | 'square' | 'blob' | 'hexagon'; size: number; borderWidth: number }
+  effects?: { glass?: boolean; clay?: boolean; noise?: boolean; glow?: boolean; blur?: number }
   specialty?: {
+    styleId?: string
+    accentFont?: string
+    accentNote?: string
+    autoUrlEmbeds?: boolean
     cardGlow?: string
     cardFx?: string
     borderGradient?: string
-    // Card panel surface — background, shape, shadow applied to the inner
-    // floating card frame so each theme can have its own card appearance.
+    // Template card tokens remain available for compatibility. The profile
+    // content container uses padding and width; the page owns the wallpaper.
     cardBackground?: string
     cardBorderRadius?: string
     cardBoxShadow?: string
     cardMaxWidth?: string
     cardPadding?: string
-  }
-}
-
-// ─── Convert JSON ThemeConfig to Legacy Theme format ───────────────────────
-function jsonToLegacyTheme(rawConfig: any): Theme {
-  const config = extendTheme(rawConfig)
-  const palette = resolvePalette(config.palette || config.colors)
-  const layout = resolveLayout(config.layout)
-  const btnSpec = resolveButtonVariant(config.components?.button || config.button)
-  const resolvedBg = resolveBackground(config.background || palette.surface)
-  const bgStr = resolvedBg.value
-  const bgImage = resolvedBg.image
-  const bgOverlay = resolvedBg.overlay
-  const isMeshOrGradient = bgStr.includes('gradient') || bgStr.includes('radial')
-
-  const btnRadius = resolveRadius(btnSpec.radius, 8)
-  const btnShadow = resolveShadow(btnSpec.shadow)
-
-  return {
-    id: config.id,
-    name: config.name,
-    category: config.category as any,
-    headerLayout: layout.headerLayout,
-    colors: {
-      background: bgStr,
-      backgroundImage: bgImage,
-      backgroundOverlay: bgOverlay,
-      backgroundMesh: isMeshOrGradient ? bgStr : undefined,
-      buttonDefault: palette.brand,
-      buttonHover: palette.brand,
-      buttonText: palette.text,
-      profileText: palette.text,
-      profileBio: palette.textMuted,
-      accent: palette.brand,
-    },
-    buttonStyle: {
-      borderRadius: btnRadius,
-      borderWidth: btnSpec.borderWidth,
-      borderColor: palette.border,
-      shadow: btnShadow !== 'none',
-      shadowStyle: btnShadow.includes('4px') ? 'hard' : 'soft',
-      style: btnSpec.variant as any,
-    },
-    fonts: {
-      heading: resolveFontFamily(typeof config.typography === 'object' ? config.typography?.headingFont : config.typography).split(',')[0].trim(),
-      body: resolveFontFamily(typeof config.typography === 'object' ? config.typography?.font : config.typography).split(',')[0].trim(),
-    },
-    preview: bgStr,
-    isPremium: config.license?.type === 'pro' || config.isPro,
-    specialty: config.specialty
-      ? { ...config.specialty }
-      : undefined,
-    // ── Card panel specialty tokens ────────────────────────────────────────
-    // Populated from config.components.card so each theme controls its own
-    // card surface appearance without any hardcoded values in BioCard.
-    // NOTE: Do NOT use resolveBackground() on card.background — that function is
-    //       for page-level backgrounds only and sets .image which bleeds into
-    //       colors.backgroundImage, causing a duplicate full-page overlay.
-    ...(config.components?.card && (() => {
-      const card = config.components.card
-
-      // If specialty.cardBackground is already explicitly set in the JSON config,
-      // skip computing it from components.card.background to avoid duplication.
-      const specialtyAlreadyHasCardBg = Boolean(config.specialty?.cardBackground)
-
-      let cardBg: string | undefined = undefined
-      if (!specialtyAlreadyHasCardBg && card.background) {
-        const rawBg = card.background as string
-        // Wrap image file paths in url() for valid CSS. Gradients/colors used as-is.
-        if (
-          rawBg.startsWith('/') ||
-          rawBg.startsWith('./') ||
-          rawBg.startsWith('http') ||
-          rawBg.includes('.webp') || rawBg.includes('.jpg') || rawBg.includes('.png') || rawBg.includes('.gif')
-        ) {
-          cardBg = `url(${rawBg})`
-        } else {
-          cardBg = rawBg
-        }
-      }
-      const cardRadius = card.radius != null
-        ? (typeof card.radius === 'number' ? `${card.radius}px` : resolveRadius(card.radius, 8) + 'px')
-        : undefined
-      const cardShadow = card.shadow ? resolveShadow(card.shadow) : undefined
-      if (!cardBg && !cardRadius && !cardShadow) return {}
-      return {
-        specialty: {
-          ...(config.specialty || {}),
-          ...(cardBg     && { cardBackground:   cardBg }),
-          ...(cardRadius && { cardBorderRadius: cardRadius }),
-          ...(cardShadow && { cardBoxShadow:    cardShadow }),
-          ...(card.maxWidth  && { cardMaxWidth:  card.maxWidth }),
-          ...(card.padding   && { cardPadding:   card.padding }),
-        }
-      }
-    })()),
   }
 }
 
@@ -297,7 +200,12 @@ export function formatAndNormalizeTheme(rawTheme?: any): Theme {
   // always reflect the latest theme definition, while user-customized
   // color/background fields stored in rawTheme.colors are preserved on top.
   if (rawTheme.id) {
-    const base = getThemeById(rawTheme.id)
+    const preset = THEMES.find(theme => theme.id === rawTheme.id)
+    const base: Theme = preset || {
+      ...getDefaultTheme(), id: rawTheme.id, name: rawTheme.name || 'Custom',
+      category: rawTheme.category || 'custom', specialty: rawTheme.specialty, isCurated: false,
+      avatarStyle: rawTheme.avatarStyle, effects: rawTheme.effects, headerLayout: rawTheme.headerLayout,
+    }
 
     // User-customizable color overrides — only background/wallpaper fields
     // and explicit color picks should survive a re-merge.
@@ -329,6 +237,7 @@ export function formatAndNormalizeTheme(rawTheme?: any): Theme {
       ...(rawTheme.buttonStyle.borderColor  !== undefined && { borderColor:  rawTheme.buttonStyle.borderColor }),
       ...(rawTheme.buttonStyle.shadow       !== undefined && { shadow:       rawTheme.buttonStyle.shadow }),
       ...(rawTheme.buttonStyle.shadowStyle  !== undefined && { shadowStyle:  rawTheme.buttonStyle.shadowStyle }),
+      ...(rawTheme.buttonStyle.boxShadow    !== undefined && { boxShadow:    rawTheme.buttonStyle.boxShadow }),
       ...(rawTheme.buttonStyle.style        !== undefined && { style:        rawTheme.buttonStyle.style }),
       ...(rawTheme.buttonStyle.animation    !== undefined && { animation:    rawTheme.buttonStyle.animation }),
       ...(rawTheme.buttonStyle.enableAnimations !== undefined && { enableAnimations: rawTheme.buttonStyle.enableAnimations }),
@@ -337,7 +246,7 @@ export function formatAndNormalizeTheme(rawTheme?: any): Theme {
     return {
       ...base,
       // specialty always from preset — contains cardBackground, cardBorderRadius etc.
-      specialty: base.specialty,
+      specialty: preset?.specialty || rawTheme.specialty,
       colors: {
         ...base.colors,
         ...userColorOverrides,
@@ -354,7 +263,7 @@ export function formatAndNormalizeTheme(rawTheme?: any): Theme {
         })(),
       },
       // fonts can be user-overridden but fall back to preset
-      fonts: rawTheme.fonts || base.fonts,
+      fonts: { ...base.fonts, ...rawTheme.fonts },
     }
   }
   
@@ -379,14 +288,6 @@ export function applyThemeToCSSVariables(theme?: Theme, targetElement?: HTMLElem
   const safeTheme = theme || getDefaultTheme()
   if (!safeTheme) return
 
-  if (safeTheme.id && !targetElement) {
-    try {
-      ThemeService.apply(safeTheme as any)
-    } catch {
-      // Fallback
-    }
-  }
-
   const root = targetElement || document.documentElement
   const c = safeTheme.colors || DEFAULT_FALLBACK_THEME.colors
   const b = safeTheme.buttonStyle || DEFAULT_FALLBACK_THEME.buttonStyle
@@ -394,6 +295,18 @@ export function applyThemeToCSSVariables(theme?: Theme, targetElement?: HTMLElem
 
   // Colors & Rich Graphical Background Mesh / Image Support
   const bgGraphic = c.backgroundMesh || (c.backgroundGradient ? `linear-gradient(${c.backgroundGradient.direction || '135deg'}, ${c.backgroundGradient.from}, ${c.backgroundGradient.to})` : c.background)
+  const raw = ThemeService.getConfig(safeTheme.id)
+  if (raw) {
+    const compiled = ThemeService.compile({ ...raw, buttonColor: c.buttonDefault, buttonText: c.buttonText, accent: c.accent }, {
+      palette: { brand: c.accent, text: c.profileText, textMuted: c.profileBio, border: b.borderColor || c.accent },
+      background: { type: c.backgroundType || 'color', value: bgGraphic, image: c.backgroundImage || '', overlay: c.backgroundOverlay || '' },
+      typography: { font: `${f.body}, sans-serif`, headingFont: `${f.heading}, sans-serif` },
+      components: { button: { variant: b.style, radius: b.borderRadius, shadow: b.shadow ? b.boxShadow || 'shadow-soft' : 'shadow-none', borderWidth: b.borderWidth } },
+    })
+    if (compiled) Renderer.render(compiled, root)
+  } else {
+    loadGoogleFonts([f.body, f.heading, safeTheme.specialty?.accentFont || ''])
+  }
   root.style.setProperty('--color-background', bgGraphic)
   root.style.setProperty('--background-mesh', c.backgroundMesh || 'none')
   root.style.setProperty('--background-image', c.backgroundImage ? `url(${c.backgroundImage})` : 'none')
@@ -405,9 +318,9 @@ export function applyThemeToCSSVariables(theme?: Theme, targetElement?: HTMLElem
   root.style.setProperty('--color-profile-bio', c.profileBio)
   root.style.setProperty('--color-accent', c.accent)
 
-  // ── Button & Card Shape (Minimal curvature — max 8px for buttons, max 6px for cards) ──
-  const minimalBtnRadius = b.borderRadius === 0 ? 0 : Math.min(b.borderRadius, 8)
-  const minimalCardRadius = b.borderRadius === 0 ? 0 : Math.min(b.borderRadius, 6)
+  // Theme shapes retain the radius values selected by the author or editor.
+  const minimalBtnRadius = b.borderRadius
+  const minimalCardRadius = parseFloat(safeTheme.specialty?.cardBorderRadius || '') || b.borderRadius
 
   root.style.setProperty('--radius-button', `${minimalBtnRadius}px`)
   root.style.setProperty('--button-radius', `${minimalBtnRadius}px`)
@@ -443,6 +356,7 @@ export function applyThemeToCSSVariables(theme?: Theme, targetElement?: HTMLElem
   const shadowNone = 'none'
 
   const btnShadowVal = !b.shadow ? shadowNone
+    : b.boxShadow ? b.boxShadow
     : b.shadowStyle === 'hard' ? shadowHard
     : b.shadowStyle === 'strong' ? shadowStrong
     : safeTheme.id?.includes('neon') || safeTheme.id?.includes('galaxy') || safeTheme.id?.includes('cosmic') ? shadowGlow
@@ -453,7 +367,7 @@ export function applyThemeToCSSVariables(theme?: Theme, targetElement?: HTMLElem
   root.style.setProperty('--shadow-button-soft', shadowSoft)
   root.style.setProperty('--shadow-button-glow', shadowGlow)
 
-  // ── Card Shape (Minimal curvature — max 6px) ─────────────────────────────
+  // ── Card Shape ────────────────────────────────────────────────────────
   root.style.setProperty('--radius-card', `${minimalCardRadius}px`)
   root.style.setProperty('--radius-video-card', `${minimalCardRadius}px`)
   root.style.setProperty('--card-radius', `${minimalCardRadius}px`)

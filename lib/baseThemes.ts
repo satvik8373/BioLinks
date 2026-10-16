@@ -351,6 +351,15 @@ export const BASE_THEMES: Record<string, any> = {
   }
 }
 
+// Historical IDs used by the existing JSON themes.
+BASE_THEMES['base-light'] = BASE_THEMES['base-minimal']
+BASE_THEMES['base-dark'] = {
+  ...BASE_THEMES['base-minimal'],
+  category: 'dark',
+  palette: 'palette-midnight',
+  background: '#0F172A',
+}
+
 export function extendTheme(childTheme: any): any {
   if (!childTheme) return childTheme
   const baseKey = childTheme.extends || 'base-minimal'

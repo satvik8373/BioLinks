@@ -7,7 +7,6 @@
 export class ThemeExporter {
   public static exportToJSON(resolvedConfig: any): string {
     const exportPayload = {
-      $schema: 'https://biolinks.ee/schemas/theme.schema.json',
       version: resolvedConfig.version || '1.0.0',
       id: resolvedConfig.id,
       name: resolvedConfig.name,
@@ -20,7 +19,18 @@ export class ThemeExporter {
       typography: resolvedConfig.typography,
       spacing: resolvedConfig.spacing,
       layout: resolvedConfig.layout,
-      components: resolvedConfig.components
+      components: resolvedConfig.components,
+      buttonColor: resolvedConfig.buttonColor,
+      buttonText: resolvedConfig.buttonText,
+      accent: resolvedConfig.accent,
+      specialty: resolvedConfig.specialty,
+      effects: resolvedConfig.effects,
+      animation: resolvedConfig.animation,
+      visibility: resolvedConfig.visibility,
+      supports: resolvedConfig.supports,
+      a11y: resolvedConfig.a11y,
+      meta: resolvedConfig.meta,
+      isCurated: resolvedConfig.isCurated,
     }
 
     return JSON.stringify(exportPayload, null, 2)

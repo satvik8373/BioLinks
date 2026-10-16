@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Theme, THEMES } from '@/lib/themes'
+import { getBackgroundPaint } from '@/lib/backgroundStyle'
 import { ArrowLeft, Shuffle, Zap, Paintbrush } from 'lucide-react'
 import Button from '@/components/ui/Button'
 
@@ -15,12 +16,12 @@ function themeBackground(theme: Theme): React.CSSProperties {
       backgroundPosition: 'center',
     }
   }
-  if (c.backgroundMesh) return { background: c.backgroundMesh, backgroundSize: 'cover', backgroundPosition: 'center' }
+  if (c.backgroundMesh) return { ...getBackgroundPaint(c.backgroundMesh), backgroundSize: 'cover', backgroundPosition: 'center' }
   if (c.backgroundGradient) {
     const g = c.backgroundGradient
-    return { background: `linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})` }
+    return getBackgroundPaint(`linear-gradient(${g.direction || '135deg'}, ${g.from}, ${g.to})`)
   }
-  return { background: c.background || '#111827' }
+  return getBackgroundPaint(c.background || '#111827')
 }
 
 interface Props {
@@ -46,7 +47,7 @@ export default function ThemesPanel({ config, updateConfig, onBack }: Props) {
     if (selectable.length > 0) applyTheme(selectable[Math.floor(Math.random() * selectable.length)])
   }
 
-  const displayThemes = THEMES.filter(t => t.id !== 'custom')
+  const displayThemes = THEMES.filter(t => t.id !== 'custom' && Boolean(t.isCurated) === (subTab === 'curated'))
 
   return (
     <div className="space-y-5">
@@ -87,9 +88,11 @@ export default function ThemesPanel({ config, updateConfig, onBack }: Props) {
       {/* Themes grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3.5 pt-1">
         {/* Custom card */}
-        <div className="flex flex-col items-center group">
+        {subTab === 'customizable' && <div className="flex flex-col items-center group">
           <button
-            onClick={() => applyTheme(THEMES.find(t => t.id === 'custom') || THEMES[0])}
+            onClick={() => applyTheme({ ...structuredClone(config.theme), id: 'custom', name: 'Custom', isCurated: false })}
+            aria-label="Customize current theme"
+            aria-pressed={config.theme.id === 'custom'}
             className={`w-full aspect-[3/4] rounded-[22px] border-2 bg-slate-100/90 flex flex-col items-center justify-center transition-all cursor-pointer ${
               config.theme.id === 'custom'
                 ? 'border-slate-900 ring-2 ring-slate-900/20 shadow-md'
@@ -99,7 +102,7 @@ export default function ThemesPanel({ config, updateConfig, onBack }: Props) {
             <Paintbrush className="w-6 h-6 text-slate-700 stroke-[1.5]" />
           </button>
           <span className="text-xs font-semibold text-slate-700 mt-2 text-center truncate max-w-full">Custom</span>
-        </div>
+        </div>}
 
         {/* Theme cards */}
         {displayThemes.map((theme) => {
@@ -108,6 +111,8 @@ export default function ThemesPanel({ config, updateConfig, onBack }: Props) {
           return (
             <div key={theme.id} className="flex flex-col items-center group">
               <button
+                aria-label={`Apply ${theme.name} theme`}
+                aria-pressed={isSelected}
                 onClick={() => applyTheme(theme)}
                 className={`w-full aspect-[3/4] rounded-[22px] relative overflow-hidden border-2 transition-all cursor-pointer shadow-2xs hover:shadow-md ${
                   isSelected

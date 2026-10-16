@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 190">
+  <defs>
+    <linearGradient id="paper" x2=".6" y2="1"><stop stop-color="#DED0B9"/><stop offset="1" stop-color="#E9DDC9"/></linearGradient>
+    <filter id="fibers"><feTurbulence type="fractalNoise" baseFrequency=".5" numOctaves="3" seed="4"/><feColorMatrix type="saturate" values="0"/><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+    <filter id="lift"><feDropShadow dx="1" dy="2" stdDeviation="1.2" flood-color="#715537" flood-opacity=".24"/></filter>
+  </defs>
+  <path d="M0 0H257L248 10 234 12 231 22 211 25 207 38 194 36 183 51 169 50 163 69 149 67 137 85 128 82 114 105 95 101 89 121 72 121 66 138 52 137 46 158 27 152 19 178 0 185Z" fill="url(#paper)" stroke="#FDF8EB" stroke-width="2" filter="url(#lift)"/>
+  <path d="M0 0H257L248 10 234 12 231 22 211 25 207 38 194 36 183 51 169 50 163 69 149 67 137 85 128 82 114 105 95 101 89 121 72 121 66 138 52 137 46 158 27 152 19 178 0 185Z" fill="#DCCCAC" opacity=".16" filter="url(#fibers)"/>
+</svg>

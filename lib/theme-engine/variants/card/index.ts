@@ -5,9 +5,12 @@
 export interface CardVariantSpec {
   id: string
   name: string
-  variant: 'flat' | 'elevated' | 'glass' | 'outline'
-  radius: string
+  variant: 'flat' | 'elevated' | 'glass' | 'outline' | 'clay' | 'hero' | 'minimal' | 'wood' | 'retro-lcd'
+  radius: string | number
   shadow: string
+  background?: string
+  maxWidth?: string
+  padding?: string
 }
 
 export const CARD_ELEVATED: CardVariantSpec = {
@@ -46,7 +49,12 @@ export const CARD_VARIANTS: Record<string, CardVariantSpec> = {
   'card-elevated': CARD_ELEVATED,
   'card-glass': CARD_GLASS,
   'card-flat': CARD_FLAT,
-  'card-outline': CARD_OUTLINE
+  'card-outline': CARD_OUTLINE,
+  'card-clay': { ...CARD_ELEVATED, id: 'card-clay', name: 'Clay Card', variant: 'clay', radius: 'radius-lg', shadow: 'shadow-clay' },
+  'card-hero': { ...CARD_ELEVATED, id: 'card-hero', name: 'Hero Card', variant: 'hero' },
+  'card-minimal': { ...CARD_FLAT, id: 'card-minimal', name: 'Minimal Card', variant: 'minimal' },
+  'card-wood': { ...CARD_ELEVATED, id: 'card-wood', name: 'Wood Card', variant: 'wood' },
+  'card-retro-lcd': { ...CARD_OUTLINE, id: 'card-retro-lcd', name: 'Retro LCD Card', variant: 'retro-lcd' },
 }
 
 export function resolveCardVariant(input: any): CardVariantSpec {
@@ -57,7 +65,7 @@ export function resolveCardVariant(input: any): CardVariantSpec {
     const baseSpec = CARD_VARIANTS[key] || CARD_VARIANTS[variantId]
     if (baseSpec) {
       if (typeof input === 'object' && input !== null) {
-        return { ...baseSpec, ...input }
+        return { ...baseSpec, ...input, variant: baseSpec.variant }
       }
       return baseSpec
     }
@@ -68,7 +76,7 @@ export function resolveCardVariant(input: any): CardVariantSpec {
       id: input.id || 'custom-card',
       name: input.name || 'Custom Card',
       variant: input.variant || 'elevated',
-      radius: input.radius || 'radius-md',
+      radius: input.radius ?? 'radius-md',
       shadow: input.shadow || 'shadow-soft'
     }
   }

@@ -9,19 +9,21 @@ import { CSSVariableGenerator } from './CSSVariableGenerator'
 import { loadGoogleFonts } from '@/lib/fonts'
 
 export class Renderer {
-  public static render(theme: ResolvedTheme): void {
+  public static render(theme: ResolvedTheme, targetElement?: HTMLElement): void {
     if (typeof document === 'undefined' || !theme) return
-    const root = document.documentElement
+    const root = targetElement || document.documentElement
 
     // 1. Dynamically Load Google Fonts
     if (theme.typography) {
-      loadGoogleFonts([theme.typography.fontFamily, theme.typography.headingFamily])
+      loadGoogleFonts([theme.typography.fontFamily, theme.typography.headingFamily, theme.specialty?.accentFont || ''])
     }
 
     // 2. Set Namespace CSS Class
     const namespaceClass = theme.namespace || `theme-${theme.id}`
-    root.className = root.className.replace(/theme-[a-z0-9-]+/g, '').trim()
+    const previousNamespace = root.getAttribute('data-theme-namespace')
+    if (previousNamespace) root.classList.remove(previousNamespace)
     root.classList.add(namespaceClass)
+    root.setAttribute('data-theme-namespace', namespaceClass)
 
     // 3. Set DOM Attributes
     root.setAttribute('data-theme-version', theme.version || '1.0.0')

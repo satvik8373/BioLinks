@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { getAvailableThemes, activateTheme, type ThemeMetadata } from '@/lib/themeEngine'
 import { Check, Sparkles, Lock } from 'lucide-react'
+import { THEMES, getDefaultTheme } from '@/lib/themes'
+import { getBackgroundPaint } from '@/lib/backgroundStyle'
 
 interface ThemeSelectorProps {
   currentThemeId?: string
@@ -16,7 +18,7 @@ export default function ThemeSelector({
   showProBadge = true 
 }: ThemeSelectorProps) {
   const [themes, setThemes] = useState<ThemeMetadata[]>([])
-  const [selectedTheme, setSelectedTheme] = useState(currentThemeId || 'minimal-light')
+  const [selectedTheme, setSelectedTheme] = useState(currentThemeId || getDefaultTheme().id)
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -39,7 +41,10 @@ export default function ThemeSelector({
     { id: 'clay', label: 'Clay', icon: '🎭' },
     { id: 'luxury', label: 'Luxury', icon: '👑' },
     { id: 'skeuomorphic', label: 'Skeuomorphic', icon: '🪵' },
-  ]
+    ...Array.from(new Set(themes.map(theme => theme.category)))
+      .filter(category => !['minimal', 'glass', 'gradient', 'clay', 'luxury', 'skeuomorphic'].includes(category))
+      .map(category => ({ id: category, label: category[0].toUpperCase() + category.slice(1), icon: '🎨' })),
+  ].filter(category => category.id === 'all' || themes.some(theme => theme.category === category.id))
 
   const filteredThemes = activeCategory === 'all' 
     ? themes 
@@ -47,10 +52,10 @@ export default function ThemeSelector({
 
   const handleThemeSelect = async (themeId: string) => {
     setIsLoading(true)
-    setSelectedTheme(themeId)
     
     try {
       const success = await activateTheme(themeId)
+      if (success) setSelectedTheme(themeId)
       if (success && onThemeChange) {
         onThemeChange(themeId)
       }
@@ -99,7 +104,7 @@ export default function ThemeSelector({
                 key={theme.id}
                 theme={theme}
                 isSelected={selectedTheme === theme.id}
-                isLoading={isLoading && selectedTheme === theme.id}
+                isLoading={isLoading}
                 onSelect={handleThemeSelect}
                 showProBadge={false}
               />
@@ -121,7 +126,7 @@ export default function ThemeSelector({
                 key={theme.id}
                 theme={theme}
                 isSelected={selectedTheme === theme.id}
-                isLoading={isLoading && selectedTheme === theme.id}
+                isLoading={isLoading}
                 onSelect={handleThemeSelect}
                 showProBadge={showProBadge}
               />
@@ -164,11 +169,15 @@ function ThemeCard({ theme, isSelected, isLoading, onSelect, showProBadge }: The
     dark: '#121212',
   }
   const previewColor = fallbacks[theme.category] || '#667eea'
+  const preset = THEMES.find(preset => preset.id === theme.id)
+  const colors = preset?.colors
 
   return (
     <button
       onClick={() => onSelect(theme.id)}
       disabled={isLoading}
+      aria-label={`Apply ${theme.name} theme`}
+      aria-pressed={isSelected}
       className={`
         relative group rounded-xl overflow-hidden transition-all duration-200
         ${isSelected 
@@ -182,9 +191,9 @@ function ThemeCard({ theme, isSelected, isLoading, onSelect, showProBadge }: The
       <div 
         className="w-full aspect-square relative"
         style={{ 
-          background: previewColor.includes('gradient') || previewColor.includes('radial')
-            ? previewColor
-            : previewColor
+          ...getBackgroundPaint(colors?.backgroundImage ? `url(${colors.backgroundImage})` : colors?.backgroundMesh || colors?.background || previewColor),
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
         {/* Pro Badge */}

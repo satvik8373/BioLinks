@@ -5,8 +5,8 @@
 export interface ButtonVariantSpec {
   id: string
   name: string
-  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft' | 'wood' | 'carved' | 'raised' | 'leather'
-  radius: string
+  variant: 'filled' | 'glass' | 'clay' | 'outline' | 'soft' | 'gradient' | 'hard-shadow' | 'retro-lcd' | 'wood' | 'carved' | 'raised' | 'leather'
+  radius: string | number
   shadow: string
   borderWidth: number
   states: {
@@ -116,7 +116,10 @@ export const BUTTON_VARIANTS: Record<string, ButtonVariantSpec> = {
   'button-wood': BUTTON_WOOD,
   'button-carved': BUTTON_CARVED,
   'button-raised': BUTTON_RAISED,
-  'button-leather': BUTTON_LEATHER
+  'button-leather': BUTTON_LEATHER,
+  'button-gradient': { ...BUTTON_FILLED, id: 'button-gradient', name: 'Gradient Button', variant: 'gradient' },
+  'button-hard-shadow': { ...BUTTON_FILLED, id: 'button-hard-shadow', name: 'Hard Shadow Button', variant: 'hard-shadow', radius: 'radius-none', shadow: 'shadow-hard', borderWidth: 2 },
+  'button-retro-lcd': { ...BUTTON_OUTLINE, id: 'button-retro-lcd', name: 'Retro LCD Button', variant: 'retro-lcd' },
 }
 
 export function resolveButtonVariant(input: any): ButtonVariantSpec {
@@ -130,7 +133,9 @@ export function resolveButtonVariant(input: any): ButtonVariantSpec {
         return { 
           ...baseSpec, 
           ...input,
-          variant: baseSpec.variant // Keep the resolved base variant (e.g., 'clay', 'wood')
+          variant: baseSpec.variant,
+          borderWidth: input.borderWidth ?? input.border?.width ?? baseSpec.borderWidth,
+          states: { ...baseSpec.states, ...input.states },
         }
       }
       return baseSpec
@@ -142,7 +147,7 @@ export function resolveButtonVariant(input: any): ButtonVariantSpec {
       id: input.id || 'custom-button',
       name: input.name || 'Custom Button',
       variant: input.variant || 'filled',
-      radius: input.radius || 'radius-md',
+      radius: input.radius ?? 'radius-md',
       shadow: input.shadow || 'shadow-soft',
       borderWidth: input.border?.width ?? input.borderWidth ?? 0,
       states: input.states || { hover: 'lift', active: 'scale', focus: 'ring', disabled: 'opacity' }

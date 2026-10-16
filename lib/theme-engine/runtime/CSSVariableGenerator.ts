@@ -40,10 +40,13 @@ export class CSSVariableGenerator {
     vars['--color-primary'] = theme.palette.brand
     vars['--color-primary-hover'] = theme.palette.brand
     vars['--color-border'] = theme.palette.border
-    vars['--color-accent'] = theme.palette.brand
-    vars['--color-button'] = theme.palette.brand
-    vars['--color-button-hover'] = theme.palette.brand
-    vars['--color-button-text'] = theme.palette.text
+    vars['--color-accent'] = theme.accent
+    vars['--color-button'] = theme.buttonColor
+    vars['--color-button-hover'] = theme.buttonColor
+    vars['--color-button-text'] = theme.buttonText
+    vars['--color-profile-text'] = theme.palette.text
+    vars['--color-profile-bio'] = theme.palette.textMuted
+    vars['--background-mesh'] = ['mesh', 'pattern', 'gradient'].includes(theme.background.type) ? theme.background.value : 'none'
 
     // 2. Font Tokens (--bl-font-*)
     vars['--bl-font-family'] = theme.typography.fontFamily
@@ -66,8 +69,8 @@ export class CSSVariableGenerator {
     // 5. Component Tokens (--bl-button-*, --bl-card-*, --bl-avatar-*)
     const btnRadiusRaw = resolveRadius(theme.components.button.radius, 8)
     const cardRadiusRaw = resolveRadius(theme.components.card.radius, 6)
-    const btnRadiusPx = btnRadiusRaw === 0 ? 0 : Math.min(btnRadiusRaw, 8)
-    const cardRadiusPx = cardRadiusRaw === 0 ? 0 : Math.min(cardRadiusRaw, 6)
+    const btnRadiusPx = btnRadiusRaw
+    const cardRadiusPx = cardRadiusRaw
     const btnShadowCss = resolveShadow(theme.components.button.shadow)
     const cardShadowCss = resolveShadow(theme.components.card.shadow)
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <defs>
+    <filter id="rough" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="3" seed="14" result="grain"/>
+      <feDisplacementMap in="SourceGraphic" in2="grain" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#796042" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <path d="M120 10a110 110 0 1 0 0 220a110 110 0 1 0 0-220 M120 27a93 93 0 1 1 0 186a93 93 0 1 1 0-186" fill="#FFFEFA" fill-rule="evenodd" stroke="#DFD1BA" stroke-width=".6" filter="url(#rough)"/>
+</svg>

@@ -40,3 +40,4 @@ next-env.d.ts
 /jiosaavn-api
 # Exclude jiosaavn-api folder (separate project)
 jiosaavn-api/
+.next-theme-check/

@@ -1,13 +1,82 @@
 {
   "version": "2.1.0",
   "themes": [
-    { "id": "pop-brutalist",    "name": "Pop Brutalist",    "category": "minimal", "license": "free", "isCurated": false },
-    { "id": "ariana-grande",    "name": "Ariana Grande",    "category": "dark",    "license": "free", "isCurated": false },
-    { "id": "sunset-vibes",     "name": "Sunset Vibes",     "category": "dark",    "license": "free", "isCurated": false },
-    { "id": "pastel-dream",     "name": "Pastel Dream",     "category": "minimal", "license": "free", "isCurated": false },
-    { "id": "warm-coffee",      "name": "Warm Coffee",      "category": "minimal", "license": "free", "isCurated": false },
-    { "id": "soft-clay",        "name": "Soft Clay",        "category": "clay",    "license": "free", "isCurated": false },
-    { "id": "skeuo-wood",       "name": "Skeuo Wood",       "category": "skeuomorphic", "license": "free", "isCurated": false },
-    { "id": "retro-lcd",        "name": "Retro LCD GameBoy","category": "skeuomorphic", "license": "free", "isCurated": true }
+    {
+      "id": "pop-brutalist",
+      "name": "Pop Brutalist",
+      "category": "minimal",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "ariana-grande",
+      "name": "Ariana Grande",
+      "category": "dark",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "sunset-vibes",
+      "name": "Sunset Vibes",
+      "category": "dark",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "pastel-dream",
+      "name": "Pastel Dream",
+      "category": "minimal",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "soft-clay",
+      "name": "Soft Clay",
+      "category": "clay",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "warm-coffee",
+      "name": "Warm Coffee",
+      "category": "minimal",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "retro-lcd",
+      "name": "Retro LCD GameBoy",
+      "category": "skeuomorphic",
+      "license": "free",
+      "isCurated": true
+    },
+    {
+      "id": "neo-glass",
+      "name": "Neo Glassmorphism",
+      "category": "glass",
+      "license": "pro",
+      "isCurated": false
+    },
+    {
+      "id": "paper-atelier",
+      "name": "Paper Atelier",
+      "category": "minimal",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "ocean-blue",
+      "name": "Ocean Blue",
+      "category": "clay",
+      "license": "free",
+      "isCurated": false
+    },
+    {
+      "id": "skeuo-wood",
+      "name": "Skeuo Wood",
+      "category": "skeuomorphic",
+      "license": "free",
+      "isCurated": false
+    }
   ]
 }

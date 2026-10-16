@@ -1,5 +1,5 @@
 /**
- * Immutable Compiled Theme Interface
+ * Compiled Theme Interface
  * 
  * Typed representation of a compiled theme where all registry IDs have been resolved into object references.
  */
@@ -22,10 +22,10 @@ export interface ResolvedTheme {
   category: string
   license: { type: 'free' | 'pro' | 'marketplace' | 'community' }
   compatibility: { minVersion: string }
-  preview: { thumbnail: string; cover: string }
+  preview: { thumbnail?: string; cover?: string }
   supports: Record<string, boolean>
   visibility: Record<string, boolean>
-  meta: { author: string; createdAt: string; updatedAt: string; tags: string[] }
+  meta: { author: string; createdAt?: string; updatedAt?: string; tags: string[] }
   a11y: { contrast: 'AA' | 'AAA'; reducedMotion: boolean }
   
   // Compiled Typed Object References
@@ -52,4 +52,9 @@ export interface ResolvedTheme {
   }
   effects?: { glass?: boolean; clay?: boolean; noise?: boolean; glow?: boolean; blur?: number }
   animation?: { hover?: string; page?: string; duration?: number; easing?: string }
+  buttonColor: string
+  buttonText: string
+  accent: string
+  specialty?: Record<string, any>
+  isCurated: boolean
 }

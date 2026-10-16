@@ -5,7 +5,7 @@
 export interface AvatarVariantSpec {
   id: string
   name: string
-  variant: 'circle' | 'rounded' | 'square'
+  variant: 'circle' | 'rounded' | 'square' | 'blob' | 'hexagon'
   size: number
   borderWidth: number
 }
@@ -37,7 +37,9 @@ export const AVATAR_SQUARE: AvatarVariantSpec = {
 export const AVATAR_VARIANTS: Record<string, AvatarVariantSpec> = {
   'avatar-circle': AVATAR_CIRCLE,
   'avatar-rounded': AVATAR_ROUNDED,
-  'avatar-square': AVATAR_SQUARE
+  'avatar-square': AVATAR_SQUARE,
+  'avatar-blob': { ...AVATAR_CIRCLE, id: 'avatar-blob', name: 'Blob Avatar', variant: 'blob' },
+  'avatar-hexagon': { ...AVATAR_CIRCLE, id: 'avatar-hexagon', name: 'Hexagon Avatar', variant: 'hexagon' },
 }
 
 export function resolveAvatarVariant(input: any): AvatarVariantSpec {
@@ -48,7 +50,7 @@ export function resolveAvatarVariant(input: any): AvatarVariantSpec {
     const baseSpec = AVATAR_VARIANTS[key] || AVATAR_VARIANTS[variantId]
     if (baseSpec) {
       if (typeof input === 'object' && input !== null) {
-        return { ...baseSpec, ...input }
+        return { ...baseSpec, ...input, variant: baseSpec.variant, borderWidth: input.borderWidth ?? input.border?.width ?? baseSpec.borderWidth }
       }
       return baseSpec
     }

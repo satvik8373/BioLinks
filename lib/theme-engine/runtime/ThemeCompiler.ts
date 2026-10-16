@@ -24,8 +24,8 @@ export class ThemeCompiler {
     const background = resolveBackground(mergedConfig.background || palette.surface)
 
     const fontObj = typeof mergedConfig.typography === 'object' ? mergedConfig.typography : { font: mergedConfig.typography, headingFont: mergedConfig.typography }
-    const bodyFontFamily = resolveFontFamily(fontObj?.font || fontObj?.fontFamily, 'Inter, sans-serif')
-    const headingFontFamily = resolveFontFamily(fontObj?.headingFont || fontObj?.headingFamily, bodyFontFamily)
+    const bodyFontFamily = resolveFontFamily(fontObj?.font || fontObj?.bodyFont || fontObj?.fontFamily, 'Inter, sans-serif')
+    const headingFontFamily = resolveFontFamily(fontObj?.headingFont || fontObj?.heading || fontObj?.headingFamily, bodyFontFamily)
 
     const buttonVariant = resolveButtonVariant(mergedConfig.components?.button || mergedConfig.button)
     const cardVariant = resolveCardVariant(mergedConfig.components?.card || mergedConfig.card)
@@ -52,7 +52,7 @@ export class ThemeCompiler {
       palette,
       typography: {
         font: fontObj?.font || 'font-inter',
-        headingFont: fontObj?.headingFont || 'font-inter',
+        headingFont: fontObj?.headingFont || fontObj?.heading || 'font-inter',
         fontFamily: bodyFontFamily,
         headingFamily: headingFontFamily,
         headingWeight: fontObj?.headingWeight || 700,
@@ -70,7 +70,12 @@ export class ThemeCompiler {
         social: socialVariant
       },
       effects: mergedConfig.effects,
-      animation: mergedConfig.animation
+      animation: mergedConfig.animation,
+      buttonColor: mergedConfig.buttonColor ?? palette.brand,
+      buttonText: mergedConfig.buttonText ?? palette.text,
+      accent: mergedConfig.accent ?? palette.brand,
+      specialty: mergedConfig.specialty,
+      isCurated: Boolean(mergedConfig.isCurated ?? mergedConfig.meta?.isCurated),
     }
 
     return compiled

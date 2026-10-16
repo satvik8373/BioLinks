@@ -1,0 +1,51 @@
+{
+  "version": "1.1.0",
+  "id": "paper-atelier",
+  "name": "Paper Atelier",
+  "namespace": "theme-paper-atelier",
+  "extends": "base-light",
+  "category": "minimal",
+  "order": 16,
+  "license": "free",
+  "isCurated": false,
+  "meta": {
+    "author": "Paper Atelier",
+    "description": "Layered handmade paper, deckled stationery links, pressed olive botanicals and an editorial portrait with a frayed paper rim.",
+    "tags": ["paper", "editorial", "botanical", "cream", "atelier"]
+  },
+  "background": {
+    "type": "mesh",
+    "mesh": "url(/themes/paper-atelier/textures/handmade-paper.png), #F8F5EE"
+  },
+  "palette": {
+    "surface": "#FFFEFA", "surfaceAlt": "#E7D7C9", "brand": "#59604A",
+    "text": "#2D2D2D", "textMuted": "#6F5D48", "border": "rgba(139,115,85,0.28)"
+  },
+  "buttonColor": "#FFFEFA",
+  "buttonText": "#2D2D2D",
+  "accent": "#59604A",
+  "typography": {
+    "font": "font-inter", "heading": "font-playfair",
+    "headingWeight": 600, "bodyWeight": 400, "buttonWeight": 600
+  },
+  "spacing": "spacing-comfortable",
+  "layout": "layout-centered",
+  "effects": { "glass": false, "clay": false, "blur": 0 },
+  "components": {
+    "button": { "variant": "button-filled", "radius": 16, "shadow": "0 8px 20px rgba(64, 46, 28, 0.12)", "borderWidth": 1 },
+    "card": { "variant": "card-flat", "radius": 20, "shadow": "none", "maxWidth": "420px", "padding": "24px 18px 28px" },
+    "avatar": { "variant": "avatar-circle", "size": 132, "borderWidth": 3 },
+    "social": { "variant": "social-rounded" }
+  },
+  "specialty": {
+    "styleId": "paper-atelier",
+    "avatarBorder": "3px solid #FFFEFA",
+    "accentFont": "Caveat",
+    "accentNote": "Good things\ntake time ♡",
+    "autoUrlEmbeds": false,
+    "decorations": []
+  },
+  "link": { "style": "button", "icon": "left", "arrow": true },
+  "visibility": { "avatar": true, "bio": true, "social": true, "footer": true, "shareButton": true },
+  "a11y": { "contrast": "AA", "reducedMotion": true }
+}
